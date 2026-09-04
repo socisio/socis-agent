@@ -101,6 +101,11 @@ export interface SessionRecoveryDeps {
 
 async function defaultResolveProfile(storedSessionId: string): Promise<string | undefined> {
   // Lazy so utils.ts has no init-time cycle with use-session-actions.
+  // Rolldown reports INEFFECTIVE_DYNAMIC_IMPORT here because other modules
+  // also import this file statically, so it never gets its own chunk. That
+  // is expected and fine: the point of the dynamic import is breaking the
+  // *initialization* cycle, not code-splitting. Do not 'fix' the warning by
+  // converting this to a static import.
   const { resolveSessionProfile } = await import('../use-session-actions/utils')
 
   return resolveSessionProfile(storedSessionId)
