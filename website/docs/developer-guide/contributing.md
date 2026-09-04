@@ -294,7 +294,6 @@ When you ask SOCIS to review a PR in a repository that has `.agents/checks/`, te
 
 ## Community
 
-- **Discord**: [discord.gg/SOCIS](https://discord.gg/SOCIS)
 - **GitHub Discussions**: For design proposals and architecture discussions
 - **Skills Hub**: Upload specialized skills and share with the community
 

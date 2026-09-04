@@ -152,7 +152,6 @@ export interface Translations {
       cloudDownDescription: string
       cloudDownHint: string
       cloudDownCheckPortal: string
-      cloudDownDiscord: string
       hideRecentLogs: string
       showRecentLogs: string
       signedInTitle: string

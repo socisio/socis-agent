@@ -10,7 +10,7 @@ const config: Config = {
   url: 'https://agent.socis.io',
   baseUrl: '/docs/',
 
-  organizationName: 'SOCIS',
+  organizationName: 'socisio',
   projectName: 'socis-agent',
 
   onBrokenLinks: 'warn',
@@ -153,11 +153,6 @@ const config: Config = {
           label: 'GitHub',
           position: 'right',
         },
-        {
-          href: 'https://discord.gg/SOCIS',
-          label: 'Discord',
-          position: 'right',
-        },
       ],
     },
     footer: {
@@ -175,7 +170,6 @@ const config: Config = {
         {
           title: 'Community',
           items: [
-            { label: 'Discord', href: 'https://discord.gg/SOCIS' },
             { label: 'GitHub Issues', href: 'https://github.com/socisio/socis-agent/issues' },
             { label: 'Skills Hub', href: 'https://agentskills.io' },
           ],

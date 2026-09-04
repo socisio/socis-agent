@@ -3171,7 +3171,7 @@ def _nous_portal_env_override() -> Optional[str]:
     ``NOUS_PORTAL_BASE_URL`` are the documented dev/staging escape hatch for
     pointing SOCIS at a non-production Nous Portal (e.g. a hosted agent
     provisioned on nous-account-service's `staging` environment, which stamps
-    ``SOCIS_AGENT_PORTAL_BASE_URL=https://portal.staging-socis.io`` into
+    ``SOCIS_AGENT_PORTAL_BASE_URL=https://portal.staging-nousresearch.com`` into
     the container env). The env source is trusted (the OS user/deployment
     set it themselves), so — like the inference override — it must NOT be
     gated by ``_NOUS_PORTAL_ALLOWED_HOSTS``: that allowlist exists to reject

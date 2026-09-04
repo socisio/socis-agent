@@ -27,8 +27,7 @@ import { $sendDiagnostics, confirmSendDiagnostics, dismissSendDiagnostics } from
 
 const SUPPORT_LINKS = [
   { key: 'github', url: 'https://github.com/socisio/socis-agent/issues' },
-  { key: 'portal', url: 'https://portal.nousresearch.com/help' },
-  { key: 'discord', url: 'https://discord.gg/SOCIS' }
+  { key: 'portal', url: 'https://portal.nousresearch.com/help' }
 ] as const
 
 export function SendDiagnosticsHost() {

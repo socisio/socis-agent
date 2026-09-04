@@ -1,8 +1,8 @@
 {
-  "client_id": "https://socis.github.io/socis-agent/docs/oauth/client-metadata.json",
+  "client_id": "https://socisio.github.io/socis-agent/docs/oauth/client-metadata.json",
   "client_name": "SOCIS Agent",
   "client_uri": "https://agent.socis.io",
-  "logo_uri": "https://socis.github.io/socis-agent/docs/img/logo.png",
+  "logo_uri": "https://socisio.github.io/socis-agent/docs/img/logo.png",
   "application_type": "native",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],

@@ -472,7 +472,7 @@ nohup socis gateway run > ~/.socis-agent/logs/gateway.log 2>&1 &
    [boot]
    systemd=true
    ```
-3. 在 PowerShell 中执行：`wsl --shutdown`
+2. 在 PowerShell 中执行：`wsl --shutdown`
 4. 重新打开 WSL 终端
 5. 验证：`systemctl is-system-running` 应显示 "running" 或 "degraded"
 
@@ -855,5 +855,4 @@ socis chat -q "hello" --model anthropic/claude-opus-4.7
 如果您的问题未在此处涵盖：
 
 1. **搜索现有 issue：** [GitHub Issues](https://github.com/socisio/socis-agent/issues)
-2. **向社区提问：** [SOCIS Discord](https://discord.gg/socis)
 3. **提交 bug 报告：** 请包含您的操作系统、Python 版本（`python3 --version`）、SOCIS 版本（`socis --version`）以及完整的错误信息

@@ -6,7 +6,6 @@
 
 <p align="center">
   <a href="https://agent.socis.io/docs/"><img src="https://img.shields.io/badge/Docs-agent.socis.io-FF3366?style=for-the-badge" alt="Documentation"></a>
-  <a href="https://discord.gg/SOCIS"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://github.com/socisio/socis-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://socis.io"><img src="https://img.shields.io/badge/Built%20by-SOCIS-blueviolet?style=for-the-badge" alt="Built by SOCIS"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-English-lightgrey?style=for-the-badge" alt="English"></a>
@@ -193,11 +192,9 @@ python -m pytest tests/ -q
 
 ## 社区
 
-- 💬 [Discord](https://discord.gg/SOCIS)
 - 📚 [技能中心](https://agentskills.io)
 - 🐛 [问题反馈](https://github.com/socisio/socis-agent/issues)
 - 💡 [讨论区](https://github.com/socisio/socis-agent/discussions)
-- 🔌 [SOCISClaw](https://github.com/AaronWong1999/hermesclaw) — 社区微信桥接：在同一微信账号上运行 SOCIS Agent 和 OpenClaw。
 
 ---
 

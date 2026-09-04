@@ -1306,7 +1306,7 @@ def remove_oauth_tokens(
 # (draft-ietf-oauth-client-id-metadata-document section 5), and
 # agent.socis.io/docs/* 301s here.
 _CIMD_CLIENT_METADATA_URL = (
-    "https://socis.github.io/socis-agent/docs/oauth/client-metadata.json"
+    "https://socisio.github.io/socis-agent/docs/oauth/client-metadata.json"
 )
 
 # Loopback callback ports declared in that document. The redirect URI in the

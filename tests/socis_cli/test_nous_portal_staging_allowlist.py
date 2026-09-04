@@ -4,7 +4,7 @@ _ALLOWED_NOUS_INFERENCE_HOSTS treatment.
 
 Real incident (2026-07): a hosted agent provisioned by nous-account-service
 on the `staging` Vercel environment is stamped with
-``SOCIS_AGENT_PORTAL_BASE_URL=https://portal.staging-socis.io`` in its
+``SOCIS_AGENT_PORTAL_BASE_URL=https://portal.staging-nousresearch.com`` in its
 container env (the documented dev/staging override), while its bootstrap
 ``auth.json`` ALSO persists ``portal_base_url`` to the same staging host.
 
@@ -50,11 +50,11 @@ class TestPortalEnvOverrideHelper:
         _NOUS_PORTAL_ALLOWED_HOSTS, and the helper must return it anyway —
         gating happens only for network-provenance values."""
         monkeypatch.setenv(
-            "SOCIS_AGENT_PORTAL_BASE_URL", "https://portal.staging-socis.io"
+            "SOCIS_AGENT_PORTAL_BASE_URL", "https://portal.staging-nousresearch.com"
         )
-        assert "portal.staging-socis.io" not in _NOUS_PORTAL_ALLOWED_HOSTS
+        assert "portal.staging-nousresearch.com" not in _NOUS_PORTAL_ALLOWED_HOSTS
         assert (
-            _nous_portal_env_override() == "https://portal.staging-socis.io"
+            _nous_portal_env_override() == "https://portal.staging-nousresearch.com"
         )
 
 
@@ -122,7 +122,7 @@ class TestResolveAccessTokenEnvOverrideWins:
         allowlist-rejection warning must never fire."""
         import socis_cli.auth as auth
 
-        staging_portal = "https://portal.staging-socis.io"
+        staging_portal = "https://portal.staging-nousresearch.com"
         monkeypatch.setenv("SOCIS_AGENT_HOME", str(tmp_path))
         monkeypatch.setenv("SOCIS_AGENT_PORTAL_BASE_URL", staging_portal)
         self._write_auth_file(tmp_path, stored_portal_url=staging_portal)

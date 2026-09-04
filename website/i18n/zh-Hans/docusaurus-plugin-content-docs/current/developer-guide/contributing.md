@@ -244,7 +244,6 @@ fix(security): prevent shell injection in sudo password piping
 
 ## 社区
 
-- **Discord**：[discord.gg/SOCIS](https://discord.gg/SOCIS)
 - **GitHub Discussions**：用于设计提案和架构讨论
 - **Skills Hub**：上传专业 skill 并与社区共享
 

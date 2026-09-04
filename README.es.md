@@ -8,7 +8,6 @@
 </p>
 <p align="center">
   <a href="https://agent.socis.io/docs/"><img src="https://img.shields.io/badge/Docs-agent.socis.io-FF3366?style=for-the-badge" alt="Documentación"></a>
-  <a href="https://discord.gg/SOCIS"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://github.com/socisio/socis-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/Licencia-MIT-green?style=for-the-badge" alt="Licencia: MIT"></a>
   <a href="https://socis.io"><img src="https://img.shields.io/badge/Creado%20por-SOCIS-blueviolet?style=for-the-badge" alt="Creado por SOCIS"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/Lang-English-blue?style=for-the-badge" alt="English"></a>
@@ -205,11 +204,9 @@ scripts/run_tests.sh
 
 ## Comunidad
 
-- 💬 [Discord](https://discord.gg/SOCIS)
 - 📚 [Skills Hub](https://agentskills.io)
 - 🐛 [Issues](https://github.com/socisio/socis-agent/issues)
 - 🔌 [computer-use-linux](https://github.com/avifenesh/computer-use-linux) — Servidor MCP de control de escritorio Linux para SOCIS y otros hosts MCP, con árboles de accesibilidad AT-SPI, entrada Wayland/X11, capturas de pantalla y targeting de ventanas del compositor.
-- 🔌 [SOCISClaw](https://github.com/AaronWong1999/hermesclaw) — Puente WeChat comunitario: Ejecuta SOCIS Agent y OpenClaw en la misma cuenta de WeChat.
 
 ---
 

@@ -390,11 +390,11 @@ class TestPortalResolution:
     def test_falls_back_to_stored_login_portal(self):
         with patch(
             "socis_cli.auth.get_provider_auth_state",
-            return_value={"portal_base_url": "https://portal.staging-socis.io"},
+            return_value={"portal_base_url": "https://portal.staging-nousresearch.com"},
         ):
             assert (
                 dr._resolve_portal_base_url(None)
-                == "https://portal.staging-socis.io"
+                == "https://portal.staging-nousresearch.com"
             )
 
 
