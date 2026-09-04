@@ -32,10 +32,25 @@ const websiteDir = resolve(scriptDir, "..");
 const extractScript = join(scriptDir, "extract-skills.py");
 const llmsScript = join(scriptDir, "generate-llms-txt.py");
 const cronBlueprintsScript = join(scriptDir, "extract-automation-blueprints.py");
+const skillDocsScript = join(scriptDir, "generate-skill-docs.py");
 const outputFile = join(websiteDir, "static", "api", "skills.json");
 const unifiedIndexFile = join(websiteDir, "static", "api", "skills-index.json");
+// Source for the ~2000 external community skills shown on the Skills Hub.
+//
+// This points at the upstream Hermes Agent site rather than our own, on
+// purpose: the index is produced by scripts/build_skills_index.py, which
+// crawls every skill source (skills.sh, GitHub taps, clawhub, lobehub) and
+// needs a GITHUB_TOKEN plus several minutes of API quota. Until SOCIS runs
+// that crawl and publishes its own copy, fetching ours from agent.socis.io
+// would be circular — the file isn't there, so the build silently produces an
+// empty Skills Hub.
+//
+// To become self-hosting later: run `GITHUB_TOKEN=... python3
+// scripts/build_skills_index.py`, commit the resulting
+// website/static/api/skills-index.json, and point this back at
+// https://agent.socis.io/docs/api/skills-index.json.
 const UNIFIED_INDEX_URL =
-  "https://agent.socis.io/docs/api/skills-index.json";
+  "https://hermes-agent.nousresearch.com/docs/api/skills-index.json";
 const UNIFIED_INDEX_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h
 
 function writeEmptyFallback(reason) {
@@ -143,3 +158,17 @@ runPython(llmsScript, "generate-llms-txt.py");
 // 3) automation-blueprints-index.json — Automation Blueprints catalog page. Non-fatal; the page
 //    renders an empty state if the generator can't run.
 runPython(cronBlueprintsScript, "extract-automation-blueprints.py");
+
+// 4) Per-skill doc pages + the two catalog pages + sidebars.ts.
+//
+//    This MUST run here rather than by hand. generate-skill-docs.py writes the
+//    pages under docs/user-guide/skills/ AND rewrites sidebars.ts to reference
+//    them, so the two are only ever consistent if they are produced together.
+//    Running it manually (or copying either artifact between checkouts) lets
+//    them drift, and Docusaurus then fails the build with
+//    "Invalid sidebar file at sidebars.ts: these sidebar document ids do not
+//    exist" — listing every skill page the sidebar expects but cannot find.
+//
+//    Non-fatal on purpose: without python3 + pyyaml the previously generated
+//    pages and sidebar stay as they are, which still builds.
+runPython(skillDocsScript, "generate-skill-docs.py");
