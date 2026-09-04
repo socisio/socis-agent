@@ -120,6 +120,25 @@ code, kbd, pre, samp, .font-mono, .font-mono-ui {
   --spacing: calc(0.25rem * var(--theme-spacing-mul, 1));
   --font-sans: var(--theme-font-sans);
   --font-mono: var(--theme-font-mono);
+
+  /* Nous DS ships four display faces — Mondwest (pixel), Rules Expanded,
+     Rules Compressed and Collapse — and the dashboard applies them to real UI
+     text, not just headings: `font-mondwest` alone appears 64 times across 12
+     files on labels, values, table cells and dialog titles.
+     
+     They are display faces. At 12-15px on a dark background they lose
+     legibility badly: the pixel grid in Mondwest fights the antialiasing, and
+     Rules' extreme width variants distort at small sizes. Remapping the
+     variables here fixes every call site at once, rather than editing 64
+     class attributes and re-breaking them on the next DS upgrade.
+     
+     The brand identity lives in the coral/navy palette and the logo, not in
+     a pixel font on a settings label. */
+  --font-mondwest: var(--theme-font-sans);
+  --font-display: var(--theme-font-sans);
+  --font-expanded: var(--theme-font-sans);
+  --font-compressed: var(--theme-font-sans);
+  --font-collapse: var(--theme-font-sans);
 }
 
 #root {
