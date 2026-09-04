@@ -42,6 +42,12 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 
+# SOCIS brand coral, as a 3-step gradient (bright -> mid -> deep). True-color;
+# terminals without 24-bit support fall back gracefully to their nearest ANSI.
+CORAL='\033[38;2;255;51;102m'      # #FF3366
+CORAL_MID='\033[38;2;240;65;98m'   # #F04162
+CORAL_DEEP='\033[38;2;196;34;72m'  # #C42248
+
 # Configuration
 REPO_URL_SSH="git@github.com:socisio/socis-agent.git"
 REPO_URL_HTTPS="https://github.com/socisio/socis-agent.git"
@@ -216,13 +222,16 @@ done
 
 print_banner() {
     echo ""
-    echo -e "${MAGENTA}${BOLD}"
-    echo "┌─────────────────────────────────────────────────────────┐"
-    echo "│             ⚕ SOCIS Agent Installer                     │"
-    echo "├─────────────────────────────────────────────────────────┤"
-    echo "│  An open source AI agent by SOCIS.                      │"
-    echo "└─────────────────────────────────────────────────────────┘"
-    echo -e "${NC}"
+    echo -e "${BOLD}${CORAL}   ███████╗ ██████╗  ██████╗ ██╗███████╗${NC}"
+    echo -e "${BOLD}${CORAL}   ██╔════╝██╔═══██╗██╔════╝ ██║██╔════╝${NC}"
+    echo -e "${BOLD}${CORAL_MID}   ███████╗██║   ██║██║      ██║███████╗${NC}"
+    echo -e "${BOLD}${CORAL_MID}   ╚════██║██║   ██║██║      ██║╚════██║${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}   ███████║╚██████╔╝╚██████╗ ██║███████║${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}   ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝╚══════╝${NC}"
+    echo ""
+    echo -e "   ${CORAL}◆${NC} ${BOLD}SOCIS Agent Installer${NC}"
+    echo -e "   ${CYAN}The Self-Improving AI Agent${NC}"
+    echo ""
 }
 
 log_info() {

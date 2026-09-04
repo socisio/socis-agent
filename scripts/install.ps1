@@ -459,12 +459,21 @@ function Get-WindowsArch {
 # ============================================================================
 
 function Write-Banner {
+    # ASCII-only block letters: install.ps1 is constrained to the ASCII range
+    # (see the ascii-only test in tests/) because Windows consoles can be in a
+    # non-UTF-8 code page when the script is piped through iex, which turns
+    # box-drawing characters into mojibake. Red is the closest of the 16
+    # console colors to the SOCIS brand coral (#FF3366); true-color escapes are
+    # not reliable across PowerShell 5.1 hosts.
     Write-Host ""
-    Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
-    Write-Host "|             * SOCIS Agent Installer                    |" -ForegroundColor Magenta
-    Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
-    Write-Host "|  An open source AI agent by SOCIS.              |" -ForegroundColor Magenta
-    Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
+    Write-Host "   ____  ___   ____ ___ ____  " -ForegroundColor Red
+    Write-Host "  / ___|/ _ \ / ___|_ _/ ___| " -ForegroundColor Red
+    Write-Host "  \___ \ | | | |    | |\___ \ " -ForegroundColor Red
+    Write-Host "   ___) | |_| | |___ | | ___) |" -ForegroundColor Red
+    Write-Host "  |____/ \___/ \____|___|____/ " -ForegroundColor Red
+    Write-Host ""
+    Write-Host "   SOCIS Agent Installer" -ForegroundColor White
+    Write-Host "   The Self-Improving AI Agent" -ForegroundColor Cyan
     Write-Host ""
 }
 

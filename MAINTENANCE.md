@@ -183,3 +183,57 @@ print('python syntax errors:', e)"
 socis desktop
 socis dashboard
 ```
+
+---
+
+## E. How upstream (Hermes Agent) handles these advisories
+
+Checked against `NousResearch/hermes-agent` directly, September 2026.
+
+### Electron: upstream has not upgraded either
+
+Issue [#45377](https://github.com/NousResearch/hermes-agent/issues/45377)
+("electron@40.9.3 pulls in deprecated boolean@3.2.0 — upgrade to 42.x") was
+opened **June 13, 2026** and is **still open** — labelled **P3, "Low — cosmetic,
+nice to have."** No assignee, no linked PR, no branch.
+
+Upstream's pin has moved `40.9.3` → `40.10.2` since: patch bumps inside 40.x,
+never the major. So keeping `electron` at 40.x here matches a deliberate
+upstream decision, not an oversight — the major upgrade touches native modules
+(`node-pty`, `get-windows`) and the macOS signing chain, and upstream has
+judged that cost higher than the benefit for a dev-only dependency.
+
+### `@xmldom/xmldom`: we are ahead of upstream
+
+Upstream carries no override for it. This tree pins the patched releases
+(`0.8.15` / `0.9.12`, CVE-2026-83608/83609/83610) via `package.json`
+`overrides`. Worth keeping through upstream syncs — a cherry-pick must not
+drop it.
+
+### Upstream's actual security model
+
+Their effort goes to supply-chain poisoning and shipped code, not dev-tooling
+CVEs:
+
+1. **Curated advisory catalog** — `socis_cli/security_advisories.py` (upstream:
+   `hermes_cli/`) flags known-compromised Python versions, surfaced at CLI
+   startup, in `doctor`, and at gateway startup. Built after the May 2026
+   `mistralai 2.4.6` worm. Advisories carry stable ids and can be acked into
+   `config.security.acked_advisories`. Old entries are deliberately never
+   removed, so fresh installs stay warned about versions that might linger in a
+   private mirror.
+2. **Lazy dependency install** (`tools/lazy_deps.py`) — extras install on first
+   use rather than eagerly under `[all]`, so one quarantined transitive
+   dependency can't collapse the whole resolve into a stripped tier.
+3. **`min-release-age=14`** in `.npmrc` — the 14-day npm quarantine.
+4. **CI guards** — `osv-scanner.yml`, `supply-chain-audit.yml`.
+
+Their `SECURITY.md` names one load-bearing trust boundary and explicitly scopes
+in-process heuristics *out* of the private-disclosure channel. Report privately
+via GitHub Security Advisories or security@nousresearch.com; 90-day coordinated
+disclosure. No bug bounty.
+
+**Takeaway for this fork:** inherit the model, don't just inherit the code. The
+advisory catalog in `socis_cli/security_advisories.py` is a live feature — as
+upstream adds entries for newly-poisoned packages, those are exactly the
+cherry-picks worth prioritising (see §B).

@@ -586,3 +586,116 @@ separately-forked library — the *entire platform* is the fork. `@socis/ink` an
 `@socis/shared` are just internal workspace packages within it, containing code
 inherited from Hermes like everything else. The upstream-sync process in
 `MAINTENANCE.md` covers them the same as any other directory.
+
+---
+
+## 14. The "agent-browser" and "web workspace" vulnerability reports
+
+`socis doctor` reported *"Browser tools (agent-browser) has 1 npm vulnerability"*
+and *"web workspace has 2 npm vulnerabilities"*. Both labels are misleading.
+
+**"Browser tools (agent-browser)" is a mislabeled root audit.** From
+`socis_cli/doctor.py`:
+
+```python
+(PROJECT_ROOT, "Browser tools (agent-browser)", ["--workspaces=false"]),
+```
+
+That runs `npm audit --workspaces=false` at the **project root** — auditing the
+root `package.json`, not `agent-browser`. `agent-browser` isn't a dependency of
+this repo at all (verified: absent from every `package.json` and from
+`package-lock.json`); it's a separate package users install globally via
+`npm install -g agent-browser`. Its own vulnerabilities live in its own
+dependency tree and cannot be fixed from here.
+
+**Fixed:** relabelled to `"root workspace (build tooling)"`.
+
+**"web workspace" is hoisting attribution.** `npm audit --workspace web`
+resolves against the shared hoisted `node_modules`, so root-level packages get
+counted against `web`. Traced the actual chains:
+
+```
+@xmldom/xmldom  ← plist ← @electron/osx-sign / app-builder-lib  (macOS signing)
+extract-zip     ← electron ← apps/desktop
+```
+
+Nothing in `web`'s 37 direct dependencies reaches either. The only packages
+installed under `web/node_modules/` are Babel tooling. **The web workspace has
+no real vulnerabilities of its own.**
+
+### What was actually fixable
+
+| Advisory | Fixable | Action |
+|---|---|---|
+| `@xmldom/xmldom` (moderate ×2) | ✅ Yes | Patched releases exist — **0.8.15** and **0.9.12** (CVE-2026-83608/83609/83610). Added scoped `overrides`. |
+| `electron` (high ×2) | ❌ No | Advisory range is `1.3.1–41.10.2`; clearing needs ≥41.10.3 — a major upgrade touching native modules and macOS signing. |
+| `extract-zip` (high) | ❌ No | Pinned by `electron`; clears with the Electron upgrade. |
+
+Added to `package.json` `overrides`, matching the file's existing scoped-range
+style (`nanoid@^3`, `undici@^6`) — needed because `plist` requests **both**
+major lines:
+
+```json
+"@xmldom/xmldom@^0.8": "0.8.15",
+"@xmldom/xmldom@^0.9": "0.9.12"
+```
+
+Also added a `min-release-age-exclude` entry in `.npmrc`, since these are recent
+releases and the 14-day supply-chain gate would otherwise block them.
+
+⚠️ **Takes effect on the next `npm install`** — overrides are applied at
+resolution time. Run `rm package-lock.json && npm install`, then `npm audit`
+should drop from 6 advisories to 3 (the Electron chain only).
+
+---
+
+## 15. Installer banners — a seventh branding location
+
+The install scripts run *before* any Python or TypeScript loads, so they carry
+their own banners. Three problems were found:
+
+| File | Issue |
+|---|---|
+| `scripts/install.sh` | `⚕` (Rod of Asclepius — Hermes' caduceus), magenta instead of brand coral, and a broken box: the borders were 57 chars while the text lines had been shortened by the earlier "Nous Research" → "SOCIS" rename, leaving visibly ragged edges |
+| `scripts/install.ps1` | `*` placeholder where the caduceus had been stripped, magenta, same ragged box |
+| `setup-socis.sh` | `⚕` caduceus in the one-line header |
+
+### `install.sh`
+
+Replaced the box with the SOCIS wordmark in block letters, rendered in the
+brand coral gradient (`#FF3366` → `#F04162` → `#C42248`) via true-color escapes,
+plus the `◆` mark. Built a **37-column** variant rather than reusing the TUI's
+91-column `LOGO_ART` — an installer runs in an unknown terminal, and the CLI
+banner already documents a ~95-char requirement it can't assume here.
+
+Three colour variables (`CORAL`, `CORAL_MID`, `CORAL_DEEP`) were added beside
+the existing ANSI set.
+
+### `install.ps1` — constrained to ASCII
+
+`tests/test_install_ps1_ascii_only.py` enforces that this file stays pure
+ASCII: Windows consoles can be on a non-UTF-8 code page when the script is
+piped through `iex`, which turns box-drawing characters into mojibake. So the
+PowerShell banner uses ASCII block letters, not Unicode.
+
+Colour is `Red` — the closest of PowerShell's fixed 16 console colours to
+`#FF3366`. True-colour escapes aren't reliable across PowerShell 5.1 hosts.
+
+Verified: **0 non-ASCII bytes**, so the regression test still passes. Also
+removed a backtick from a comment (PowerShell's escape character — harmless
+inside `#`, but a needless hazard).
+
+### Left alone
+
+- `scripts/install.cmd` — a thin wrapper that immediately hands off to
+  PowerShell; its plain text is appropriate.
+- `docker/entrypoint.sh` — a deprecated shim, no banner.
+
+Verified: all shell scripts pass `bash -n`, `install.ps1` is ASCII-clean, 5,127
+Python files parse.
+
+**Running total: seven independent banner/branding definitions** — the six in
+§8 plus the installer scripts. Consistent with the lesson there: these are
+invisible to a search for the brand *word*, and in this case also invisible to
+a search for the gold *hex values*, since the installers used named ANSI
+colours rather than hex.

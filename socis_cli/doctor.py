@@ -2679,7 +2679,7 @@ def run_doctor(args):
         except Exception:
             _whatsapp_bridge_dir = PROJECT_ROOT / "scripts" / "whatsapp-bridge"
         npm_audit_targets = [
-            (PROJECT_ROOT, "Browser tools (agent-browser)", ["--workspaces=false"]),
+            (PROJECT_ROOT, "root workspace (build tooling)", ["--workspaces=false"]),
             (PROJECT_ROOT, "web workspace", ["--workspace", "web"]),
             (PROJECT_ROOT, "ui-tui workspace", ["--workspace", "ui-tui"]),
             (_whatsapp_bridge_dir, "WhatsApp bridge", []),
