@@ -244,12 +244,12 @@ describe('DesktopInstallOverlay first-run setup', () => {
       error: null,
       providers: [],
       reachable: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
     desktop.testConnectionConfig.mockResolvedValue({
       baseUrl: 'https://gateway.example.com/socis',
       ok: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
     desktop.applyConnectionConfig.mockImplementation(async () => {
       desktop.emitBootstrapEvent({ type: 'dismissed' })
@@ -285,7 +285,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
       })
     })
 
-    await screen.findByText('Connected to https://gateway.example.com/socis (0.17.0).')
+    await screen.findByText('Connected to https://gateway.example.com/socis (0.1.0).')
     expect(apply.disabled).toBe(false)
 
     fireEvent.click(screen.getByText('Apply and reconnect'))
@@ -335,7 +335,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
         error: null,
         providers: [],
         reachable: true,
-        version: '0.17.0'
+        version: '0.1.0'
       })
       await pendingProbe
     })
@@ -358,7 +358,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
       error: null,
       providers: [],
       reachable: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
 
     let resolveTest: ((result: { baseUrl: string; ok: boolean; version: string }) => void) | undefined
@@ -390,11 +390,11 @@ describe('DesktopInstallOverlay first-run setup', () => {
     fireEvent.change(tokenInput, { target: { value: 'token-b' } })
 
     await act(async () => {
-      resolveTest?.({ baseUrl: 'https://gateway.example.com/socis', ok: true, version: '0.17.0' })
+      resolveTest?.({ baseUrl: 'https://gateway.example.com/socis', ok: true, version: '0.1.0' })
       await pendingTest
     })
 
-    expect(screen.queryByText('Connected to https://gateway.example.com/socis (0.17.0).')).toBeNull()
+    expect(screen.queryByText('Connected to https://gateway.example.com/socis (0.1.0).')).toBeNull()
     expect(apply.disabled).toBe(true)
   })
 
@@ -411,12 +411,12 @@ describe('DesktopInstallOverlay first-run setup', () => {
       error: null,
       providers: [],
       reachable: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
     desktop.testConnectionConfig.mockResolvedValue({
       baseUrl: 'https://gateway.example.com/socis',
       ok: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
     desktop.applyConnectionConfig.mockRejectedValue(new Error('remote apply failed'))
 
@@ -435,7 +435,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
       target: { value: 'session-secret' }
     })
     fireEvent.click(screen.getByText('Test connection'))
-    await screen.findByText('Connected to https://gateway.example.com/socis (0.17.0).')
+    await screen.findByText('Connected to https://gateway.example.com/socis (0.1.0).')
 
     const apply = screen.getByText('Apply and reconnect').closest('button') as HTMLButtonElement
     fireEvent.click(apply)
@@ -458,7 +458,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
       error: null,
       providers: [{ displayName: 'Username & Password', name: 'password', supportsPassword: true }],
       reachable: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
     desktop.oauthLoginConnectionConfig.mockResolvedValue({
       baseUrl: 'https://gateway.example.com/socis',
@@ -542,12 +542,12 @@ describe('DesktopInstallOverlay first-run setup', () => {
       error: null,
       providers: [],
       reachable: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
     desktop.testConnectionConfig.mockResolvedValue({
       baseUrl: 'https://gateway.example.com/socis',
       ok: true,
-      version: '0.17.0'
+      version: '0.1.0'
     })
     desktop.applyConnectionConfig.mockImplementation(async () => {
       desktop.emitBootstrapEvent({ type: 'dismissed' })
@@ -567,7 +567,7 @@ describe('DesktopInstallOverlay first-run setup', () => {
       target: { value: 'session-secret' }
     })
     fireEvent.click(screen.getByText('Test connection'))
-    await screen.findByText('Connected to https://gateway.example.com/socis (0.17.0).')
+    await screen.findByText('Connected to https://gateway.example.com/socis (0.1.0).')
     fireEvent.click(screen.getByText('Apply and reconnect'))
 
     await waitFor(() => expect(screen.queryByText('Gateway URL')).toBeNull())

@@ -527,3 +527,62 @@ matters if `pip install socis-agent` should ever work.)
 | `advancedChunks` deprecated | → `codeSplitting` (rolldown rename, same shape). Also disambiguated the neighbouring comment, which otherwise read as if the boolean `codeSplitting: false` and the new groups object were the same option. |
 | `INEFFECTIVE_DYNAMIC_IMPORT` | **Left as-is, documented.** The `await import()` in `use-prompt-actions/utils.ts` exists to break an *initialization cycle*, not to code-split. Converting it to a static import would silence the warning and reintroduce the cycle. Added a comment saying so. |
 | `@electron/rebuild` "excess dependency" | **Left as-is.** electron-builder's suggestion is wrong here: `scripts/rebuild-native.mjs` imports it directly and `stage-native-deps.mjs` invokes its binary for per-arch native staging (`node-pty`, `get-windows`). Removing it breaks the desktop build. |
+
+---
+
+## 12. Version reset to 0.1.0
+
+The platform carried **three different inherited versions**, all from Hermes's
+release history rather than SOCIS's:
+
+| Manifest | Was | Now |
+|---|---|---|
+| `package.json` (root) | 1.0.0 | **0.1.0** |
+| `apps/desktop/package.json` | 0.17.0 | **0.1.0** |
+| `pyproject.toml` + `socis_cli/__init__.py` | 0.21.0 | **0.1.0** |
+| `apps/shared`, `web`, `website` | 0.0.0 | **0.1.0** |
+| `apps/bootstrap-installer`, `ui-tui`, `socis-ink` | 0.0.1 | **0.1.0** |
+
+Also synced: `package-lock.json` (root + all workspace entries) and `uv.lock`'s
+editable project entry — a version mismatch there re-breaks `npm ci` and
+`uv sync --locked`.
+
+`socis_cli/__init__.py`'s `__version__` is the runtime source of truth (CLI
+banner, gateway API `/version`, provider User-Agent headers).
+
+**Safe to lower:** verified the updater compares *dependency* pins, not the
+project's own version against a remote — it tracks git commits. Desktop test
+fixtures using `'0.17.0'` as mock data were updated for consistency; a
+historical bug-reference comment (`#49903: on desktop v0.17.0`) was left alone.
+
+Verified: 5,127 Python files / 0 errors, 3 TS workspaces / 0 errors, all
+JSON+TOML valid, and every version declaration reports a single consistent
+`0.1.0`.
+
+## 13. Security patching — two distinct problems
+
+Added `MAINTENANCE.md`. The key insight: **dependency CVEs and upstream source
+patches are different problems**, and only the first is automated.
+
+**A. Dependency vulnerabilities** — already covered by the repo's own
+`osv-scanner.yml` and `supply-chain-audit.yml`, plus `npm audit` /
+`uv lock --upgrade`. Current 6 advisories are all `dev`-only build tooling.
+
+**B. Upstream source patches** — the real gap. When Nous Research fixes a bug in
+Hermes Agent, nothing brings it here, and the repo records no fork point.
+`MAINTENANCE.md` documents adding `upstream` as a git remote, how to find
+security-relevant commits, and how to cherry-pick them (`git cherry-pick -n`,
+resolve branding conflicts, never merge wholesale — that would revert the
+rebrand).
+
+It also lists what upstream patches must never overwrite: the `hermes-cli`
+OAuth client ID, the `com.nousresearch.hermes` bundle ID, `@nous-research/*`
+packages, `hermes-estree`/`hermes-parser` (Meta's parser — name collision only),
+real Nous infrastructure URLs, and the persisted theme keys.
+
+**Correcting an earlier assumption in this document:** §11 and earlier framing
+treated `@socis/ink` as a vendored fork with an upstream to track. It isn't a
+separately-forked library — the *entire platform* is the fork. `@socis/ink` and
+`@socis/shared` are just internal workspace packages within it, containing code
+inherited from Hermes like everything else. The upstream-sync process in
+`MAINTENANCE.md` covers them the same as any other directory.
