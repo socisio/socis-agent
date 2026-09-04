@@ -459,20 +459,56 @@ function Get-WindowsArch {
 # ============================================================================
 
 function Write-Banner {
-    # ASCII-only block letters: install.ps1 is constrained to the ASCII range
-    # (see the ascii-only test in tests/) because Windows consoles can be in a
-    # non-UTF-8 code page when the script is piped through iex, which turns
-    # box-drawing characters into mojibake. Red is the closest of the 16
-    # console colors to the SOCIS brand coral (#FF3366); true-color escapes are
-    # not reliable across PowerShell 5.1 hosts.
+    # The SOCIS mark (four inward arrows around a diamond core) beside the
+    # SOCIS AGENT wordmark -- same art as the logo and the dashboard banner.
+    #
+    # This file must stay pure ASCII (tests/test_install_ps1_ascii_only.py).
+    # PowerShell 5.1 reads a BOM-less .ps1 in the system ANSI code page, so a
+    # non-ASCII byte in a string literal desyncs the tokenizer and breaks the
+    # whole script (issues #66994 / #67000). A UTF-8 BOM would not help: the
+    # canonical path is "iex (irm ...)", where the script is a string in memory
+    # and never a file PowerShell can sniff a BOM from. So the glyphs are built
+    # from codepoints at runtime -- ASCII source, Unicode output. Console output
+    # was already switched to UTF-8 earlier in this script.
+    $F  = [char]0x2588  # full block
+    $H  = [char]0x2550  # double horizontal
+    $V  = [char]0x2551  # double vertical
+    $TL = [char]0x2554  # double down-and-right
+    $TR = [char]0x2557  # double down-and-left
+    $BL = [char]0x255A  # double up-and-right
+    $BR = [char]0x255D  # double up-and-left
+    $Diamond = [char]0x25C6
+
     Write-Host ""
-    Write-Host "   ____  ___   ____ ___ ____  " -ForegroundColor Red
-    Write-Host "  / ___|/ _ \ / ___|_ _/ ___| " -ForegroundColor Red
-    Write-Host "  \___ \ | | | |    | |\___ \ " -ForegroundColor Red
-    Write-Host "   ___) | |_| | |___ | | ___) |" -ForegroundColor Red
-    Write-Host "  |____/ \___/ \____|___|____/ " -ForegroundColor Red
+    $cols = 80
+    try { $cols = $Host.UI.RawUI.WindowSize.Width } catch { }
+    if ($cols -ge 125) {
+        Write-Host ("       "+$F+$F+"    "+$F+"    "+$F+$F) -ForegroundColor Red
+        Write-Host ("        "+$F+$F+"   "+$F+"   "+$F+$F) -ForegroundColor Red
+        Write-Host ($F+"        "+$F+$F+"  "+$F+"  "+$F+$F+"        "+$F+"    "+$F+$F+$F+$F+$F+$F+$F+$TR+" "+$F+$F+$F+$F+$F+$F+$TR+"  "+$F+$F+$F+$F+$F+$F+$TR+" "+$F+$F+$TR+" "+$F+$F+$F+$F+$F+$F+$F+$TR+"         "+$F+$F+$F+$F+$F+$TR+"  "+$F+$F+$F+$F+$F+$F+$TR+" "+$F+$F+$F+$F+$F+$F+$F+$TR+$F+$F+$F+$TR+"   "+$F+$F+$TR+$F+$F+$F+$F+$F+$F+$F+$F+$TR) -ForegroundColor Red
+        Write-Host ($F+$F+"        "+$F+$F+"   "+$F+$F+"        "+$F+$F+"    "+$F+$F+$TL+$H+$H+$H+$H+$BR+$F+$F+$TL+$H+$H+$H+$F+$F+$TR+$F+$F+$TL+$H+$H+$H+$H+$BR+" "+$F+$F+$V+" "+$F+$F+$TL+$H+$H+$H+$H+$BR+"        "+$F+$F+$TL+$H+$H+$F+$F+$TR+$F+$F+$TL+$H+$H+$H+$H+$BR+" "+$F+$F+$TL+$H+$H+$H+$H+$BR+$F+$F+$F+$F+$TR+"  "+$F+$F+$V+$BL+$H+$H+$F+$F+$TL+$H+$H+$BR) -ForegroundColor Red
+        Write-Host (" "+$F+$F+"          "+$F+"          "+$F+$F+"     "+$F+$F+$F+$F+$F+$F+$F+$TR+$F+$F+$V+"   "+$F+$F+$V+$F+$F+$V+"      "+$F+$F+$V+" "+$F+$F+$F+$F+$F+$F+$F+$TR+"        "+$F+$F+$F+$F+$F+$F+$F+$V+$F+$F+$V+"  "+$F+$F+$F+$TR+$F+$F+$F+$F+$F+$TR+"  "+$F+$F+$TL+$F+$F+$TR+" "+$F+$F+$V+"   "+$F+$F+$V) -ForegroundColor Red
+        Write-Host ($F+$F+$F+$F+$F+"       "+$F+" "+$F+"       "+$F+$F+$F+$F+$F+"    "+$BL+$H+$H+$H+$H+$F+$F+$V+$F+$F+$V+"   "+$F+$F+$V+$F+$F+$V+"      "+$F+$F+$V+" "+$BL+$H+$H+$H+$H+$F+$F+$V+"        "+$F+$F+$TL+$H+$H+$F+$F+$V+$F+$F+$V+"   "+$F+$F+$V+$F+$F+$TL+$H+$H+$BR+"  "+$F+$F+$V+$BL+$F+$F+$TR+$F+$F+$V+"   "+$F+$F+$V) -ForegroundColor Red
+        Write-Host (" "+$F+$F+"          "+$F+"          "+$F+$F+"     "+$F+$F+$F+$F+$F+$F+$F+$V+$BL+$F+$F+$F+$F+$F+$F+$TL+$BR+$BL+$F+$F+$F+$F+$F+$F+$TR+" "+$F+$F+$V+" "+$F+$F+$F+$F+$F+$F+$F+$V+"        "+$F+$F+$V+"  "+$F+$F+$V+$BL+$F+$F+$F+$F+$F+$F+$TL+$BR+$F+$F+$F+$F+$F+$F+$F+$TR+$F+$F+$V+" "+$BL+$F+$F+$F+$F+$V+"   "+$F+$F+$V) -ForegroundColor Red
+        Write-Host ($F+$F+"        "+$F+$F+"   "+$F+$F+"        "+$F+$F+"    "+$BL+$H+$H+$H+$H+$H+$H+$BR+" "+$BL+$H+$H+$H+$H+$H+$BR+"  "+$BL+$H+$H+$H+$H+$H+$BR+" "+$BL+$H+$BR+" "+$BL+$H+$H+$H+$H+$H+$H+$BR+"        "+$BL+$H+$BR+"  "+$BL+$H+$BR+" "+$BL+$H+$H+$H+$H+$H+$BR+" "+$BL+$H+$H+$H+$H+$H+$H+$BR+$BL+$H+$BR+"  "+$BL+$H+$H+$H+$BR+"   "+$BL+$H+$BR) -ForegroundColor DarkRed
+        Write-Host ($F+"        "+$F+$F+"  "+$F+"  "+$F+$F+"        "+$F) -ForegroundColor DarkRed
+        Write-Host ("        "+$F+$F+"   "+$F+"   "+$F+$F) -ForegroundColor DarkRed
+        Write-Host ("       "+$F+$F+"    "+$F+"    "+$F+$F) -ForegroundColor DarkRed
+    } else {
+        Write-Host ("   "+"       "+$F+$F+"    "+$F+"    "+$F+$F) -ForegroundColor Red
+        Write-Host ("   "+"        "+$F+$F+"   "+$F+"   "+$F+$F) -ForegroundColor Red
+        Write-Host ("   "+$F+"        "+$F+$F+"  "+$F+"  "+$F+$F+"        "+$F) -ForegroundColor Red
+        Write-Host ("   "+$F+$F+"        "+$F+$F+"   "+$F+$F+"        "+$F+$F) -ForegroundColor Red
+        Write-Host ("   "+" "+$F+$F+"          "+$F+"          "+$F+$F) -ForegroundColor Red
+        Write-Host ("   "+$F+$F+$F+$F+$F+"       "+$F+" "+$F+"       "+$F+$F+$F+$F+$F) -ForegroundColor Red
+        Write-Host ("   "+" "+$F+$F+"          "+$F+"          "+$F+$F) -ForegroundColor Red
+        Write-Host ("   "+$F+$F+"        "+$F+$F+"   "+$F+$F+"        "+$F+$F) -ForegroundColor DarkRed
+        Write-Host ("   "+$F+"        "+$F+$F+"  "+$F+"  "+$F+$F+"        "+$F) -ForegroundColor DarkRed
+        Write-Host ("   "+"        "+$F+$F+"   "+$F+"   "+$F+$F) -ForegroundColor DarkRed
+        Write-Host ("   "+"       "+$F+$F+"    "+$F+"    "+$F+$F) -ForegroundColor DarkRed
+    }
     Write-Host ""
-    Write-Host "   SOCIS Agent Installer" -ForegroundColor White
+    Write-Host ("   " + $Diamond + " SOCIS Agent Installer") -ForegroundColor White
     Write-Host "   The Self-Improving AI Agent" -ForegroundColor Cyan
     Write-Host ""
 }

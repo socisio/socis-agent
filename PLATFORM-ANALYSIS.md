@@ -649,53 +649,60 @@ should drop from 6 advisories to 3 (the Electron chain only).
 
 ---
 
-## 15. Installer banners — a seventh branding location
+## 15. Installer banners — matched to the dashboard wordmark
 
 The install scripts run *before* any Python or TypeScript loads, so they carry
-their own banners. Three problems were found:
+their own banners — a seventh branding location. Originally they showed a
+`⚕` (Rod of Asclepius, Hermes' caduceus) in a magenta box whose borders were
+57 chars while the text lines had been shortened by the earlier
+"Nous Research" → "SOCIS" rename, leaving visibly ragged edges.
 
-| File | Issue |
+All three now render the **same "SOCIS AGENT" wordmark the dashboard chat
+shows**, sourced from `socis_cli/banner.py`. Verified programmatically:
+identical rows in all three.
+
+| Script | Approach |
 |---|---|
-| `scripts/install.sh` | `⚕` (Rod of Asclepius — Hermes' caduceus), magenta instead of brand coral, and a broken box: the borders were 57 chars while the text lines had been shortened by the earlier "Nous Research" → "SOCIS" rename, leaving visibly ragged edges |
-| `scripts/install.ps1` | `*` placeholder where the caduceus had been stripped, magenta, same ragged box |
-| `setup-socis.sh` | `⚕` caduceus in the one-line header |
+| `scripts/install.sh` | Unicode art directly, coral gradient via true-color escapes |
+| `setup-socis.sh` | Same |
+| `scripts/install.ps1` | Art built from codepoints — see below |
 
-### `install.sh`
+**Width guard.** The dashboard art is 91 columns; an installer can land in any
+terminal. Each script checks width (`tput cols` / `$Host.UI.RawUI.WindowSize`)
+and falls back to a compact 40-column SOCIS-only mark below 95 columns.
 
-Replaced the box with the SOCIS wordmark in block letters, rendered in the
-brand coral gradient (`#FF3366` → `#F04162` → `#C42248`) via true-color escapes,
-plus the `◆` mark. Built a **37-column** variant rather than reusing the TUI's
-91-column `LOGO_ART` — an installer runs in an unknown terminal, and the CLI
-banner already documents a ~95-char requirement it can't assume here.
+### `install.ps1` — Unicode output from ASCII source
 
-Three colour variables (`CORAL`, `CORAL_MID`, `CORAL_DEEP`) were added beside
-the existing ANSI set.
+`tests/test_install_ps1_ascii_only.py` enforces pure ASCII, and the reason is
+concrete: issues **#66994 / #67000** had the Windows GUI installer crashing
+before it did anything. PowerShell 5.1 reads a BOM-less `.ps1` in the system
+ANSI code page (CP1252), so an em-dash's UTF-8 tail byte `0x94` decoded to a
+smart close-quote, which the tokenizer treated as a string delimiter —
+desyncing the parser and surfacing as unrelated errors 150 lines downstream.
 
-### `install.ps1` — constrained to ASCII
+A UTF-8 BOM would **not** fix this: the canonical install path is
+`iex (irm https://agent.socis.io/install.ps1)`, where the script is a string in
+memory, never a file PowerShell can sniff a BOM from.
 
-`tests/test_install_ps1_ascii_only.py` enforces that this file stays pure
-ASCII: Windows consoles can be on a non-UTF-8 code page when the script is
-piped through `iex`, which turns box-drawing characters into mojibake. So the
-PowerShell banner uses ASCII block letters, not Unicode.
+Solution: build the seven box-drawing characters from codepoints at runtime
+(`[char]0x2588` etc.) and compose each row from those variables plus ASCII
+literals. **Source stays pure ASCII (verified: 0 non-ASCII bytes, test passes);
+output is byte-identical to the dashboard art.** The script already switches
+console output to UTF-8 earlier on, so the glyphs render correctly.
 
-Colour is `Red` — the closest of PowerShell's fixed 16 console colours to
-`#FF3366`. True-colour escapes aren't reliable across PowerShell 5.1 hosts.
-
-Verified: **0 non-ASCII bytes**, so the regression test still passes. Also
-removed a backtick from a comment (PowerShell's escape character — harmless
-inside `#`, but a needless hazard).
+Colour is `Red`/`DarkRed` — the nearest of PowerShell's fixed 16 console
+colours to the coral gradient. True-colour escapes aren't reliable across
+PowerShell 5.1 hosts.
 
 ### Left alone
 
-- `scripts/install.cmd` — a thin wrapper that immediately hands off to
-  PowerShell; its plain text is appropriate.
+- `scripts/install.cmd` — a thin wrapper that immediately hands to PowerShell.
 - `docker/entrypoint.sh` — a deprecated shim, no banner.
 
-Verified: all shell scripts pass `bash -n`, `install.ps1` is ASCII-clean, 5,127
-Python files parse.
+Verified: shell scripts pass `bash -n`, `install.ps1` ASCII-clean, no caduceus
+anywhere in any script, 5,127 Python files parse.
 
-**Running total: seven independent banner/branding definitions** — the six in
-§8 plus the installer scripts. Consistent with the lesson there: these are
-invisible to a search for the brand *word*, and in this case also invisible to
-a search for the gold *hex values*, since the installers used named ANSI
-colours rather than hex.
+**Running total: seven independent banner/branding definitions.** These were
+invisible to *both* earlier sweeps — a search for the brand word missed them
+(the text already said SOCIS) and a search for the gold hex values missed them
+(installers use named ANSI colours, not hex).

@@ -24,7 +24,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 RED='\033[0;31m'
-CORAL='\033[38;2;255;51;102m'  # SOCIS brand coral #FF3366
+CORAL='\033[38;2;255;51;102m'      # SOCIS brand coral #FF3366
+CORAL_MID='\033[38;2;240;65;98m'   # #F04162
+CORAL_DEEP='\033[38;2;196;34;72m'  # #C42248
+BOLD='\033[1m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,7 +60,37 @@ get_command_link_display_dir() {
 }
 
 echo ""
-echo -e "${CORAL}◆${NC} ${CYAN}SOCIS Agent Setup${NC}"
+# The SOCIS mark beside the SOCIS AGENT wordmark, matching the logo and the
+# dashboard banner. Falls back to the mark alone on narrow terminals.
+_bw=$(tput cols 2>/dev/null || echo 80)
+if [ "${_bw:-80}" -ge 125 ]; then
+    echo -e "${BOLD}${CORAL}       ██    █    ██${NC}"
+    echo -e "${BOLD}${CORAL}        ██   █   ██${NC}"
+    echo -e "${BOLD}${CORAL}█        ██  █  ██        █    ███████╗ ██████╗  ██████╗ ██╗ ███████╗         █████╗  ██████╗ ███████╗███╗   ██╗████████╗${NC}"
+    echo -e "${BOLD}${CORAL_MID}██        ██   ██        ██    ██╔════╝██╔═══██╗██╔════╝ ██║ ██╔════╝        ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝${NC}"
+    echo -e "${BOLD}${CORAL_MID} ██          █          ██     ███████╗██║   ██║██║      ██║ ███████╗        ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║${NC}"
+    echo -e "${BOLD}${CORAL_MID}█████       █ █       █████    ╚════██║██║   ██║██║      ██║ ╚════██║        ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║${NC}"
+    echo -e "${BOLD}${CORAL_MID} ██          █          ██     ███████║╚██████╔╝╚██████╗ ██║ ███████║        ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}██        ██   ██        ██    ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝ ╚══════╝        ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}█        ██  █  ██        █${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}        ██   █   ██${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}       ██    █    ██${NC}"
+else
+    echo -e "${BOLD}${CORAL}          ██    █    ██${NC}"
+    echo -e "${BOLD}${CORAL}           ██   █   ██${NC}"
+    echo -e "${BOLD}${CORAL}   █        ██  █  ██        █${NC}"
+    echo -e "${BOLD}${CORAL_MID}   ██        ██   ██        ██${NC}"
+    echo -e "${BOLD}${CORAL_MID}    ██          █          ██${NC}"
+    echo -e "${BOLD}${CORAL_MID}   █████       █ █       █████${NC}"
+    echo -e "${BOLD}${CORAL_MID}    ██          █          ██${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}   ██        ██   ██        ██${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}   █        ██  █  ██        █${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}           ██   █   ██${NC}"
+    echo -e "${BOLD}${CORAL_DEEP}          ██    █    ██${NC}"
+fi
+echo ""
+echo -e "   ${CORAL}◆${NC} ${BOLD}SOCIS Agent Setup${NC}"
+echo -e "   ${CYAN}The Self-Improving AI Agent${NC}"
 echo ""
 
 # ============================================================================
