@@ -422,3 +422,33 @@ grep -rIn "FFD700\|FFBF00\|CD7F32\|B8860B\|FFF8DC\|DAA520" \
 
 Expected remaining hits are only: the docs website CSS, test fixtures using gold
 as arbitrary color-math input, and `_LIGHT_MODE_REMAP` table keys.
+
+---
+
+## 9. `install.sh` lockfile error — fixed
+
+Running the installer produced:
+
+```
+The lockfile at `uv.lock` needs to be updated, but `--locked` was provided.
+```
+
+**Cause:** the packaged `uv.lock` still declared the project as `hermes-agent`
+(20 occurrences) while `pyproject.toml` says `socis-agent`. `install.sh` runs
+`uv sync --extra all --locked`, and `--locked` fails when the lockfile doesn't
+match the project — correctly, in this case.
+
+**Why it mattered more than a cosmetic mismatch:** the error was *non-fatal* —
+`install.sh` logs a warning and falls back to a multi-tier PyPI resolve. But
+that fallback is explicitly **"no hash verification"**. `uv.lock` records a
+SHA256 for every package; the fallback path drops that supply-chain guarantee.
+So every fresh install was silently installing unverified packages.
+
+**Fix:** renamed the self-referential project entry in `uv.lock`
+(`source = { editable = "." }`) from `hermes-agent` to `socis-agent`. This is a
+pure rename — no dependency hashes, versions, or resolution data changed.
+Verified: TOML parses, 255 packages intact, editable entry now `socis-agent`,
+and it matches `pyproject.toml`.
+
+Note this was already correct in the user's *local* checkout (they had run
+`uv lock` manually); only the packaged copy carried the stale name.
