@@ -686,6 +686,18 @@ class GitHubSource(SkillSource):
         # https://github.com/NVIDIA/skills/tree/main/skills
         {"repo": "NVIDIA/skills", "path": "skills/"},
         {"repo": "garrytan/gstack", "path": ""},
+        # Anthropic-Cybersecurity-Skills: ~817 community security skills across
+        # 29 domains (cloud, threat hunting, threat intel, DFIR, malware
+        # analysis, IAM, SOC ops, OT/ICS, ransomware, supply chain, AI
+        # security...), agentskills.io format, Apache-2.0, mapped to ATT&CK,
+        # NIST CSF 2.0, ATLAS, D3FEND, AI RMF and MITRE F3.
+        #
+        # Trust level is `community` on purpose. The library is explicitly
+        # dual-use — it ships red-team C2, phishing simulation and exploitation
+        # content alongside defensive material — so every install goes through
+        # the standard security scan and the third-party warning panel. Do not
+        # add it to TRUSTED_REPOS.
+        {"repo": "mukul975/Anthropic-Cybersecurity-Skills", "path": "skills/"},
     ]
 
     def __init__(self, auth: GitHubAuth, extra_taps: Optional[List[Dict]] = None):
