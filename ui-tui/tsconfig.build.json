@@ -1,8 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "paths": {
-      "@socis/ink": ["src/types/socis-ink.d.ts"]
-    }
-  }
-}
