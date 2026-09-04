@@ -218,9 +218,9 @@ print_banner() {
     echo ""
     echo -e "${MAGENTA}${BOLD}"
     echo "┌─────────────────────────────────────────────────────────┐"
-    echo "│             ⚕ SOCIS Agent Installer                    │"
+    echo "│             ⚕ SOCIS Agent Installer                     │"
     echo "├─────────────────────────────────────────────────────────┤"
-    echo "│  An open source AI agent by SOCIS.              │"
+    echo "│  An open source AI agent by SOCIS.                      │"
     echo "└─────────────────────────────────────────────────────────┘"
     echo -e "${NC}"
 }
