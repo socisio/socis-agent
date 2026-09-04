@@ -133,3 +133,19 @@ The real GitHub organization is **`socisio`** (`https://github.com/socisio/socis
 - **Full TypeScript type-checking** (as opposed to grammar/syntax checking) requires the actual `node_modules` tree, which requires `npm install` against the real npm registry.
 - **Wake-word model retraining** and **new mascot artwork** remain genuine creative/ML workstreams outside what a text/file rebrand can produce, as noted in the original report.
 
+
+## Contributor attribution system removed (explicit decision, not a rebrand fix)
+
+The person explicitly decided to remove the previous project's contributor attribution system entirely, rather than carry forward Hermes-era contributor history into the new SOCIS Agent repo. This was a deliberate scope decision, not a bug fix — the system worked correctly and wasn't part of the "Hermes vs SOCIS" branding problem.
+
+Removed:
+- `contributors/emails/` — ~990 one-file-per-contributor email→GitHub-username records
+- `.github/workflows/contributor-check.yml` — CI job that validated new PR commit emails against the records (also removed its `needs:` references from `ci.yaml` so the pipeline doesn't wait on a deleted job)
+- `scripts/add_contributor.py`, `scripts/audit_pr_attribution.py` — tooling that only operated on the deleted directory
+- `tests/scripts/test_contributor_map.py` — tests for the deleted tooling
+
+Adjusted rather than removed:
+- `scripts/release.py` contained a second, separate attribution record: a 2,032-line hardcoded `LEGACY_AUTHOR_MAP` dict (email → GitHub username, with PR-reference comments) used for changelog generation. Cleared to an empty dict rather than deleting the surrounding 616-line release-automation script (version bumping, changelog generation, git tagging) wholesale, since that tooling itself is still useful and unrelated to the old contributor data.
+- `scripts/contributor_audit.py` was kept as-is — it's a real release-notes audit utility that imports from `release.py`, has no direct dependency on the deleted data, and will function correctly (reporting "no contributors found" until the person's own project accumulates real ones).
+
+Verified after removal: 0 Python syntax errors (5,127 files, down from 5,130), all GitHub Actions workflow YAML still valid, `ci.yaml`'s job dependency graph has no dangling references to the removed `contributor-check` job.
