@@ -1,0 +1,138 @@
+name: Release Desktop
+
+# Builds SOCIS Agent Desktop installers for macOS, Windows and Linux and
+# attaches them to a GitHub Release.
+#
+# Each OS must build on its own runner: electron-builder can only produce a
+# .dmg on macOS (it needs hdiutil) and .msi/.nsis on Windows (it needs the
+# WiX/NSIS toolchain). Cross-compiling those from Linux is not supported.
+#
+# Triggered by pushing a tag (`git tag v0.1.0 && git push --tags`) or manually
+# from the Actions tab.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (must already exist)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      # Don't cancel the other platforms when one fails — a Windows toolchain
+      # hiccup shouldn't throw away a good macOS build.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            artifacts: 'apps/desktop/release/*.dmg,apps/desktop/release/*.zip'
+          - os: windows-latest
+            platform: win
+            artifacts: 'apps/desktop/release/*.exe,apps/desktop/release/*.msi'
+          - os: ubuntu-latest
+            platform: linux
+            artifacts: 'apps/desktop/release/*.AppImage,apps/desktop/release/*.deb,apps/desktop/release/*.rpm'
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          # electron-builder stamps the build with the commit; a shallow
+          # checkout leaves write-build-stamp.mjs with no SHA to record.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      # Linux needs the rpm tooling for the .rpm target; the other two
+      # platforms bundle what they need with electron-builder.
+      - name: Install Linux packaging deps
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      # Full install (not --ignore-scripts): electron's postinstall downloads
+      # the platform binary, and node-pty / get-windows compile natively.
+      - name: Install dependencies
+        run: npm ci
+
+      # macOS: build both architectures explicitly. Without --arch the runner
+      # only produces its own (macos-latest is Apple Silicon), which would ship
+      # no Intel build at all. node-pty / get-windows are re-staged per target
+      # arch by scripts/stage-native-deps.mjs.
+      - name: Build installers (macOS universal coverage)
+        if: matrix.platform == 'mac'
+        working-directory: apps/desktop
+        run: npm run build && npm run builder -- --mac --arm64 --x64
+
+      - name: Build installers
+        if: matrix.platform != 'mac'
+        working-directory: apps/desktop
+        run: npm run dist:${{ matrix.platform }}
+        env:
+          # Unsigned builds. Set these secrets to enable signing:
+          #   macOS    — CSC_LINK (base64 .p12), CSC_KEY_PASSWORD, and
+          #              APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER
+          #              for notarization.
+          #   Windows  — WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD.
+          # Without them the app still runs, but macOS shows Gatekeeper's
+          # "unidentified developer" prompt and Windows shows SmartScreen.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: socis-desktop-${{ matrix.platform }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.msi
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.rpm
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    # Publish whatever built, even if one platform failed — a partial release
+    # beats no release, and the missing platform can be re-run and re-uploaded.
+    if: always() && needs.build.result != 'cancelled'
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List collected installers
+        run: ls -la dist/
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: dist/*
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

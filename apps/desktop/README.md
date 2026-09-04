@@ -1,7 +1,7 @@
 # SOCIS Agent Desktop
 
 <p align="center">
-  <a href="https://github.com/socisio/socis-agent/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FFD700?style=for-the-badge" alt="Download"></a>
+  <a href="https://github.com/socisio/socis-agent/releases"><img src="https://img.shields.io/badge/Download-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-FF3366?style=for-the-badge" alt="Download"></a>
   <a href="https://agent.socis.io/docs/"><img src="https://img.shields.io/badge/Docs-agent.socis.io-FF3366?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/socisio/socis-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
 </p>

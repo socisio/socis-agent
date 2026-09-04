@@ -135,7 +135,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://agent.socis.io/',
+          to: '/download',
           label: 'Download',
           position: 'left',
         },
@@ -177,7 +177,7 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'Desktop Download', href: 'https://agent.socis.io/' },
+            { label: 'Desktop Download', to: '/download' },
             { label: 'GitHub', href: 'https://github.com/socisio/socis-agent' },
             { label: 'SOCIS', href: 'https://socis.io' },
           ],
