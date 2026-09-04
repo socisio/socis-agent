@@ -1,12 +1,12 @@
 ---
-title: "Inspecting SOCIS Agent Desktop Dom — Read the live SOCIS desktop DOM/CSS over CDP"
-sidebar_label: "Inspecting SOCIS Agent Desktop Dom"
+title: "Inspecting Socis Desktop Dom — Read the live SOCIS desktop DOM/CSS over CDP"
+sidebar_label: "Inspecting Socis Desktop Dom"
 description: "Read the live SOCIS desktop DOM/CSS over CDP"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# Inspecting SOCIS Agent Desktop Dom
+# Inspecting Socis Desktop Dom
 
 Read the live SOCIS desktop DOM/CSS over CDP.
 
@@ -15,7 +15,7 @@ Read the live SOCIS desktop DOM/CSS over CDP.
 | | |
 |---|---|
 | Source | Bundled (installed by default) |
-| Path | `skills/software-development\inspecting-socis-desktop-dom` |
+| Path | `skills/software-development/inspecting-socis-desktop-dom` |
 | Version | `1.0.0` |
 | Author | SOCIS Agent |
 | License | MIT |

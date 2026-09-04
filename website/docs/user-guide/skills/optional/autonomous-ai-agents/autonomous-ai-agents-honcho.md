@@ -15,7 +15,7 @@ Configure and troubleshoot Honcho memory for SOCIS.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/autonomous-ai-agents/honcho` |
-| Path | `optional-skills/autonomous-ai-agents\honcho` |
+| Path | `optional-skills/autonomous-ai-agents/honcho` |
 | Version | `2.0.0` |
 | Author | SOCIS Agent |
 | License | MIT |
@@ -58,7 +58,7 @@ socis memory setup honcho
 # select "local", enter base URL (e.g. http://localhost:8000)
 ```
 
-See: https://docs.honcho.dev/v3/guides/integrations/hermes#running-honcho-locally-with-hermes
+See: https://docs.honcho.dev/v3/guides/integrations/hermes#running-honcho-locally-with-socis
 
 ### Verify
 

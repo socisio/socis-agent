@@ -15,7 +15,7 @@ Control TouchDesigner via twozero MCP.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/creative/touchdesigner-mcp` |
-| Path | `optional-skills/creative\touchdesigner-mcp` |
+| Path | `optional-skills/creative/touchdesigner-mcp` |
 | Version | `1.1.0` |
 | Author | kshitijk4poor |
 | License | MIT |

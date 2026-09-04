@@ -1,12 +1,12 @@
 ---
-title: "SOCIS S6 Container Supervision — Modify or debug s6 services in the SOCIS Docker image"
-sidebar_label: "SOCIS S6 Container Supervision"
+title: "Socis S6 Container Supervision — Modify or debug s6 services in the SOCIS Docker image"
+sidebar_label: "Socis S6 Container Supervision"
 description: "Modify or debug s6 services in the SOCIS Docker image"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# SOCIS S6 Container Supervision
+# Socis S6 Container Supervision
 
 Modify or debug s6 services in the SOCIS Docker image.
 
@@ -15,7 +15,7 @@ Modify or debug s6 services in the SOCIS Docker image.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/devops/socis-s6-container-supervision` |
-| Path | `optional-skills/devops\socis-s6-container-supervision` |
+| Path | `optional-skills/devops/socis-s6-container-supervision` |
 | Version | `1.0.0` |
 | Author | SOCIS Agent |
 | License | MIT |

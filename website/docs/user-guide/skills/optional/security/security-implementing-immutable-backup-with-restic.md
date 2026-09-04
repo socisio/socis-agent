@@ -1,0 +1,97 @@
+---
+title: "Implementing Immutable Backup With Restic — Implements ransomware-resistant backups using restic with"
+sidebar_label: "Implementing Immutable Backup With Restic"
+description: "Implements ransomware-resistant backups using restic with"
+---
+
+{/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
+
+# Implementing Immutable Backup With Restic
+
+Implements ransomware-resistant backups using restic with
+
+## Skill metadata
+
+| | |
+|---|---|
+| Source | Optional — install with `socis skills install official/security/implementing-immutable-backup-with-restic` |
+| Path | `optional-skills/security/implementing-immutable-backup-with-restic` |
+| Version | `1.0.0` |
+| Author | mahipal (vendored by SOCIS) |
+| License | Apache-2.0 |
+| Platforms | linux, macos, windows |
+| Tags | `restic`, `backup`, `immutable`, `ransomware`, `s3`, `object-lock`, `worm`, `recovery` |
+
+## Reference: full SKILL.md
+
+:::info
+The following is the complete skill definition that SOCIS loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+:::
+
+# Implementing Immutable Backup with Restic
+
+## When to Use
+
+- Establishing ransomware-resistant backup infrastructure with cryptographic integrity verification
+- Implementing 3-2-1-1-0 backup strategy where the extra 1 is an immutable copy
+- Automating backup verification workflows that test restore capability on a schedule
+- Protecting backup repositories from deletion or modification by compromised admin accounts
+- Meeting compliance requirements for data retention with tamper-proof storage
+
+**Do not use** as the sole backup solution without also maintaining offline/air-gapped copies. Object lock protects against logical deletion but not physical storage failure.
+
+## Prerequisites
+
+- restic binary installed (https://restic.readthedocs.io/)
+- S3-compatible storage with Object Lock enabled (AWS S3, MinIO, Backblaze B2)
+- Python 3.8+ with subprocess module
+- AWS CLI or MinIO client (mc) configured for bucket access
+- Sufficient storage for backup repository (typically 2-3x source data with deduplication)
+
+## Workflow
+
+### Step 1: Initialize Restic Repository with Encryption
+
+Create an encrypted restic repository on S3-compatible storage with object lock enabled. Restic uses AES-256-CTR for encryption with Poly1305-AES for authentication, ensuring backup data is both confidential and tamper-evident.
+
+### Step 2: Configure Object Lock Retention
+
+Enable S3 Object Lock in Compliance mode on the backup bucket to prevent any principal (including root) from deleting or modifying objects during the retention period. Set retention to match your backup window requirements (typically 30-90 days).
+
+### Step 3: Automate Backup and Verification
+
+Schedule backup operations with post-backup integrity verification using `restic check --read-data` which downloads and verifies every data blob against its stored checksum. Log results and alert on any integrity failures.
+
+### Step 4: Test Restore Procedures
+
+Periodically restore random files from backup snapshots to a temporary location and compare checksums against the original to validate end-to-end backup integrity. Document restore times for RTO planning.
+
+## Key Concepts
+
+| Term | Definition |
+|------|------------|
+| **Object Lock** | S3 feature that prevents object deletion or overwrite for a specified retention period |
+| **Compliance Mode** | Object Lock mode where even the root account cannot delete objects before retention expires |
+| **Deduplication** | Restic stores data in content-addressable chunks, deduplicating across all snapshots |
+| **3-2-1-1-0** | 3 copies, 2 media types, 1 offsite, 1 immutable, 0 errors in verification |
+
+## Tools & Systems
+
+- **restic**: Fast, secure, cross-platform backup tool with built-in encryption and deduplication
+- **resticpy**: Python wrapper for restic CLI operations
+- **AWS S3 Object Lock**: WORM storage for tamper-proof backup retention
+- **MinIO**: Self-hosted S3-compatible storage with Object Lock support
+
+## Output Format
+
+```
+BACKUP VERIFICATION REPORT
+===========================
+Repository: s3:s3.amazonaws.com/company-backups-immutable
+Snapshots: 45
+Total Size: 2.3 TiB (deduplicated from 8.7 TiB)
+Last Backup: 2026-03-11T02:00:00Z
+Integrity Check: PASSED (all packs verified)
+Object Lock: Compliance mode, 90-day retention
+Restore Test: PASSED (15 files verified)
+```

@@ -15,7 +15,7 @@ Query Polymarket: markets, prices, orderbooks, history.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/finance/polymarket` |
-| Path | `optional-skills/finance\polymarket` |
+| Path | `optional-skills/finance/polymarket` |
 | Version | `1.0.0` |
 | Author | SOCIS Agent + Teknium |
 | License | MIT |

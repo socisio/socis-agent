@@ -15,7 +15,7 @@ OBLITERATUS: abliterate LLM refusals (diff-in-means).
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/mlops/obliteratus` |
-| Path | `optional-skills/mlops\obliteratus` |
+| Path | `optional-skills/mlops/obliteratus` |
 | Version | `2.0.0` |
 | Author | SOCIS Agent |
 | License | MIT |

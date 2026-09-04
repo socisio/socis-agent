@@ -1,12 +1,12 @@
 ---
-title: "SOCIS Agent Skill Authoring — Author in-repo SKILL.md files: frontmatter and structure"
-sidebar_label: "SOCIS Agent Skill Authoring"
+title: "Socis Agent Skill Authoring — Author in-repo SKILL.md files: frontmatter and structure"
+sidebar_label: "Socis Agent Skill Authoring"
 description: "Author in-repo SKILL.md files: frontmatter and structure"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# SOCIS Agent Skill Authoring
+# Socis Agent Skill Authoring
 
 Author in-repo SKILL.md files: frontmatter and structure.
 
@@ -15,7 +15,7 @@ Author in-repo SKILL.md files: frontmatter and structure.
 | | |
 |---|---|
 | Source | Bundled (installed by default) |
-| Path | `skills/software-development\socis-agent-skill-authoring` |
+| Path | `skills/software-development/socis-agent-skill-authoring` |
 | Version | `2.0.0` |
 | Author | SOCIS Agent |
 | License | MIT |

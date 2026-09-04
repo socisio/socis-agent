@@ -15,7 +15,7 @@ Record a site's XHR into a HAR, derive an HTTP client.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/web-development/har-derived-api-client` |
-| Path | `optional-skills/web-development\har-derived-api-client` |
+| Path | `optional-skills/web-development/har-derived-api-client` |
 | Version | `0.1.0` |
 | Author | SOCIS Agent |
 | License | MIT |

@@ -15,7 +15,7 @@ Import an OpenClaw setup (memories, skills) into SOCIS.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/migration/openclaw-migration` |
-| Path | `optional-skills/migration\openclaw-migration` |
+| Path | `optional-skills/migration/openclaw-migration` |
 | Version | `1.0.0` |
 | Author | SOCIS Agent (SOCIS) |
 | License | MIT |

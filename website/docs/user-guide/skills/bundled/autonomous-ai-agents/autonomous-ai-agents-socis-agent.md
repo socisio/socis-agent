@@ -1,12 +1,12 @@
 ---
-title: "SOCIS Agent — Use, configure, theme, extend, and orchestrate SOCIS Agent"
-sidebar_label: "SOCIS Agent"
+title: "Socis Agent — Use, configure, theme, extend, and orchestrate SOCIS Agent"
+sidebar_label: "Socis Agent"
 description: "Use, configure, theme, extend, and orchestrate SOCIS Agent"
 ---
 
 {/* This page is auto-generated from the skill's SKILL.md by website/scripts/generate-skill-docs.py. Edit the source SKILL.md, not this page. */}
 
-# SOCIS Agent
+# Socis Agent
 
 Use, configure, theme, extend, and orchestrate SOCIS Agent.
 
@@ -15,7 +15,7 @@ Use, configure, theme, extend, and orchestrate SOCIS Agent.
 | | |
 |---|---|
 | Source | Bundled (installed by default) |
-| Path | `skills/autonomous-ai-agents\socis-agent` |
+| Path | `skills/autonomous-ai-agents/socis-agent` |
 | Version | `3.2.0` |
 | Author | SOCIS Agent + Teknium |
 | License | MIT |

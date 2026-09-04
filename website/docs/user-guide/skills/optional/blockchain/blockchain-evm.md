@@ -15,7 +15,7 @@ Read-only EVM client: wallets, tokens, gas across 8 chains.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/blockchain/evm` |
-| Path | `optional-skills/blockchain\evm` |
+| Path | `optional-skills/blockchain/evm` |
 | Version | `1.0.0` |
 | Author | Mibayy (@Mibayy), youssefea (@youssefea), ethernet8023 (@ethernet8023), SOCIS Agent |
 | License | MIT |

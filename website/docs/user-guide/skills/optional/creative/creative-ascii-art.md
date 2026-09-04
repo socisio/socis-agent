@@ -15,7 +15,7 @@ ASCII art: pyfiglet, cowsay, boxes, image-to-ascii.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/creative/ascii-art` |
-| Path | `optional-skills/creative\ascii-art` |
+| Path | `optional-skills/creative/ascii-art` |
 | Version | `4.0.0` |
 | Author | 0xbyt4, SOCIS Agent |
 | License | MIT |
@@ -174,7 +174,7 @@ boxes -l                                       # List all 70+ designs
 ```bash
 python -m pyfiglet "SOCIS" -f slant | boxes -d stone
 # Or without pyfiglet installed:
-curl -s "https://asciified.thelicato.io/api/v2/ascii?text=SOCIS&font=Slant" | boxes -d stone
+curl -s "https://asciified.thelicato.io/api/v2/ascii?text=HERMES&font=Slant" | boxes -d stone
 ```
 
 ## Tool 5: TOIlet (Colored Text Art)

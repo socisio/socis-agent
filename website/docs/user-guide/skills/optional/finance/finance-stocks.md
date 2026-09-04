@@ -15,7 +15,7 @@ Stock quotes, history, search, compare, crypto via Yahoo.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/finance/stocks` |
-| Path | `optional-skills/finance\stocks` |
+| Path | `optional-skills/finance/stocks` |
 | Version | `0.1.0` |
 | Author | Mibay (Mibayy), SOCIS Agent |
 | License | MIT |

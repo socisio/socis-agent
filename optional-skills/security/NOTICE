@@ -1,0 +1,46 @@
+Vendored security skills
+========================
+
+759 skills vendored from:
+
+    Anthropic Cybersecurity Skills
+    https://github.com/mukul975/Anthropic-Cybersecurity-Skills
+    Copyright (c) Mahipal Jangra and contributors
+    Licensed under the Apache License, Version 2.0
+
+The full Apache-2.0 licence text is in LICENSE alongside this file.
+
+NOT affiliated with or endorsed by Anthropic PBC. The upstream project is an
+independent community project; the name reflects the skill format it targets.
+
+Modifications made by SOCIS
+---------------------------
+Required by Apache-2.0 section 4(b):
+
+  1. Frontmatter rewritten to the SOCIS skill schema (`metadata.socis`),
+     preserving upstream `author` and `license` fields.
+  2. Descriptions shortened to <=60 characters for the SOCIS prompt index.
+     Full upstream descriptions remain in each skill's body and references/.
+  3. Subdomain filtering — only the subdomains listed in
+     scripts/vendor_security_skills.py were vendored.
+  4. Unreferenced `scripts/` directories removed. Upstream ships a scripts/
+     folder with every skill, but 714 of 765 skill procedures never invoke
+     theirs. Those were deleted; the 49 whose SKILL.md actually calls a script
+     retain it. No skill procedure, reference file, or asset was altered.
+
+Review status
+-------------
+Skill procedures and reference material are vendored as-is and have NOT been
+individually reviewed by SOCIS. Review any skill before relying on it in a
+customer engagement.
+
+Executable content was reduced from 1,033 third-party Python files to 80,
+retained only where a skill's documented workflow invokes them. Those 49
+scripts are third-party code and should be reviewed before use in a customer
+environment.
+
+Six skills reference scripts that upstream never shipped
+(detecting-aws-credential-exposure-with-trufflehog, implementing-api-schema-
+validation-security, implementing-secret-scanning-with-gitleaks,
+performing-web-application-vulnerability-triage, unbroker). Those references
+were already broken upstream and are unaffected by the changes above.

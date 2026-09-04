@@ -15,7 +15,7 @@ Hand-drawn Excalidraw JSON diagrams (arch, flow, seq).
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/creative/excalidraw` |
-| Path | `optional-skills/creative\excalidraw` |
+| Path | `optional-skills/creative/excalidraw` |
 | Version | `1.0.1` |
 | Author | SOCIS Agent |
 | License | MIT |

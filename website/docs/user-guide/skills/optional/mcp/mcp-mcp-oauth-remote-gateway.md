@@ -15,7 +15,7 @@ Manual OAuth for remote MCP servers on headless gateways.
 | | |
 |---|---|
 | Source | Optional — install with `socis skills install official/mcp/mcp-oauth-remote-gateway` |
-| Path | `optional-skills/mcp\mcp-oauth-remote-gateway` |
+| Path | `optional-skills/mcp/mcp-oauth-remote-gateway` |
 | Version | `1.0.0` |
 | Author | Ben Barclay (benbarclay), SOCIS Agent |
 | License | MIT |
