@@ -53,7 +53,7 @@ same precedence convention as the ``nous`` plugin)::
       oauth:
         provider: self-hosted
         self_hosted:
-          issuer: https://auth.example.com/application/o/hermes/   # required
+          issuer: https://auth.example.com/application/o/socis/   # required
           client_id: socis-dashboard                              # required
           scopes: "openid profile email"                           # optional
           # client_secret: set ONLY for a confidential client. It is a

@@ -41,12 +41,12 @@ const DEFAULT_LAYOUT: ThemeLayout = {
 export const defaultTheme: DashboardTheme = {
   name: "default",
   label: "SOCIS Teal",
-  description: "Classic dark teal — the canonical SOCIS look",
+  description: "Classic dark navy — the canonical SOCIS look",
   palette: {
-    background: { hex: "#041c1c", alpha: 1 },
-    midground: { hex: "#ffe6cb", alpha: 1 },
+    background: { hex: "#070A0F", alpha: 1 },
+    midground: { hex: "#FFD9E1", alpha: 1 },
     foreground: { hex: "#ffffff", alpha: 0 },
-    warmGlow: "rgba(255, 189, 56, 0.35)",
+    warmGlow: "rgba(255, 51, 102, 0.35)",
     noiseOpacity: 1,
   },
   typography: DEFAULT_TYPOGRAPHY,
@@ -187,8 +187,8 @@ export const roseTheme: DashboardTheme = {
 /** Light mode — vivid Nous-blue accents on a cream canvas. */
 export const nousBlueTheme: DashboardTheme = {
   name: "nous-blue",
-  label: "Nous Blue",
-  description: "Light mode — vivid Nous-blue accents on cream canvas",
+  label: "Cobalt",
+  description: "Light mode — vivid blue accents on cream canvas",
   palette: {
     background: { hex: "#E8F2FD", alpha: 1 },
     midground: { hex: "#0053FD", alpha: 1 },

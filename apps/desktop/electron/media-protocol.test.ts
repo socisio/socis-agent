@@ -51,7 +51,7 @@ describe('media protocol helpers', () => {
   })
 
   it('preserves a configured gateway path prefix', () => {
-    const endpoint = new URL(remoteMediaEndpoint('https://gateway.test/hermes/', '/tmp/a b.mp4'))
+    const endpoint = new URL(remoteMediaEndpoint('https://gateway.test/socis/', '/tmp/a b.mp4'))
 
     expect(endpoint.pathname).toBe('/socis/api/files/stream')
     expect(endpoint.searchParams.get('path')).toBe('/tmp/a b.mp4')
@@ -98,7 +98,7 @@ describe('createMediaProtocolHandler', () => {
     const deps = dependencies({
       resolveRemoteConnection: vi.fn(async () => ({
         authMode: 'token' as const,
-        baseUrl: 'https://gateway.test/hermes',
+        baseUrl: 'https://gateway.test/socis',
         mode: 'remote' as const,
         token: 's e/cret'
       }))

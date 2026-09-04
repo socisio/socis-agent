@@ -10,19 +10,19 @@ const HUES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
 // A retint seed for each hue, at the authored accent's lightness/chroma.
 const seedAt = (hue: number) => withHue(nousTheme.colors.primary, hue)
 
-const NOUS_BLUE = '#0053FD'
+const SOCIS_CORAL = '#C42248'
 
 describe('themeHue', () => {
   it('reads the accent hue that ships', () => {
-    // Nous blue. Both palettes sit at this hue — light seeds `#0053fd` and dark
-    // `#4a84fe`, the same blue at two lightnesses, which is what lets one pick
-    // serve both appearances.
-    expect(themeHue(nousTheme)).toBe(263)
-    expect(Math.round(hexToOklch(nousTheme.darkColors!.primary)!.h)).toBe(263)
+    // SOCIS coral. Both palettes sit at this hue — light seeds `#c42248` and
+    // dark `#f04162`, the same coral at two lightnesses, which is what lets one
+    // pick serve both appearances.
+    expect(themeHue(nousTheme)).toBe(15)
+    expect(Math.round(hexToOklch(nousTheme.darkColors!.primary)!.h)).toBe(15)
   })
 
   it('reads the upstream GitHub green from the unforked theme', () => {
-    // `github` keeps the original accent, so the fork's blue can move freely
+    // `github` keeps the original accent, so the fork's coral can move freely
     // without redefining what upstream looks like.
     expect(themeHue(githubTheme)).toBe(148)
     expect(Math.round(hexToOklch(githubTheme.darkColors!.primary)!.h)).toBe(148)
@@ -30,13 +30,14 @@ describe('themeHue', () => {
 })
 
 // The two seeds are the whole point of the fork, and both are load-bearing:
-// `#0053FD` is the brand color and passes on the light sidebar, but only 3.6:1
-// on the near-black dark one — so dark carries a lifted twin rather than the
-// literal brand hex. Anything that re-derives these must keep both legible.
-describe('the shipped nous accents', () => {
+// the raw brand coral `#FF3366` is only 3.3:1 on the light sidebar — below AA
+// — so light carries a deepened twin (`#c42248`) and dark a lifted one
+// (`#f04162`), both at hue 15. Anything that re-derives these must keep both
+// legible.
+describe('the shipped socis accents', () => {
   const cases = [
-    { appearance: 'light', colors: nousTheme.colors, seed: '#0053fd' },
-    { appearance: 'dark', colors: nousTheme.darkColors!, seed: '#4a84fe' }
+    { appearance: 'light', colors: nousTheme.colors, seed: '#c42248' },
+    { appearance: 'dark', colors: nousTheme.darkColors!, seed: '#f04162' }
   ] as const
 
   it.each(cases)('$appearance seeds every accent slot from $seed', ({ colors, seed }) => {
@@ -166,21 +167,21 @@ describe('retintTheme', () => {
   // (5.4:1) but NOT its dark one (3.6:1), so dark has to adapt or ship
   // invisible section headers.
   describe('a seed that only works in one mode', () => {
-    const blue = retintTheme(nousTheme, NOUS_BLUE)
+    const blue = retintTheme(nousTheme, SOCIS_CORAL)
 
     it('keeps the picked color where it already passes', () => {
-      expect(blue.colors.primary.toLowerCase()).toBe(NOUS_BLUE.toLowerCase())
+      expect(blue.colors.primary.toLowerCase()).toBe(SOCIS_CORAL.toLowerCase())
     })
 
     it('lightens it for the mode where it does not', () => {
       const dark = blue.darkColors!.primary
 
-      expect(dark.toLowerCase()).not.toBe(NOUS_BLUE.toLowerCase())
+      expect(dark.toLowerCase()).not.toBe(SOCIS_CORAL.toLowerCase())
       expect(contrastRatio(dark, blue.darkColors!.sidebarBackground!)).toBeGreaterThanOrEqual(4.5)
     })
 
     it('adapts by lightness, holding the hue — so it still reads as the brand', () => {
-      const picked = hexToOklch(NOUS_BLUE)!
+      const picked = hexToOklch(SOCIS_CORAL)!
       const adapted = hexToOklch(blue.darkColors!.primary)!
 
       expect(Math.abs(adapted.h - picked.h)).toBeLessThan(3)

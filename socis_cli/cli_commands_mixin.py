@@ -2433,12 +2433,12 @@ class CLICommandsMixin:
                         from socis_cli.skin_engine import get_active_skin
                         _skin = get_active_skin()
                         label = _skin.get_branding("response_label", "◆ SOCIS")
-                        _resp_color = _maybe_remap_for_light_mode(_skin.get_color("response_border", "#CD7F32"))
-                        _resp_text = _maybe_remap_for_light_mode(_skin.get_color("banner_text", "#FFF8DC"))
+                        _resp_color = _maybe_remap_for_light_mode(_skin.get_color("response_border", "#C42248"))
+                        _resp_text = _maybe_remap_for_light_mode(_skin.get_color("banner_text", "#FFD9E1"))
                     except Exception:
                         label = "◆ SOCIS"
-                        _resp_color = "#CD7F32"
-                        _resp_text = "#FFF8DC"
+                        _resp_color = "#C42248"
+                        _resp_text = "#FFD9E1"
 
                     _chat_console = ChatConsole()
                     _chat_console.print(Panel(
@@ -2549,12 +2549,12 @@ class CLICommandsMixin:
                         from socis_cli.skin_engine import get_active_skin
                         _skin = get_active_skin()
                         label = _skin.get_branding("response_label", "◆ SOCIS")
-                        _resp_color = _maybe_remap_for_light_mode(_skin.get_color("response_border", "#CD7F32"))
-                        _resp_text = _maybe_remap_for_light_mode(_skin.get_color("banner_text", "#FFF8DC"))
+                        _resp_color = _maybe_remap_for_light_mode(_skin.get_color("response_border", "#C42248"))
+                        _resp_text = _maybe_remap_for_light_mode(_skin.get_color("banner_text", "#FFD9E1"))
                     except Exception:
                         label = "◆ SOCIS"
-                        _resp_color = "#CD7F32"
-                        _resp_text = "#FFF8DC"
+                        _resp_color = "#C42248"
+                        _resp_text = "#FFD9E1"
                     ChatConsole().print(Panel(
                         _render_final_assistant_content(answer, mode=self.final_response_markdown),
                         title=f"[{_resp_color} bold]{label} (btw)[/]",

@@ -26,38 +26,38 @@ All fields are optional. Missing values inherit from the ``default`` skin.
       background: "#0e0e12"               # App/base surface — the seed the TUI
                                           # status bar and the desktop GUI derive
                                           # their whole palette from (see below).
-      banner_border: "#CD7F32"            # Panel border color
-      banner_title: "#FFD700"             # Panel title text color
-      banner_accent: "#FFBF00"            # Section headers (Available Tools, etc.)
-      banner_dim: "#B8860B"               # Dim/muted text (separators, labels)
-      banner_text: "#FFF8DC"              # Body text (tool names, skill names)
-      ui_accent: "#FFBF00"               # General UI accent
-      ui_label: "#DAA520"                # UI labels (warm gold; teal clashed w/ default banner gold)
+      banner_border: "#C42248"            # Panel border color
+      banner_title: "#FF3366"             # Panel title text color
+      banner_accent: "#F04162"            # Section headers (Available Tools, etc.)
+      banner_dim: "#A81D3E"               # Dim/muted text (separators, labels)
+      banner_text: "#FFD9E1"              # Body text (tool names, skill names)
+      ui_accent: "#F04162"               # General UI accent
+      ui_label: "#D6486A"                # UI labels (mid coral, tuned against the banner coral)
       ui_ok: "#4caf50"                   # Success indicators
       ui_error: "#ef5350"                # Error indicators
       ui_warn: "#ffa726"                 # Warning indicators
-      ui_tool: "#FFBF00"                 # Tool-call markers (● / spinner); falls back to ui_accent
+      ui_tool: "#F04162"                 # Tool-call markers (● / spinner); falls back to ui_accent
       ui_thinking: "#CC9B1F"             # Reasoning/thinking text; falls back to banner_dim
       diff_added: "#dcffdc"              # Diff added-line background (TUI)
       diff_removed: "#ffdcdc"            # Diff removed-line background
       diff_added_word: "#248a3d"         # Diff added word-level foreground
       diff_removed_word: "#cf222e"       # Diff removed word-level foreground
-      syntax_string: "#FFBF00"           # Code strings; falls back to ui_accent
-      syntax_number: "#FFF8DC"           # Code numbers; falls back to ui_text
-      syntax_keyword: "#CD7F32"          # Code keywords; falls back to ui_border
+      syntax_string: "#F04162"           # Code strings; falls back to ui_accent
+      syntax_number: "#FFD9E1"           # Code numbers; falls back to ui_text
+      syntax_keyword: "#C42248"          # Code keywords; falls back to ui_border
       syntax_comment: "#CC9B1F"          # Code comments; falls back to banner_dim
-      prompt: "#FFF8DC"                  # Prompt text color
-      input_rule: "#CD7F32"              # Input area horizontal rule
-      response_border: "#FFD700"         # Response box border (ANSI)
+      prompt: "#FFD9E1"                  # Prompt text color
+      input_rule: "#C42248"              # Input area horizontal rule
+      response_border: "#FF3366"         # Response box border (ANSI)
       status_bar_bg: "#1a1a2e"           # Status bar background
       status_bar_text: "#C0C0C0"         # Status bar default text
-      status_bar_strong: "#FFD700"       # Status bar highlighted text
+      status_bar_strong: "#FF3366"       # Status bar highlighted text
       status_bar_dim: "#8B8682"          # Status bar separators/muted text
       status_bar_good: "#8FBC8F"         # Healthy context usage
-      status_bar_warn: "#FFD700"         # Warning context usage
+      status_bar_warn: "#FF3366"         # Warning context usage
       status_bar_bad: "#FF8C00"          # High context usage
       status_bar_critical: "#FF6B6B"     # Critical context usage
-      session_label: "#DAA520"           # Session label color
+      session_label: "#D6486A"           # Session label color
       session_border: "#8B8682"          # Session ID dim color
       status_bar_bg: "#1a1a2e"          # TUI status/usage bar background
       voice_status_bg: "#1a1a2e"        # TUI voice status background
@@ -118,7 +118,7 @@ USAGE
     from socis_cli.skin_engine import get_active_skin, list_skins, set_active_skin
 
     skin = get_active_skin()
-    print(skin.colors["banner_title"])    # "#FFD700"
+    print(skin.colors["banner_title"])    # "#FF3366"
     print(skin.get_branding("agent_name"))  # "SOCIS Agent"
 
     set_active_skin("ares")               # Switch to built-in ares skin
@@ -201,32 +201,32 @@ class SkinConfig:
 _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
     "default": {
         "name": "default",
-        "description": "Classic SOCIS — gold and kawaii",
+        "description": "Classic SOCIS — coral and kawaii",
         # Dark-authored. Values match the TUI's DARK_THEME so the classic CLI
-        # and the TUI render the same SOCIS gold.
+        # and the TUI render the same SOCIS coral.
         "colors": {
-            "banner_border": "#CD7F32",
-            "banner_title": "#FFD700",
-            "banner_accent": "#FFBF00",
-            "banner_dim": "#B8860B",
-            "banner_text": "#FFF8DC",
-            "ui_accent": "#FFBF00",
-            "ui_label": "#DAA520",
+            "banner_border": "#C42248",
+            "banner_title": "#FF3366",
+            "banner_accent": "#F04162",
+            "banner_dim": "#A81D3E",
+            "banner_text": "#FFD9E1",
+            "ui_accent": "#F04162",
+            "ui_label": "#D6486A",
             "ui_ok": "#4caf50",
             "ui_error": "#ef5350",
             "ui_warn": "#ffa726",
-            "prompt": "#FFF8DC",
-            "input_rule": "#CD7F32",
-            "response_border": "#FFD700",
+            "prompt": "#FFD9E1",
+            "input_rule": "#C42248",
+            "response_border": "#FF3366",
             "status_bar_bg": "#1a1a2e",
             "status_bar_text": "#C0C0C0",
-            "status_bar_strong": "#FFD700",
-            "status_bar_dim": "#8A7A4A",
+            "status_bar_strong": "#FF3366",
+            "status_bar_dim": "#8A4A5A",
             "status_bar_good": "#8FBC8F",
-            "status_bar_warn": "#FFD700",
+            "status_bar_warn": "#FF3366",
             "status_bar_bad": "#FF8C00",
             "status_bar_critical": "#FF6B6B",
-            "session_label": "#DAA520",
+            "session_label": "#D6486A",
             "session_border": "#8B8682",
             "completion_menu_bg": "#1a1a2e",
             "completion_menu_current_bg": "#333355",
@@ -235,31 +235,31 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "voice_status_bg": "#1a1a2e",
         },
         # Light overlay (merged onto `colors`; dark mode renders the vivid
-        # block above untouched). The goldenrod ladder: on white, the vivid
-        # #FFD700/#FFBF00 read as glare and WCAG-darkened mustard (#867000)
-        # reads as mud — the sweet spot is the statusbar's goldenrod family
-        # (#B8860B/#DAA520): hue kept, saturation tamed, mid luminance.
+        # block above untouched). The coral ladder: on white, the vivid
+        # #FF3366/#F04162 read as glare and an over-darkened maroon
+        # reads as mud — the sweet spot is the mid-coral family
+        # (#C42248/#D6486A): hue kept, saturation tamed, mid luminance.
         # Hierarchy on white: ink body 8.9:1 > fade 5.2 > label 3.7 >
         # muted 3.3 > title 2.7 > headers 2.4 (accents recede last, like
         # slate's pastels — the raw-canon look, just not neon).
         "light_colors": {
-            "banner_title": "#C8961E",
-            "banner_accent": "#D89B04",
-            "banner_dim": "#B8860B",
-            "banner_text": "#5C4718",
-            "ui_accent": "#D89B04",
-            "ui_label": "#A97E10",
+            "banner_title": "#C42248",
+            "banner_accent": "#D6486A",
+            "banner_dim": "#A3103A",
+            "banner_text": "#5C1020",
+            "ui_accent": "#D6486A",
+            "ui_label": "#A3103A",
             "ui_ok": "#2E7D32",
             "ui_error": "#C62828",
             "ui_warn": "#D97706",
-            "prompt": "#5C4718",
-            "response_border": "#C8961E",
-            "session_label": "#A97E10",
+            "prompt": "#5C1020",
+            "response_border": "#C42248",
+            "session_label": "#A3103A",
             "status_bar_text": "#6F6F6F",
-            "status_bar_strong": "#C8961E",
-            "status_bar_dim": "#9A8A5A",
+            "status_bar_strong": "#C42248",
+            "status_bar_dim": "#8A5A66",
             "status_bar_good": "#2E7D32",
-            "status_bar_warn": "#C8961E",
+            "status_bar_warn": "#C42248",
             "status_bar_bad": "#C2410C",
             "status_bar_critical": "#B91C1C",
             "shell_dollar": "#1E6FC0",
@@ -1001,9 +1001,9 @@ def get_prompt_toolkit_style_overrides() -> Dict[str, str]:
     # color schemes).  Skins can opt into a colored prompt by setting
     # `prompt` explicitly in their YAML.
     prompt = skin.get_color("prompt", "")
-    input_rule = skin.get_color("input_rule", "#CD7F32")
-    title = skin.get_color("banner_title", "#FFD700")
-    text = skin.get_color("banner_text", "#FFF8DC")
+    input_rule = skin.get_color("input_rule", "#C42248")
+    title = skin.get_color("banner_title", "#FF3366")
+    text = skin.get_color("banner_text", "#FFD9E1")
     dim = skin.get_color("banner_dim", "#555555")
     label = skin.get_color("ui_label", title)
     warn = skin.get_color("ui_warn", "#FF8C00")

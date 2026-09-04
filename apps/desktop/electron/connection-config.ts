@@ -783,7 +783,7 @@ function translateSelfProfileQuery(path, profile, backendProfile) {
   let parsed
 
   try {
-    parsed = new URL(rawPath, 'http://hermes.local')
+    parsed = new URL(rawPath, 'http://socis.local')
   } catch {
     return path
   }
@@ -829,7 +829,7 @@ function pathWithProfileScope(path, profile) {
   let parsed
 
   try {
-    parsed = new URL(rawPath, 'http://hermes.local')
+    parsed = new URL(rawPath, 'http://socis.local')
   } catch {
     return path
   }

@@ -16837,7 +16837,7 @@ def _resolve_chat_argv(
     # SERVER process env — and hosted/cloud deploys run the dashboard under
     # a process manager (container init, systemd) with no COLORTERM, so
     # chalk downgrades every hex color to the xterm 256 palette. The skin's
-    # bronze border #CD7F32 snaps to palette 173 (#D7875F, salmon-red) and
+    # deep-coral border #C42248 snaps to palette 173 (#D7875F, salmon-red) and
     # the banner reads red/yellow instead of gold. Local launches dodge
     # this only because the operator's interactive terminal leaks
     # COLORTERM=truecolor into os.environ. Backfill it for the PTY child;
@@ -18267,7 +18267,7 @@ def mount_spa(application: FastAPI):
 _BUILTIN_DASHBOARD_THEMES = [
     {"name": "default",       "label": "SOCIS Teal",         "description": "Classic dark teal — the canonical SOCIS look"},
     {"name": "default-large", "label": "SOCIS Teal (Large)", "description": "SOCIS Teal with bigger fonts and roomier spacing"},
-    {"name": "nous-blue",     "label": "Nous Blue",           "description": "Light mode — vivid Nous-blue accents on cream canvas"},
+    {"name": "nous-blue",     "label": "Cobalt",           "description": "Light mode — vivid blue accents on cream canvas"},
     {"name": "midnight",      "label": "Midnight",            "description": "Deep blue-violet with cool accents"},
     {"name": "ember",     "label": "Ember",          "description": "Warm crimson and bronze — forge vibes"},
     {"name": "mono",      "label": "Mono",           "description": "Clean grayscale — minimal and focused"},

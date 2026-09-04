@@ -18,7 +18,7 @@ test('a first-run bootstrap-needed remote apply connects without ensuring or boo
 
   const candidateRemote = {
     authMode: 'token',
-    baseUrl: 'https://gateway.example.com/hermes',
+    baseUrl: 'https://gateway.example.com/socis',
     source: 'settings',
     token: 'secret',
     wsUrl: 'wss://gateway.example.com/socis/api/ws?token=secret'

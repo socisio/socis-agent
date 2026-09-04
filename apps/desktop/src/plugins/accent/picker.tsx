@@ -37,11 +37,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // Named reference points, with their OKLCH hue — the ones worth comparing while
-// judging an accent. The hue spread across the blues is the whole reason this
-// control exists: they look far apart and are 6° apart.
+// judging an accent. The brand's own two seeds lead, followed by a spread of
+// well-known accents to compare against.
 const SWATCHES: ReadonlyArray<{ hex: string; name: string }> = [
-  { hex: '#0053FD', name: 'Nous blue · 263° (light seed)' },
-  { hex: '#4a84fe', name: 'Nous blue · 263° (dark seed)' },
+  { hex: '#C42248', name: 'SOCIS coral · 15° (light seed)' },
+  { hex: '#f04162', name: 'SOCIS coral · 15° (dark seed)' },
   { hex: '#1540B1', name: 'Psyche blue · 264°' },
   { hex: '#0969da', name: 'GitHub blue · 257°' },
   { hex: '#196d31', name: 'GitHub green · 148°' },

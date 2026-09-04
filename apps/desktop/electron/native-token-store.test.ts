@@ -404,7 +404,7 @@ test('the credential-bearing base URL stays the exact store key', () => {
   // The original key still round-trips a full set after a restart.
   assert.deepEqual(loadNativeTokenSet(CRED_GATEWAY, createFakeDisk(first.fileText()).io), TOKENS)
   // The redacted form is a log string, never a lookup key.
-  assert.equal(loadNativeTokenSet('https://gw.example.com/hermes', createFakeDisk(first.fileText()).io), null)
+  assert.equal(loadNativeTokenSet('https://gw.example.com/socis', createFakeDisk(first.fileText()).io), null)
 })
 
 test('an unparseable gateway URL logs a fixed placeholder rather than the raw value', () => {

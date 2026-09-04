@@ -33,7 +33,7 @@ Config schema (``~/.socis-agent/config.yaml``)::
 
     hooks:
       outbound:
-        - url: https://ci.example.com/hermes-events
+        - url: https://ci.example.com/socis-events
           events: [on_session_end, subagent_stop]
           # secret literal (discouraged) or env var name (preferred):
           secret_env: SOCIS_AGENT_OUTBOUND_WEBHOOK_SECRET

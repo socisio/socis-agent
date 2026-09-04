@@ -385,7 +385,7 @@ export const DARK_SEEDS: ThemeSeeds = {
   statusBad: '#FF8C00',
   statusCritical: '#FF6B6B',
   statusGood: '#8FBC8F',
-  statusWarn: '#FFD700',
+  statusWarn: '#FF3366',
   surface: '#0D1424',
   text: '#E2E8F0',
   warn: '#ffa726'
@@ -451,7 +451,7 @@ export const LIGHT_THEME: Theme = {
 // hierarchy, not a bug. So the floors are barely-visible rescues only:
 //   * DISPLAY 1.45 sits just above slate-pastel territory (#c9d1d9 = 1.54,
 //     passes raw, byte-identical) but just below true invisibility
-//     (default's cream #FFF8DC = 1.08, gets rescued).
+//     (default's coral-cream #FFD9E1 = 1.08, gets rescued).
 //   * SEMANTIC 2.2 for alert colors (ok/error/warn/status) — they carry
 //     meaning and must never vanish.
 // The lift itself is xterm.js's own multiplicative algorithm
@@ -463,8 +463,8 @@ export const LIGHT_THEME: Theme = {
 // terminal window compositing over a light editor, where xterm applies NO
 // contrast lift of its own (there is no solid bg to measure against) — the
 // beloved classic look is the authored palette rendered essentially RAW:
-// vivid #FFD700 gold (~1.36:1), not a WCAG-darkened mustard. So the light
-// floor is a near-invisible rescue only (catches cream #FFF8DC at 1.08 but
+// vivid #FF3366 coral (~1.36:1), not a WCAG-darkened mustard. So the light
+// floor is a near-invisible rescue only (catches cream #FFD9E1 at 1.08 but
 // leaves the golds untouched). Pixel-sampled target: #F5C242 (L61 S90),
 // which the previous 1.45 floor crushed to #867000 (L26) — the reported mud.
 const DISPLAY_MIN_CONTRAST = 1.45
@@ -589,7 +589,7 @@ export interface ThemeTones {
  * "reproduces the original hand-tuned tones" test for the contract):
  *
  *   dark muted  #CC9B1F ≈ desaturate(mix(accent, bg, .19), .16)  (err 3)
- *   dark label  #DAA520 ≈ desaturate(mix(accent, bg, .13), .16)  (err 3)
+ *   dark label  #D6486A ≈ desaturate(mix(accent, bg, .13), .16)  (err 3)
  *   dark status #C0C0C0 = grayOf(mix(text, bg, .24))             (err 0)
  *   light muted #946C08 ≈ desaturate(accent, .05)                (err 2)
  *   light label #8E6B13 ≈ desaturate(mix(accent, text, .03), .15) (err 2)

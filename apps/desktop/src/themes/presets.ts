@@ -161,20 +161,28 @@ export const githubTheme: DesktopTheme = {
 /** Catppuccin — Latte in light, Mocha in dark (Catppuccin.catppuccin-vsc). */
 
 /**
- * Nous — the canonical SOCIS desktop identity: GitHub's chrome carrying Nous
- * blue. Forked from github.github-vscode-theme (Light Default / Dark Default),
- * with only the accent family re-seeded; every neutral is upstream's.
+ * SOCIS — the canonical SOCIS desktop identity: GitHub's chrome carrying
+ * SOCIS coral. Forked from github.github-vscode-theme (Light Default / Dark
+ * Default), with only the accent family re-seeded; every neutral is upstream's.
  *
- * Two seeds, one blue. `#0053FD` is the brand color and reads at 5.4:1 on the
- * light sidebar, but only 3.6:1 on the near-black dark one — so dark carries
- * `#4a84fe`, the same hue (263°) lifted to clear AA at 5.9:1. The soft
- * surfaces below are mixed from those seeds in OKLab, which is what keeps a
- * saturated blue from drifting violet on its way to white.
+ * Two seeds, one coral — both at OKLCH hue 15, mirroring how the previous
+ * accent kept a single hue across modes. The raw brand coral `#FF3366` is
+ * only 3.3:1 on the light sidebar (below AA), so light carries `#C42248`
+ * (5.4:1) and dark carries `#F04162` (5.5:1 on the near-black sidebar). The
+ * soft surfaces below are mixed from those seeds at the same ratios the
+ * upstream theme used.
+ *
+ * NOTE: `name: 'nous'` is intentionally unchanged. It is a *persisted user
+ * setting* — the saved skin choice in user config. Renaming the key without a
+ * migration alias would silently reset every existing user's skin back to a
+ * default they never chose. Only the user-facing label/description changed.
+ * See `THEME_NAME_ALIASES` in the dashboard's themes/context.tsx for the
+ * pattern to follow if this key ever does need renaming.
  */
 export const nousTheme: DesktopTheme = {
   name: 'nous',
-  label: 'Nous',
-  description: 'GitHub chrome, Nous blue accent',
+  label: 'SOCIS',
+  description: 'GitHub chrome, SOCIS coral accent',
   colors: {
     background: '#ffffff',
     foreground: '#1f2328',
@@ -184,23 +192,23 @@ export const nousTheme: DesktopTheme = {
     mutedForeground: '#656d76',
     popover: '#ffffff',
     popoverForeground: '#1f2328',
-    primary: '#0053fd',
+    primary: '#c42248',
     primaryForeground: '#ffffff',
-    secondary: '#deeaff',
+    secondary: '#f8e4e9',
     secondaryForeground: '#1f2328',
-    accent: '#e3edff',
+    accent: '#f9e9ed',
     accentForeground: '#1f2328',
     border: '#d0d7de',
     input: '#ffffff',
-    ring: '#0053fd',
-    midground: '#0053fd',
+    ring: '#c42248',
+    midground: '#c42248',
     midgroundForeground: '#ffffff',
-    composerRing: '#0053fd',
+    composerRing: '#c42248',
     destructive: '#cf222e',
     destructiveForeground: '#ffffff',
     sidebarBackground: '#f6f8fa',
     sidebarBorder: '#d0d7de',
-    userBubble: '#dae7fd',
+    userBubble: '#f7e0e5',
     userBubbleBorder: '#d0d7de'
   },
   darkColors: {
@@ -212,23 +220,23 @@ export const nousTheme: DesktopTheme = {
     mutedForeground: '#7d8590',
     popover: '#161b22',
     popoverForeground: '#e6edf3',
-    primary: '#4a84fe',
+    primary: '#f04162',
     primaryForeground: '#161616',
-    secondary: '#1d2e4f',
+    secondary: '#3d1827',
     secondaryForeground: '#e6edf3',
-    accent: '#17243a',
+    accent: '#2a1520',
     accentForeground: '#e6edf3',
     border: '#30363d',
     input: '#0d1117',
-    ring: '#4a84fe',
-    midground: '#4a84fe',
+    ring: '#f04162',
+    midground: '#f04162',
     midgroundForeground: '#161616',
-    composerRing: '#4a84fe',
+    composerRing: '#f04162',
     destructive: '#f85149',
     destructiveForeground: '#ffffff',
     sidebarBackground: '#010409',
     sidebarBorder: '#30363d',
-    userBubble: '#07162c',
+    userBubble: '#1f0a14',
     userBubbleBorder: '#30363d'
   },
   typography: {
@@ -587,68 +595,75 @@ export const solarizedTheme: DesktopTheme = {
   }
 }
 
-const NOUS_ALT_BLUE = '#0053FD'
-const NOUS_ALT_NAVY = '#1540B1'
-const NOUS_ALT_CREAM = '#FFE6CB'
+const ALT_BLUE = '#0053FD'
+const ALT_NAVY = '#1540B1'
+const ALT_CREAM = '#FFE6CB'
 
-const nousAltTint = (pct: number) => `color-mix(in srgb, ${NOUS_ALT_BLUE} ${pct}%, #FFFFFF)`
-const nousAltTintTransparent = (pct: number) => `color-mix(in srgb, ${NOUS_ALT_BLUE} ${pct}%, transparent)`
+const altTint = (pct: number) => `color-mix(in srgb, ${ALT_BLUE} ${pct}%, #FFFFFF)`
+const altTintTransparent = (pct: number) => `color-mix(in srgb, ${ALT_BLUE} ${pct}%, transparent)`
 
 /**
- * Nous Alt — the hand-authored Nous from before the GitHub fork. Light is
- * glass neutrals with brand blue; dark is cream on mission-blue.
+ * Cobalt Alt — the hand-authored variant from before the GitHub fork. Light
+ * is glass neutrals with a cobalt accent; dark is cream on mission-blue.
+ *
+ * This theme's identity is blue end-to-end (its dark mode is cream text on a
+ * mission-blue canvas, not merely a blue accent), so it keeps its original
+ * palette rather than being re-seeded to SOCIS coral — re-seeding would leave
+ * coral text sitting on a blue background. It is an optional alternate skin,
+ * not the default. `name: 'nous-alt'` is kept for persisted-setting
+ * compatibility; only the label/description changed.
  */
 export const nousAltTheme: DesktopTheme = {
   name: 'nous-alt',
-  label: 'Nous Alt',
+  label: 'Cobalt Alt',
   description: 'Glass neutrals, cream on mission-blue',
   colors: {
     background: '#F8FAFF',
     foreground: '#17171A',
     card: '#FFFFFF',
     cardForeground: '#17171A',
-    muted: nousAltTint(5),
+    muted: altTint(5),
     mutedForeground: '#666678',
     popover: '#FFFFFF',
     popoverForeground: '#17171A',
-    primary: NOUS_ALT_BLUE,
+    primary: ALT_BLUE,
     primaryForeground: '#FCFCFC',
-    secondary: nousAltTint(7),
+    secondary: altTint(7),
     secondaryForeground: '#242432',
-    accent: nousAltTint(10),
+    accent: altTint(10),
     accentForeground: '#202030',
-    border: nousAltTintTransparent(22),
-    input: nousAltTintTransparent(30),
-    ring: NOUS_ALT_BLUE,
-    midground: NOUS_ALT_BLUE,
-    composerRing: NOUS_ALT_BLUE,
+    border: altTintTransparent(22),
+    input: altTintTransparent(30),
+    ring: ALT_BLUE,
+    midground: ALT_BLUE,
+    composerRing: ALT_BLUE,
     destructive: '#C72E4D',
     destructiveForeground: '#FFFFFF',
     sidebarBackground: '#F3F7FF',
-    sidebarBorder: nousAltTintTransparent(18),
-    userBubble: nousAltTint(6),
-    userBubbleBorder: nousAltTintTransparent(24)
+    sidebarBorder: altTintTransparent(18),
+    userBubble: altTint(6),
+    userBubbleBorder: altTintTransparent(24)
   },
   darkColors: {
     background: '#0D2F86',
-    foreground: NOUS_ALT_CREAM,
+    foreground: ALT_CREAM,
     card: '#12378F',
-    cardForeground: NOUS_ALT_CREAM,
+    cardForeground: ALT_CREAM,
     muted: '#183F9A',
     mutedForeground: '#B5C7F3',
     popover: '#123A96',
-    popoverForeground: NOUS_ALT_CREAM,
-    primary: NOUS_ALT_CREAM,
+    popoverForeground: ALT_CREAM,
+    primary: ALT_CREAM,
     primaryForeground: '#0D2F86',
     secondary: '#1B45A4',
     secondaryForeground: '#E0E8FF',
-    accent: NOUS_ALT_NAVY,
+    accent: ALT_NAVY,
     accentForeground: '#F0F4FF',
     border: '#3158AD',
     input: '#0B2566',
-    ring: NOUS_ALT_CREAM,
-    midground: NOUS_ALT_BLUE,
-    composerRing: NOUS_ALT_CREAM,
+    ring: ALT_CREAM,
+    midground: ALT_BLUE,
+    composerRing: ALT_CREAM,
     destructive: '#C0473A',
     destructiveForeground: '#FEF2F2',
     sidebarBackground: '#09286F',
@@ -845,6 +860,14 @@ export const slateTheme: DesktopTheme = {
   }
 }
 
+/**
+ * Registry keys are *persisted setting values* (a user's saved skin choice is
+ * stored by this key), so `nous` / `nous-alt` are deliberately unchanged by the
+ * SOCIS rebrand — renaming a key silently resets that user's skin to the
+ * default. The user-facing `label`/`description` on each theme carry the SOCIS
+ * branding instead. If a key ever must change, add a migration alias first
+ * (see `THEME_NAME_ALIASES` in the web dashboard's themes/context.tsx).
+ */
 export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
   nous: nousTheme,
   github: githubTheme,

@@ -100,19 +100,19 @@ class TestLightModeRemap:
     def test_remap_no_op_in_dark_mode(self, cli_mod, monkeypatch):
         monkeypatch.setenv("SOCIS_AGENT_LIGHT", "0")
         # Cache is None from the fixture; first call sticks at False.
-        assert cli_mod._maybe_remap_for_light_mode("#FFF8DC") == "#FFF8DC"
+        assert cli_mod._maybe_remap_for_light_mode("#FFD9E1") == "#FFD9E1"
 
     def test_remap_known_dark_color(self, cli_mod, monkeypatch):
         monkeypatch.setenv("SOCIS_AGENT_LIGHT", "1")
         # Force the detect cache to True for this test.
         cli_mod._LIGHT_MODE_CACHE = True
-        assert cli_mod._maybe_remap_for_light_mode("#FFF8DC") == "#1A1A1A"
-        assert cli_mod._maybe_remap_for_light_mode("#FFD700") == "#9A6B00"
+        assert cli_mod._maybe_remap_for_light_mode("#FFD9E1") == "#1A1A1A"
+        assert cli_mod._maybe_remap_for_light_mode("#FF3366") == "#A3103A"
 
     def test_remap_case_insensitive(self, cli_mod, monkeypatch):
         cli_mod._LIGHT_MODE_CACHE = True
         # Lowercase input should still remap.
-        assert cli_mod._maybe_remap_for_light_mode("#fff8dc") == "#1A1A1A"
+        assert cli_mod._maybe_remap_for_light_mode("#ffd9e1") == "#1A1A1A"
 
     def test_remap_unknown_color_passthrough(self, cli_mod, monkeypatch):
         cli_mod._LIGHT_MODE_CACHE = True
@@ -162,18 +162,18 @@ class TestSkinConfigHook:
         cli_mod._LIGHT_MODE_CACHE = True
         skin = SkinConfig(
             name="test",
-            colors={"banner_text": "#FFF8DC", "response_border": "#FFD700"},
+            colors={"banner_text": "#FFD9E1", "response_border": "#FF3366"},
         )
         # The wrapper kicks in at get_color, not at construction time.
         assert skin.get_color("banner_text") == "#1A1A1A"
-        assert skin.get_color("response_border") == "#9A6B00"
+        assert skin.get_color("response_border") == "#A3103A"
 
     def test_skin_color_passthrough_in_dark_mode(self, cli_mod, monkeypatch):
         from socis_cli.skin_engine import SkinConfig
 
         cli_mod._LIGHT_MODE_CACHE = False
-        skin = SkinConfig(name="test", colors={"banner_text": "#FFF8DC"})
-        assert skin.get_color("banner_text") == "#FFF8DC"
+        skin = SkinConfig(name="test", colors={"banner_text": "#FFD9E1"})
+        assert skin.get_color("banner_text") == "#FFD9E1"
 
 
 class TestOsc11DrainGuard:

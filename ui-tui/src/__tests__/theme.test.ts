@@ -51,7 +51,7 @@ describe('DEFAULT_THEME', () => {
   it('has color palette', async () => {
     const { DEFAULT_THEME } = await importThemeWithCleanEnv()
 
-    expect(DEFAULT_THEME.color.primary).toBe('#FFD700')
+    expect(DEFAULT_THEME.color.primary).toBe('#FF3366')
     expect(DEFAULT_THEME.color.error).toBe('#ef5350')
   })
 })
@@ -60,10 +60,10 @@ describe('LIGHT_THEME', () => {
   it('avoids bright-yellow accents unreadable on white backgrounds (#11300)', async () => {
     const { LIGHT_THEME } = await importThemeWithCleanEnv()
 
-    expect(LIGHT_THEME.color.primary).not.toBe('#FFD700')
-    expect(LIGHT_THEME.color.accent).not.toBe('#FFBF00')
-    expect(LIGHT_THEME.color.muted).not.toBe('#B8860B')
-    expect(LIGHT_THEME.color.statusWarn).not.toBe('#FFD700')
+    expect(LIGHT_THEME.color.primary).not.toBe('#FF3366')
+    expect(LIGHT_THEME.color.accent).not.toBe('#F04162')
+    expect(LIGHT_THEME.color.muted).not.toBe('#A81D3E')
+    expect(LIGHT_THEME.color.statusWarn).not.toBe('#FF3366')
   })
 
   it('keeps the same shape as DARK_THEME', async () => {
@@ -284,19 +284,19 @@ describe('fromSkin', () => {
 
     const theme = fromSkin(
       {
-        banner_accent: '#FFBF00',
-        banner_border: '#CD7F32',
-        banner_dim: '#B8860B',
-        banner_text: '#FFF8DC',
-        banner_title: '#FFD700',
-        prompt: '#FFF8DC'
+        banner_accent: '#F04162',
+        banner_border: '#C42248',
+        banner_dim: '#A81D3E',
+        banner_text: '#FFD9E1',
+        banner_title: '#FF3366',
+        prompt: '#FFD9E1'
       },
       {}
     )
 
-    expect(theme.color.primary).toBe('#FFD700')
-    expect(theme.color.accent).toBe('#FFBF00')
-    expect(theme.color.border).toBe('#CD7F32')
+    expect(theme.color.primary).toBe('#FF3366')
+    expect(theme.color.accent).toBe('#F04162')
+    expect(theme.color.border).toBe('#C42248')
     expect(theme.color.muted).toBe('ansi256(245)')
     expect(theme.color.text).toBe('ansi256(136)')
     expect(theme.color.prompt).toBe('ansi256(136)')
@@ -344,7 +344,7 @@ describe('fromSkin', () => {
       TERM_PROGRAM: 'Apple_Terminal'
     })
 
-    const theme = fromSkin({ banner_text: '#FFF8DC' }, {})
+    const theme = fromSkin({ banner_text: '#FFD9E1' }, {})
 
     // No ansi256 bucketing on truecolor terminals — a truly invisible cream
     // (1.08:1 on white) still gets the display shim's gentle light-mode rescue
@@ -356,7 +356,7 @@ describe('fromSkin', () => {
 
   it('normalizes Apple Terminal names before matching', async () => {
     const { fromSkin } = await importThemeWithEnv({ TERM_PROGRAM: ' Apple_Terminal ' })
-    const theme = fromSkin({ banner_text: '#FFF8DC' }, {})
+    const theme = fromSkin({ banner_text: '#FFD9E1' }, {})
 
     expect(theme.color.text).toBe('ansi256(136)')
   })
@@ -520,10 +520,10 @@ describe('background-aware adaptation (OSC-11 light terminals)', () => {
 
   it('rescues near-invisible colors with a hue-preserving multiplicative lift', async () => {
     const { contrastRatio, fromSkin } = await importThemeWithEnv({ SOCIS_AGENT_TUI_BACKGROUND: '#ffffff' })
-    // The default dark cream (#FFF8DC, 1.08:1 on white) is genuinely invisible.
-    const { color } = fromSkin({ banner_text: '#FFF8DC' }, {})
+    // The default dark coral-cream (#FFD9E1, 1.08:1 on white) is genuinely invisible.
+    const { color } = fromSkin({ banner_text: '#FFD9E1' }, {})
 
-    expect(color.text.toLowerCase()).not.toBe('#fff8dc')
+    expect(color.text.toLowerCase()).not.toBe('#ffd9e1')
     expect(contrastRatio(color.text, '#ffffff')!).toBeGreaterThanOrEqual(1.18)
 
     // Multiplicative lift preserves channel ordering (warm stays warm).

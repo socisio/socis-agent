@@ -2867,7 +2867,7 @@ export const ru = defineLocale({
     remoteSetupDesc: 'Введите URL вашего шлюза. SOCIS Agent Desktop определит, нужен токен или вход через браузер.',
     remoteUrlTitle: 'URL шлюза',
     remoteUrlDesc: 'Используйте базовый URL шлюза SOCIS, включая https:// для удалённых.',
-    remoteUrlPlaceholder: 'https://gateway.example.com/hermes',
+    remoteUrlPlaceholder: 'https://gateway.example.com/socis',
     probing: 'Определяем аутентификацию шлюза...',
     probeError: 'Не удалось подключиться к этому шлюзу SOCIS.',
     identityProvider: 'ваш провайдер аутентификации',

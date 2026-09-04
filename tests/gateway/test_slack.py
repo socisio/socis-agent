@@ -1195,12 +1195,12 @@ class TestStandaloneSendUserDmResolution:
             result = await _slack_mod._standalone_send(
                 config,
                 "C123",
-                "[SOCIS](https://example.com/hermes)",
+                "[SOCIS](https://example.com/socis)",
             )
 
         assert result["success"] is True
         payload = session.post.call_args.kwargs["json"]
-        assert payload["text"] == "<https://example.com/hermes|SOCIS>"
+        assert payload["text"] == "<https://example.com/socis|SOCIS>"
         assert payload["unfurl_links"] is False
         assert payload["unfurl_media"] is False
 

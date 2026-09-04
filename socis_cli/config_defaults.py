@@ -1840,7 +1840,7 @@ DEFAULT_CONFIG = {
         },
         # Public URL override (env: ``SOCIS_AGENT_DASHBOARD_PUBLIC_URL``).
         # When set, this is the complete authority — scheme + host +
-        # optional path prefix (e.g. ``https://example.com/hermes``) —
+        # optional path prefix (e.g. ``https://example.com/socis``) —
         # the OAuth ``redirect_uri`` is built from. Its exact hostname is also
         # trusted by the HTTP Host / WebSocket Origin guards and engages the
         # auth gate when it is non-loopback, even if the backend binds to

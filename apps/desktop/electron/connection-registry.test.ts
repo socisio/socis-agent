@@ -1791,7 +1791,7 @@ test('normalizeConnectionInput keeps filtered headers on remote/cloud, drops the
     {
       kind: 'remote',
       label: 'CF box',
-      url: 'https://hermes.example.com',
+      url: 'https://socis.example.com',
       authMode: 'token',
       token: { enc: 'x' },
       headers: {
@@ -1824,7 +1824,7 @@ test('mergeConnectionInput inherits stored headers when the editor payload omits
     id: 'cf',
     kind: 'remote' as const,
     label: 'CF box',
-    url: 'https://hermes.example.com',
+    url: 'https://socis.example.com',
     authMode: 'token' as const,
     headers: { 'CF-Access-Client-Id': { encoding: 'safeStorage', value: 'id' } }
   }
@@ -1844,7 +1844,7 @@ test('connectionDialFieldsChanged: a header change recycles live backends', () =
     id: 'cf',
     kind: 'remote',
     label: 'CF box',
-    url: 'https://hermes.example.com',
+    url: 'https://socis.example.com',
     authMode: 'token',
     token: { enc: 'x' },
     headers: { 'CF-Access-Client-Id': { encoding: 'safeStorage', value: 'id' } }
@@ -1871,7 +1871,7 @@ test('normalizeRegistry preserves stored headers on remote entries (v2 additive 
         id: 'cf',
         kind: 'remote',
         label: 'CF box',
-        url: 'https://hermes.example.com',
+        url: 'https://socis.example.com',
         authMode: 'token',
         token: { enc: 'x' },
         headers: {
@@ -1894,7 +1894,7 @@ test('migrateV1ToRegistry carries v1 remote headers into the registry entry', ()
   const registry = migrateV1ToRegistry({
     mode: 'remote',
     remote: {
-      url: 'https://hermes.example.com',
+      url: 'https://socis.example.com',
       authMode: 'token',
       token: { enc: 'x' },
       headers: { 'CF-Access-Client-Id': { encoding: 'safeStorage', value: 'id' } }

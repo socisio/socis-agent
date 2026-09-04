@@ -51,7 +51,7 @@ def _warn_if_malformed(source: str, raw: str) -> None:
 
     A non-empty value that normalises to ``""`` is almost always a
     missing scheme (``socis.example.com`` instead of
-    ``https://hermes.example.com``) — the single most common cause of
+    ``https://socis.example.com``) — the single most common cause of
     "I set SOCIS_AGENT_DASHBOARD_PUBLIC_URL but the OAuth callback is still
     http://". Without this warning the value is silently discarded and
     the dashboard falls back to reconstructing the redirect URI from

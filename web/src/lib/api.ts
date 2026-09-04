@@ -2,7 +2,7 @@ import { buildSOCISWebSocketUrl } from "@socis/shared";
 
 // The dashboard can be served either at the root of its host (e.g.
 // https://kanban.tilos.com/) or under a URL prefix when reverse-proxied
-// (e.g. https://mission-control.tilos.com/hermes/). The Python backend
+// (e.g. https://mission-control.tilos.com/socis/). The Python backend
 // injects ``window.__SOCIS_AGENT_BASE_PATH__`` into index.html based on the
 // incoming ``X-Forwarded-Prefix`` header so the SPA can address its own
 // ``/api/...`` and ``/dashboard-plugins/...`` URLs correctly without a
