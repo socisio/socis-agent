@@ -189,4 +189,4 @@ You've hit the Bedrock per-model rate limit. SOCIS automatically retries with ba
 
 For a fully automated deployment on EC2 with CloudFormation:
 
-**[sample-socis-agent-on-aws-with-bedrock](https://github.com/JiaDe-Wu/sample-hermes-agent-on-aws-with-bedrock)** — creates VPC, IAM role, EC2 instance, and configures Bedrock automatically. Deploy in any region with one click.
+**[sample-hermes-agent-on-aws-with-bedrock](https://github.com/JiaDe-Wu/sample-hermes-agent-on-aws-with-bedrock)** — creates VPC, IAM role, EC2 instance, and configures Bedrock automatically. Deploy in any region with one click.

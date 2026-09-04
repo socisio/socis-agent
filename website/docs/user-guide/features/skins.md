@@ -212,11 +212,11 @@ branding:
 tool_prefix: "▏"
 ```
 
-## SOCIS Mod — Visual Skin Editor
+## Hermes Mod — Visual Skin Editor
 
-[SOCIS Mod](https://github.com/cocktailpeanut/hermes-mod) is a community-built web UI for creating and managing skins visually. Instead of writing YAML by hand, you get a point-and-click editor with live preview.
+[Hermes Mod](https://github.com/cocktailpeanut/hermes-mod) is a community-built web UI for creating and managing skins visually. Instead of writing YAML by hand, you get a point-and-click editor with live preview.
 
-![SOCIS Mod skin editor](https://raw.githubusercontent.com/cocktailpeanut/hermes-mod/master/nous.png)
+![Hermes Mod skin editor](https://raw.githubusercontent.com/cocktailpeanut/hermes-mod/master/nous.png)
 
 **What it does:**
 
@@ -259,7 +259,7 @@ npm start
 6. Click **Save** to write the skin YAML to `~/.socis-agent/skins/`.
 7. Click **Activate** to set it as the current skin (updates `display.skin` in `config.yaml`).
 
-SOCIS Mod respects the `SOCIS_AGENT_HOME` environment variable, so it works with [profiles](/user-guide/profiles) too.
+Hermes Mod respects the `SOCIS_AGENT_HOME` environment variable, so it works with [profiles](/user-guide/profiles) too.
 
 ## Operational notes
 

@@ -52,7 +52,7 @@ That does not stop SOCIS from working well as a phone-native CLI agent — it ju
 This APT repository is **community-maintained by `@adybag14-cyber` and is not an official SOCIS distribution**. SOCIS does not build, sign, host, or audit these packages. Enabling the repository means trusting the contributor-operated repository and its signing key. Termux itself remains a Tier 2 / best-effort platform.
 :::
 
-For users who prefer a native package-manager install rather than building Python/Rust dependencies on the phone, a community-maintained APT repository is available. The repository bootstrap and packaging sources are published in [`adybag14-cyber/termux-python`](https://github.com/adybag14-cyber/termux-python), with the SOCIS package build in [`adybag14-cyber/termux-socis`](https://github.com/adybag14-cyber/termux-hermes).
+For users who prefer a native package-manager install rather than building Python/Rust dependencies on the phone, a community-maintained APT repository is available. The repository bootstrap and packaging sources are published in [`adybag14-cyber/termux-python`](https://github.com/adybag14-cyber/termux-python), with the SOCIS package build in [`adybag14-cyber/termux-hermes`](https://github.com/adybag14-cyber/termux-hermes).
 
 Install the repository key/source and SOCIS with:
 

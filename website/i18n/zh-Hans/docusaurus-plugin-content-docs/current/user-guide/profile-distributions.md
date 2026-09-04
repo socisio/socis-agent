@@ -395,7 +395,7 @@ cd ~/.socis-agent/profiles/polymarket-trader
 git init && git add . && git commit -m "v1.0"
 git tag v1.0.0
 # 发布到公开 GitHub 仓库
-git remote add origin https://github.com/you/hermes-polymarket-trader.git
+git remote add origin https://github.com/you/socis-polymarket-trader.git
 git push -u origin main --tags
 
 # 任何人

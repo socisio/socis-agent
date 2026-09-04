@@ -754,13 +754,13 @@ The NixOS module supports declarative plugin installation — no imperative `soc
 
 ### Directory Plugins (`extraPlugins`)
 
-For plugins that are just a source tree with `plugin.yaml` + `__init__.py` (e.g., [socis-lcm](https://github.com/stephenschoettler/hermes-lcm)):
+For plugins that are just a source tree with `plugin.yaml` + `__init__.py` (e.g., [hermes-lcm](https://github.com/stephenschoettler/hermes-lcm)):
 
 ```nix
 services.socis-agent.extraPlugins = [
   (pkgs.fetchFromGitHub {
     owner = "stephenschoettler";
-    repo = "socis-lcm";
+    repo = "hermes-lcm";
     rev = "v0.7.0";
     hash = "sha256-...";
   })
@@ -771,16 +771,16 @@ Plugins are symlinked into `$SOCIS_AGENT_HOME/plugins/` at activation time. SOCI
 
 ### Entry-Point Plugins (`extraPythonPackages`)
 
-For pip-packaged plugins that register via `[project.entry-points."socis_agent.plugins"]` (e.g., [rtk-socis](https://github.com/ogallotti/rtk-hermes)):
+For pip-packaged plugins that register via `[project.entry-points."socis_agent.plugins"]` (e.g., [rtk-hermes](https://github.com/ogallotti/rtk-hermes)):
 
 ```nix
 services.socis-agent.extraPythonPackages = [
   (pkgs.python312Packages.buildPythonPackage {
-    pname = "rtk-socis";
+    pname = "rtk-hermes";
     version = "1.0.0";
     src = pkgs.fetchFromGitHub {
       owner = "ogallotti";
-      repo = "rtk-socis";
+      repo = "rtk-hermes";
       rev = "v1.0.0";
       hash = "sha256-...";
     };

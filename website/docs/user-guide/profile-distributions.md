@@ -490,7 +490,7 @@ git init && git add . && git status   # confirm no secrets staged
 git commit -m "v1.0"
 git tag v1.0.0
 # Publish to a public GitHub repo
-git remote add origin https://github.com/you/hermes-polymarket-trader.git
+git remote add origin https://github.com/you/socis-polymarket-trader.git
 git push -u origin main --tags
 
 # Anyone

@@ -607,13 +607,13 @@ NixOS 模块支持声明式插件安装——无需命令式的 `socis plugins i
 
 ### 目录插件（`extraPlugins`）
 
-对于只包含 `plugin.yaml` + `__init__.py` 的源码树插件（例如 [socis-lcm](https://github.com/stephenschoettler/hermes-lcm)）：
+对于只包含 `plugin.yaml` + `__init__.py` 的源码树插件（例如 [hermes-lcm](https://github.com/stephenschoettler/hermes-lcm)）：
 
 ```nix
 services.socis-agent.extraPlugins = [
   (pkgs.fetchFromGitHub {
     owner = "stephenschoettler";
-    repo = "socis-lcm";
+    repo = "hermes-lcm";
     rev = "v0.7.0";
     hash = "sha256-...";
   })
@@ -624,16 +624,16 @@ services.socis-agent.extraPlugins = [
 
 ### 入口点插件（`extraPythonPackages`）
 
-对于通过 `[project.entry-points."socis_agent.plugins"]` 注册的 pip 打包插件（例如 [rtk-socis](https://github.com/ogallotti/rtk-hermes)）：
+对于通过 `[project.entry-points."socis_agent.plugins"]` 注册的 pip 打包插件（例如 [rtk-hermes](https://github.com/ogallotti/rtk-hermes)）：
 
 ```nix
 services.socis-agent.extraPythonPackages = [
   (pkgs.python312Packages.buildPythonPackage {
-    pname = "rtk-socis";
+    pname = "rtk-hermes";
     version = "1.0.0";
     src = pkgs.fetchFromGitHub {
       owner = "ogallotti";
-      repo = "rtk-socis";
+      repo = "rtk-hermes";
       rev = "v1.0.0";
       hash = "sha256-...";
     };

@@ -715,7 +715,7 @@ curl -s http://<host>:9119/api/status | jq '.auth_required, .auth_providers'
 # ["nous"]
 ```
 
-`GET /api/auth/me` then returns the verified session (`provider: nous`). For an internet-facing host, register with `--redirect-uri https://hermes.example.com/auth/callback` and set `SOCIS_AGENT_DASHBOARD_PUBLIC_URL` so the OAuth callback resolves to your public URL (see [Public URL override](#public-url-override)).
+`GET /api/auth/me` then returns the verified session (`provider: nous`). For an internet-facing host, register with `--redirect-uri https://socis.example.com/auth/callback` and set `SOCIS_AGENT_DASHBOARD_PUBLIC_URL` so the OAuth callback resolves to your public URL (see [Public URL override](#public-url-override)).
 
 ### Username/password provider (no OAuth IDP)
 
@@ -819,7 +819,7 @@ dashboard:
   oauth:
     provider: self-hosted
     self_hosted:
-      issuer: https://auth.example.com/application/o/hermes/   # required
+      issuer: https://auth.example.com/application/o/socis/   # required
       client_id: socis-dashboard                              # required
       scopes: "openid profile email"                           # optional (this is the default)
 ```
@@ -934,7 +934,7 @@ For deploys behind reverse proxies that don't reliably forward those headers (ma
 
 ```yaml
 dashboard:
-  public_url: "https://dashboard.example.com/hermes"
+  public_url: "https://dashboard.example.com/socis"
   trusted_proxies:
     - "172.20.0.5"
 ```
@@ -959,7 +959,7 @@ add a bounded CIDR for a dedicated proxy network when the address is dynamic:
 
 ```yaml
 dashboard:
-  public_url: "https://dashboard.example.com/hermes"
+  public_url: "https://dashboard.example.com/socis"
   trusted_proxies:
     - "172.20.0.0/24"
 ```
