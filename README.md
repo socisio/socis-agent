@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="SOCIS Agent" width="500%">
+  <img src="assets/banner.png" alt="SOCIS Agent" width="900">
 </p>
 
 # SOCIS Agent
