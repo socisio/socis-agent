@@ -252,7 +252,8 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "icon": "assets/icon.icns"
     },
     "dmg": {
       "title": "Install SOCIS",
@@ -282,7 +283,8 @@
         "nsis",
         "msi"
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "assets/icon.ico"
     },
     "linux": {
       "category": "Development",
@@ -292,7 +294,8 @@
         "AppImage",
         "deb",
         "rpm"
-      ]
+      ],
+      "icon": "assets/icon.png"
     },
     "nsis": {
       "oneClick": false,
