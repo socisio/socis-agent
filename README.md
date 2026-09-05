@@ -259,3 +259,4 @@ scripts/run_tests.sh
 MIT — see [LICENSE](LICENSE).
 
 Built by [SOCIS](https://socis.io).
+THANKS TO Nousresearch 
