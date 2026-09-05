@@ -149,6 +149,18 @@ def tag_release() -> int:
         print("Run: git push")
         return 1
 
+    # A LOCAL tag blocks `git tag` even when origin has none — deleting a tag
+    # on GitHub leaves the local ref behind, and `git tag -d` is easy to skip.
+    # Check it before the remote so the message names the right problem.
+    local = git("tag", "--list", tag, check=False)
+    if local:
+        local_sha = git("rev-parse", f"{tag}^{{commit}}", check=False)
+        print(f"Refusing to tag — {tag} already exists locally at {local_sha[:12]}.")
+        if local_sha != head:
+            print(f"  It does NOT point at HEAD ({head[:12]}).")
+        print(f"Delete it first:\n  git tag -d {tag}")
+        return 1
+
     # A tag that already exists points at whatever it pointed at when it was
     # created — re-using it rebuilds the OLD commit while looking current.
     existing = git("ls-remote", "--tags", "origin", f"refs/tags/{tag}", check=False)
