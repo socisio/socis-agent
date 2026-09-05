@@ -295,7 +295,7 @@
         "deb",
         "rpm"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icons"
     },
     "nsis": {
       "oneClick": false,
