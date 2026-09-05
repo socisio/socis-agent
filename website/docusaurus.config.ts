@@ -22,16 +22,23 @@ const config: Config = {
     },
   },
 
+  // English only. Building both locales doubles the output (~800 MB) because
+  // Docusaurus emits a complete standalone site per locale — every one of the
+  // ~1,150 pages, plus its own copy of the JS/CSS bundles and the static/
+  // directory — under build/zh-Hans/.
+  //
+  // The Chinese source still lives in i18n/zh-Hans/ and is not deleted. To
+  // publish it again, add 'zh-Hans' back to `locales` and restore the
+  // localeDropdown navbar item below.
+  //
+  // Do NOT instead build both and upload only build/ minus build/zh-Hans/ —
+  // the locale dropdown would link to pages that 404.
   i18n: {
     defaultLocale: 'en',
-    locales: ['en', 'zh-Hans'],
+    locales: ['en'],
     localeConfigs: {
       en: {
         label: 'English',
-      },
-      'zh-Hans': {
-        label: '简体中文',
-        htmlLang: 'zh-Hans',
       },
     },
   },
@@ -138,15 +145,6 @@ const config: Config = {
           to: '/download',
           label: 'Download',
           position: 'left',
-        },
-        {
-          type: 'localeDropdown',
-          position: 'right',
-        },
-        {
-          href: 'https://agent.socis.io',
-          label: 'Home',
-          position: 'right',
         },
         {
           href: 'https://github.com/socisio/socis-agent',
