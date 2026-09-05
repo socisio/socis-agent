@@ -21,6 +21,20 @@ on:
         required: true
         type: string
 
+# Action versions: GitHub is retiring the Node 20 action runtime, so every
+# action here is pinned to a major that declares `runs.using: node24`.
+#   checkout        v5
+#   setup-node      v5
+#   upload-artifact v6  <- NOT v5. v5 only had *preliminary* node24 support and
+#                          still defaulted to node20, so it does not clear the
+#                          deprecation warning.
+#   download-artifact v8
+#   action-gh-release v3  (v2.6.2 was the final Node 20 release, unmaintained)
+#
+# upload v6 + download v8 interoperate: every artifact action from v4 up shares
+# the same backend. One behavioural change in download v8 — it now ERRORS on a
+# hash mismatch where v4 only warned. Safe here because we upload and download
+# within the same workflow run, so the artifacts cannot have been altered.
 permissions:
   contents: write
 
@@ -50,14 +64,42 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag || github.ref }}
           # electron-builder stamps the build with the commit; a shallow
           # checkout leaves write-build-stamp.mjs with no SHA to record.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      # Resolve the branch this tag lives on, and the exact commit. The tag
+      # checkout above leaves a DETACHED HEAD, and the bootstrap installer's
+      # build.rs derives its pin from `git rev-parse --abbrev-ref HEAD` — which
+      # returns the literal string "HEAD" when detached, so it emits NO branch
+      # pin. With no commit pin either, the shipped installer has no pin at all
+      # and the install it creates ends up on a detached checkout with no
+      # origin/main remote-tracking ref. `socis update` then dies with:
+      #   "Branch 'main' does not exist locally or on origin"
+      # Baking both pins explicitly is what makes an installed app updatable.
+      - name: Resolve build pins
+        id: pins
+        shell: bash
+        run: |
+          commit="$(git rev-parse HEAD)"
+          # Which branches contain this tag's commit? Prefer main.
+          branch="$(git branch -r --contains "$commit" \
+                     | sed 's|.*origin/||' | grep -v '^HEAD' \
+                     | grep -x main || true)"
+          if [ -z "$branch" ]; then
+            branch="$(git branch -r --contains "$commit" \
+                       | sed 's|.*origin/||' | grep -v '^HEAD' \
+                       | head -n1 | tr -d ' ')"
+          fi
+          [ -n "$branch" ] || branch="main"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "Pinning installer to $branch @ $commit"
+
+      - uses: actions/setup-node@v5
         with:
           node-version: 26
 
@@ -72,32 +114,75 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # macOS: build both architectures explicitly. Without --arch the runner
-      # only produces its own (macos-latest is Apple Silicon), which would ship
-      # no Intel build at all. node-pty / get-windows are re-staged per target
-      # arch by scripts/stage-native-deps.mjs.
-      - name: Build installers (macOS universal coverage)
+      # macOS: build each architecture in its OWN electron-builder invocation.
+      #
+      # Do NOT collapse these into `--mac --arm64 --x64`. scripts/before-pack.mjs
+      # re-stages node-pty into the SHARED dist/node_modules/node-pty directory
+      # for each target arch; running both arches through one invocation lets
+      # the second staging overwrite the first, and the packaged app ships
+      # without its prebuild:
+      #   Error: Failed to load native module: pty.node,
+      #   Cannot find module './prebuilds/darwin-arm64//pty.node'
+      # Two sequential builds keep each stage-then-pack pair atomic.
+      #
+      # Both arches are needed: macos-latest is Apple Silicon, so building only
+      # the host arch would ship no Intel package at all.
+      - name: Build installers (macOS arm64)
         if: matrix.platform == 'mac'
         working-directory: apps/desktop
-        run: npm run build && npm run builder -- --mac --arm64 --x64
+        run: npm run build && npm run builder -- --mac --arm64
+        env:
+          SOCIS_AGENT_BUILD_PIN_BRANCH: ${{ steps.pins.outputs.branch }}
+          SOCIS_AGENT_BUILD_PIN_COMMIT: ${{ steps.pins.outputs.commit }}
+          # Developer ID signing + notarization. All five secrets must be set
+          # together; with any missing, scripts/notarize.mjs logs "Skipping
+          # notarization" and after-pack.mjs falls back to ad-hoc signing —
+          # the app launches but Gatekeeper still shows "Apple could not
+          # verify SOCIS is free of malware".
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # Only suppress identity auto-discovery when there is no certificate
+          # to find. Hardcoding false would make electron-builder ignore
+          # CSC_LINK even when it IS set, silently shipping an unsigned app.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+
+      - name: Build installers (macOS x64)
+        if: matrix.platform == 'mac'
+        working-directory: apps/desktop
+        run: npm run build && npm run builder -- --mac --x64
+        env:
+          SOCIS_AGENT_BUILD_PIN_BRANCH: ${{ steps.pins.outputs.branch }}
+          SOCIS_AGENT_BUILD_PIN_COMMIT: ${{ steps.pins.outputs.commit }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
 
       - name: Build installers
         if: matrix.platform != 'mac'
         working-directory: apps/desktop
         run: npm run dist:${{ matrix.platform }}
         env:
-          # Unsigned builds. Set these secrets to enable signing:
-          #   macOS    — CSC_LINK (base64 .p12), CSC_KEY_PASSWORD, and
-          #              APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER
-          #              for notarization.
-          #   Windows  — WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD.
-          # Without them the app still runs, but macOS shows Gatekeeper's
-          # "unidentified developer" prompt and Windows shows SmartScreen.
+          # Baked into the bootstrap installer by src-tauri/build.rs so the
+          # install it produces tracks a real branch and can self-update.
+          SOCIS_AGENT_BUILD_PIN_BRANCH: ${{ steps.pins.outputs.branch }}
+          SOCIS_AGENT_BUILD_PIN_COMMIT: ${{ steps.pins.outputs.commit }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # Windows/Linux only (see the `if:` above) — WIN_CSC_* drives Windows
+          # signing; without it users get a SmartScreen prompt. Linux packages
+          # are unsigned by design. CSC_IDENTITY_AUTO_DISCOVERY is a macOS
+          # concept and inert here; kept false so nothing probes a keychain.
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: socis-desktop-${{ matrix.platform }}
           path: |
@@ -119,7 +204,7 @@ jobs:
     if: always() && needs.build.result != 'cancelled'
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -128,7 +213,7 @@ jobs:
         run: ls -la dist/
 
       - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: dist/*
