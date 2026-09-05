@@ -339,6 +339,30 @@ export function stageNodePtyInto(srcRoot, destRoot, { platform = process.platfor
   // Validate every staged .node binary matches the target platform.
   validateStagedBinaries(destRoot, platform)
 
+  // ...and the target ARCH. validateStagedBinaries only classifies platform
+  // ("darwin"), so a darwin-x64 prebuild sitting in a darwin-arm64 build
+  // passes it silently. That is exactly how an arm64 .dmg shipped containing
+  // prebuilds/darwin-x64/pty.node — the app installed, launched, then died
+  // with "Cannot find module './prebuilds/darwin-arm64//pty.node'".
+  //
+  // The staged tree must contain the target's prebuild directory and no other,
+  // so a concurrent multi-arch build cannot leave another arch's binary behind.
+  const prebuildsRoot = join(destRoot, 'prebuilds')
+  if (existsSync(prebuildsRoot)) {
+    const expected = `${platform}-${arch}`
+    const strays = readdirSync(prebuildsRoot, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && e.name !== expected)
+      .map((e) => e.name)
+    if (strays.length > 0) {
+      throw new Error(
+        `[stage-native-deps] staged prebuilds for the wrong arch (target=${expected}): ` +
+          `found ${strays.join(', ')}.\n` +
+          `This means another target's staging raced this one — build each arch in ` +
+          `its own electron-builder invocation rather than passing several --arch flags.`
+      )
+    }
+  }
+
   console.log(`[stage-native-deps] staged node-pty (${platform}-${arch}) -> ${destRoot}`)
   return destRoot
 }
