@@ -111,18 +111,54 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # macOS: build both architectures explicitly. Without --arch the runner
-      # only produces its own (macos-latest is Apple Silicon), which would ship
-      # no Intel build at all. node-pty / get-windows are re-staged per target
-      # arch by scripts/stage-native-deps.mjs.
-      - name: Build installers (macOS universal coverage)
+      # macOS: build each architecture in its OWN electron-builder invocation.
+      #
+      # Do NOT collapse these into `--mac --arm64 --x64`. scripts/before-pack.mjs
+      # re-stages node-pty into the SHARED dist/node_modules/node-pty directory
+      # for each target arch; running both arches through one invocation lets
+      # the second staging overwrite the first, and the packaged app ships
+      # without its prebuild:
+      #   Error: Failed to load native module: pty.node,
+      #   Cannot find module './prebuilds/darwin-arm64//pty.node'
+      # Two sequential builds keep each stage-then-pack pair atomic.
+      #
+      # Both arches are needed: macos-latest is Apple Silicon, so building only
+      # the host arch would ship no Intel package at all.
+      - name: Build installers (macOS arm64)
         if: matrix.platform == 'mac'
         working-directory: apps/desktop
-        run: npm run build && npm run builder -- --mac --arm64 --x64
+        run: npm run build && npm run builder -- --mac --arm64
         env:
           SOCIS_AGENT_BUILD_PIN_BRANCH: ${{ steps.pins.outputs.branch }}
           SOCIS_AGENT_BUILD_PIN_COMMIT: ${{ steps.pins.outputs.commit }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Developer ID signing + notarization. All five secrets must be set
+          # together; with any missing, scripts/notarize.mjs logs "Skipping
+          # notarization" and after-pack.mjs falls back to ad-hoc signing —
+          # the app launches but Gatekeeper still shows "Apple could not
+          # verify SOCIS is free of malware".
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # Only suppress identity auto-discovery when there is no certificate
+          # to find. Hardcoding false would make electron-builder ignore
+          # CSC_LINK even when it IS set, silently shipping an unsigned app.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+
+      - name: Build installers (macOS x64)
+        if: matrix.platform == 'mac'
+        working-directory: apps/desktop
+        run: npm run build && npm run builder -- --mac --x64
+        env:
+          SOCIS_AGENT_BUILD_PIN_BRANCH: ${{ steps.pins.outputs.branch }}
+          SOCIS_AGENT_BUILD_PIN_COMMIT: ${{ steps.pins.outputs.commit }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
 
       - name: Build installers
         if: matrix.platform != 'mac'
@@ -133,13 +169,12 @@ jobs:
           # install it produces tracks a real branch and can self-update.
           SOCIS_AGENT_BUILD_PIN_BRANCH: ${{ steps.pins.outputs.branch }}
           SOCIS_AGENT_BUILD_PIN_COMMIT: ${{ steps.pins.outputs.commit }}
-          # Unsigned builds. Set these secrets to enable signing:
-          #   macOS    — CSC_LINK (base64 .p12), CSC_KEY_PASSWORD, and
-          #              APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER
-          #              for notarization.
-          #   Windows  — WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD.
-          # Without them the app still runs, but macOS shows Gatekeeper's
-          # "unidentified developer" prompt and Windows shows SmartScreen.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # Windows/Linux only (see the `if:` above) — WIN_CSC_* drives Windows
+          # signing; without it users get a SmartScreen prompt. Linux packages
+          # are unsigned by design. CSC_IDENTITY_AUTO_DISCOVERY is a macOS
+          # concept and inert here; kept false so nothing probes a keychain.
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
