@@ -1738,6 +1738,32 @@ EOF
         fi
     fi
 
+    # Guarantee the checkout can self-update, whatever it was pinned to.
+    #
+    # `git clone --single-branch --branch X` narrows remote.origin.fetch to X
+    # alone. When X is a TAG (the bootstrap installer bakes the release tag, and
+    # --commit detaches at one) the refspec ends up as
+    #   +refs/tags/v0.1.0:refs/tags/v0.1.0
+    # so origin/$BRANCH is never fetched and the tree sits on a detached HEAD
+    # with no branch to return to. `socis update` then dies with:
+    #   ✗ Branch 'main' does not exist locally or on origin
+    #   fatal: 'origin/main' is not a commit and a branch 'main' cannot be
+    #         created from it
+    # and a plain `git fetch` cannot repair it, because the refspec excludes the
+    # branch. Widening the refspec and fetching the branch leaves the pinned
+    # commit checked out (still detached, which is intended for a pinned
+    # install) while giving `socis update` the origin/$BRANCH ref it needs.
+    if ! git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" >/dev/null 2>&1; then
+        log_info "Ensuring origin/$BRANCH is tracked (required by socis update)..."
+        git remote set-branches origin "$BRANCH" 2>/dev/null || true
+        if git fetch --quiet origin "$BRANCH" 2>/dev/null; then
+            log_success "Tracking origin/$BRANCH"
+        else
+            log_warn "Could not fetch origin/$BRANCH — 'socis update' may not work."
+            log_warn "Repair with: cd \"$(pwd)\" && git remote set-branches origin $BRANCH && git fetch origin $BRANCH"
+        fi
+    fi
+
     log_success "Repository ready"
 }
 
