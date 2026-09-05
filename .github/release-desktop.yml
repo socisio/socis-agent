@@ -28,10 +28,13 @@ on:
 #   upload-artifact v6  <- NOT v5. v5 only had *preliminary* node24 support and
 #                          still defaulted to node20, so it does not clear the
 #                          deprecation warning.
-#   download-artifact v4 is left as-is: all artifact actions from v4 up share
-#                          the same backend and interoperate, so mixing v6
-#                          upload with v4 download is safe. Bump it when you
-#                          next touch this file.
+#   download-artifact v8
+#   action-gh-release v3  (v2.6.2 was the final Node 20 release, unmaintained)
+#
+# upload v6 + download v8 interoperate: every artifact action from v4 up shares
+# the same backend. One behavioural change in download v8 — it now ERRORS on a
+# hash mismatch where v4 only warned. Safe here because we upload and download
+# within the same workflow run, so the artifacts cannot have been altered.
 permissions:
   contents: write
 
@@ -201,7 +204,7 @@ jobs:
     if: always() && needs.build.result != 'cancelled'
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -210,7 +213,7 @@ jobs:
         run: ls -la dist/
 
       - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: dist/*
