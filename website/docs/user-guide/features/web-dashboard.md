@@ -205,9 +205,6 @@ If `/api/status` shows the gate is on with the `"basic"` provider and Desktop *s
 
 A form-based editor for `config.yaml`. All 150+ configuration fields are auto-discovered from `DEFAULT_CONFIG` and organized into tabbed categories:
 
-![Config admin page — section filters on the left, auto-discovered fields on the right](/img/dashboard/admin-config.png)
-
-
 - **model** — default model, provider, base URL, reasoning settings
 - **terminal** — backend (local/docker/ssh/modal), timeout, shell preferences
 - **display** — skin, tool progress, resume display, spinner settings
@@ -262,8 +259,6 @@ Browse and inspect all agent sessions. Each row shows the session title, source 
 - **Prune** — the header "Prune old sessions" button deletes ended sessions older than N days.
 - **Delete** — remove a session and its message history with the trash icon.
 
-![Sessions admin page — stats bar, prune, and per-row rename / export / delete](/img/dashboard/admin-sessions.png)
-
 ### Logs
 
 View agent, gateway, and error log files with filtering and live tailing.
@@ -316,8 +311,6 @@ Browse, search, and toggle installed skills and toolsets, and install new ones f
 - **Toolsets** — a separate view shows built-in toolsets (file operations, web browsing, etc.) with their active/inactive status, setup requirements, and list of included tools
 - **Browse hub** — a third view searches the skill hub across all sources (the same as `socis skills search`), installs any result by identifier with a live install log, and offers an "Update all" button to refresh installed skills.
 
-![Skills admin page — the Browse hub view: search, install, and update](/img/dashboard/admin-skills-hub.png)
-
 ### MCP
 
 Manage [MCP](./mcp) servers without the CLI. The same `mcp_servers`
@@ -336,8 +329,6 @@ catalog) and install any of them with one click. Entries that need API keys
 prompt for them inline; the values go to `.env`. This is the same catalog
 `socis mcp catalog` / `socis mcp install` use.
 
-![MCP admin page — your servers with enable/disable toggles, plus the install catalog](/img/dashboard/admin-mcp.png)
-
 ### Webhooks
 
 Manage dynamic [webhook subscriptions](/user-guide/messaging/webhooks). The
@@ -349,8 +340,6 @@ hint when it isn't.
 - **List** — each subscription shows its URL, events, and delivery target
 - **Delete** — remove a subscription
 
-![Webhooks admin page — subscriptions with enable/disable toggles](/img/dashboard/admin-webhooks.png)
-
 ### Pairing
 
 Approve and revoke messaging users without the CLI — how a remote admin
@@ -360,8 +349,6 @@ onboards Telegram/Discord/etc. users to a paired gateway. Full parity with
 - **Pending requests** — each shows platform, code, user, and age, with an Approve button
 - **Approved users** — each shows platform and user, with a Revoke button
 - **Clear pending** — drop all outstanding pairing codes
-
-![Pairing admin page](/img/dashboard/admin-pairing.png)
 
 ### Channels
 
@@ -375,8 +362,6 @@ the API server and webhook endpoints) with its live connection status.
 - **Enable / disable** — toggle a channel on or off. The credential stays on disk; only the active state changes.
 - **Test** — check whether the channel is configured, enabled, and reporting a live connection from the gateway.
 - **Restart gateway** — credentials are written to `~/.socis-agent/.env` and the enabled flag to `config.yaml`; the gateway connects each enabled channel on its next restart, which you can trigger right from the page.
-
-![Channels admin page — every messaging platform with status, enable toggles, and per-platform setup forms](/img/dashboard/admin-channels.png)
 
 ### System
 
@@ -392,15 +377,7 @@ A consolidated administration panel for installation-wide operations:
 - **Checkpoints** — see the `/rollback` shadow store size and prune it
 - **Shell hooks** — list configured hooks with their consent + executable status, **create** a hook (event, command, matcher, timeout, with an opt-in consent grant), and remove one. Hooks run arbitrary commands, so the create form carries a security warning and the hook only fires after consent is granted.
 
-![System admin page — host stats and Nous Portal status](/img/dashboard/admin-system-top.png)
-
-![System admin page — skill curator, gateway, memory, and credential pool](/img/dashboard/admin-system-curator.png)
-
-![System admin page — operations, checkpoints, and shell hooks](/img/dashboard/admin-system-ops.png)
-
 Creating a shell hook (note the consent checkbox and the run-arbitrary-commands warning):
-
-![New shell hook modal](/img/dashboard/admin-hook-create.png)
 
 :::warning Security
 The web dashboard reads and writes your `.env` file, which contains API keys and secrets. It binds to `127.0.0.1` by default — only accessible from your local machine, with no login required. Binding to any non-loopback address (including `0.0.0.0`) engages the [auth gate](#authentication-gated-mode): the server refuses to start until an auth provider (username/password or OAuth) is configured.

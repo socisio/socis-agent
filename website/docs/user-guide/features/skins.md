@@ -216,8 +216,6 @@ tool_prefix: "▏"
 
 [Hermes Mod](https://github.com/cocktailpeanut/hermes-mod) is a community-built web UI for creating and managing skins visually. Instead of writing YAML by hand, you get a point-and-click editor with live preview.
 
-![Hermes Mod skin editor](https://raw.githubusercontent.com/cocktailpeanut/hermes-mod/master/nous.png)
-
 **What it does:**
 
 - Lists all built-in and custom skins

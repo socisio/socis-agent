@@ -812,18 +812,6 @@ $ socis model
 
 选择任务，选择 provider（OAuth 流程打开浏览器；API 密钥 provider 提示输入），选择模型。更改持久化到 `config.yaml` 中的 `auxiliary.<task>.*`。与主模型选择器相同的机制 —— 无需学习额外语法。
 
-### 视频教程
-
-<div style={{position: 'relative', width: '100%', aspectRatio: '16 / 9', marginBottom: '1.5rem'}}>
-  <iframe
-    src="https://www.youtube.com/embed/NoF-YajElIM"
-    title="SOCIS Agent — Auxiliary Models Tutorial"
-    style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0}}
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    allowFullScreen
-  />
-</div>
-
 ### 通用配置模式
 
 SOCIS 中的每个模型槽位 —— 辅助任务、压缩、回退 —— 使用相同的三个旋钮：

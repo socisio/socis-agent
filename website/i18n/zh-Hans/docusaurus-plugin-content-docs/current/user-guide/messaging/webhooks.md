@@ -10,18 +10,6 @@ description: "接收来自 GitHub、GitLab 等服务的事件以触发 SOCIS age
 
 agent 处理事件后，可通过在 PR 上发布评论、向 Telegram/Discord 发送消息或记录结果来响应。
 
-## 视频教程
-
-<div style={{position: 'relative', width: '100%', aspectRatio: '16 / 9', marginBottom: '1.5rem'}}>
-  <iframe
-    src="https://www.youtube.com/embed/WNYe5mD4fY8"
-    title="SOCIS Agent — Webhooks Tutorial"
-    style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0}}
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    allowFullScreen
-  />
-</div>
-
 ---
 
 ## 快速开始

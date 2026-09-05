@@ -8,21 +8,6 @@ description: "与 SOCIS Agent 的第一次对话——从安装到开始聊天�
 
 本指南带你从零开始搭建一个能够应对实际使用的 SOCIS 环境。完成安装、选择 provider（服务提供商）、验证对话正常运行，并了解出现问题时的处理方法。
 
-## 更喜欢看视频？
-
-**Onchain AI Garage** 制作了一套涵盖安装、配置和基本命令的 Masterclass 演示视频——如果你更习惯跟着视频操作，这是本页的绝佳补充。更多内容请查看完整的 [SOCIS Agent 教程与使用案例](https://www.youtube.com/channel/UCqB1bhMwGsW-yefBxYwFCCg) 播放列表。
-
-<div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '100%', marginBottom: '1.5rem'}}>
-  <iframe
-    style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}}
-    src="https://www.youtube-nocookie.com/embed/R3YOGfTBcQg"
-    title="SOCIS Agent Masterclass: Installation, Setup, Basic Commands"
-    frameBorder="0"
-    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    allowFullScreen
-  ></iframe>
-</div>
-
 ## 适用人群
 
 - 全新用户，想以最短路径完成可用配置

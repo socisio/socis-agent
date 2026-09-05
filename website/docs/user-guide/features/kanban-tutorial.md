@@ -18,8 +18,6 @@ Throughout the tutorial, **code blocks labelled `bash` are commands *you* run.**
 
 ## The board at a glance
 
-![Kanban board overview](/img/kanban-tutorial/01-board-overview.png)
-
 Six columns, left to right:
 
 - **Triage** — raw ideas. By default the dispatcher auto-runs the **decomposer** on tasks here: the built-in decomposer uses `auxiliary.kanban_decomposer`, reads your profile roster + descriptions, and produces a graph of child tasks routed to the best-fit specialists. The original task is held alive as the parent so its assignee (`kanban.orchestrator_profile`, or the active default profile when unset) wakes back up to judge completion when everything finishes. Flip the **Orchestration: Auto/Manual** pill at the top of the kanban page to switch modes. In Manual mode click **⚗ Decompose** on a card, or run `socis kanban decompose <id>` / `/kanban decompose <id>`. For single tasks that don't need fan-out, **✨ Specify** does a one-shot spec rewrite (goal, approach, acceptance criteria) and promotes to `todo`. Configure the models under `auxiliary.kanban_decomposer` and `auxiliary.triage_specifier` in `config.yaml`. See [Auto vs Manual orchestration](./kanban#auto-vs-manual-orchestration) in the main Kanban guide.
@@ -34,8 +32,6 @@ The top bar has filters for search, tenant, and assignee, plus a `Lanes by profi
 ### Flat view
 
 If the profile lanes are noisy, toggle "Lanes by profile" off and the In Progress column collapses to a single flat list ordered by claim time:
-
-![Board with lanes by profile off](/img/kanban-tutorial/02-board-flat.png)
 
 ## Story 1 — Solo dev shipping a feature
 
@@ -90,8 +86,6 @@ When `SCHEMA` hits `done`, the dependency engine promotes `API` to `ready` autom
 
 Click the completed schema task on the board and the drawer shows everything:
 
-![Solo dev — completed schema task drawer](/img/kanban-tutorial/03-drawer-schema-task.png)
-
 The Run History section at the bottom is the key addition. One attempt: outcome `completed`, worker `@backend-dev`, duration, timestamp, and the handoff summary in full. The metadata blob (`changed_files`, `decisions`) is stored on the run too and surfaced to any downstream worker that reads this parent.
 
 You can inspect the same data from your terminal at any time — these commands are **you** peeking at the board, not the worker:
@@ -135,8 +129,6 @@ socis gateway start
 
 Now filter the board to `content-ops` (or just search for "Transcribe") and you get this:
 
-![Fleet view filtered to transcribe tasks](/img/kanban-tutorial/07-fleet-transcribes.png)
-
 Two transcribes done, one running, two ready waiting for the next dispatcher tick. The In Progress column is grouped by profile (the "Lanes by profile" default) so you see each worker's active task without scanning a mixed list. The dispatcher will promote the next ready task to running as soon as the current one completes. With three daemons working on three assignee pools in parallel, the whole content queue drains without further human input.
 
 **Everything Story 1 said about structured handoff still applies here.** A translator worker completing a call emits `kanban_complete(summary="translated 4 pages, style matched existing marketing voice", metadata={"duration_seconds": 720, "tokens_used": 2100})` — useful for analytics and for any downstream task that depends on this one.
@@ -146,8 +138,6 @@ Two transcribes done, one running, two ready waiting for the next dispatcher tic
 This is where Kanban earns its keep over a flat TODO list. A PM writes a spec. An engineer implements it. A reviewer rejects the first attempt. The engineer tries again with changes. The reviewer approves.
 
 The dashboard view, filtered by `auth-project`:
-
-![Pipeline view for a multi-role feature](/img/kanban-tutorial/08-pipeline-auth.png)
 
 The screenshot uses the **pre-created downstream card** model: the implementation card has a dedicated reviewer child. In that model the engineer must call `kanban_complete` when implementation is ready so the reviewer child can leave `todo`. Never block the implementation parent merely to ask for review.
 
@@ -200,8 +190,6 @@ The task's run history now records `review_requested → changes_requested → r
 
 If you intentionally use the downstream-card model shown in the screenshot, the reviewer opens `Review password reset PR` after its implementation parent completes:
 
-![Reviewer's drawer view of the pipeline](/img/kanban-tutorial/09-drawer-pipeline-review.png)
-
 The reviewer card's `worker_context` includes the completed implementation handoff. That is a separate card workflow; do not combine it with same-card `kanban_request_review` or you will duplicate the review lane.
 
 ## Story 4 — Circuit breaker and crash recovery
@@ -221,8 +209,6 @@ socis kanban create "Deploy to staging (missing creds)" \
 The dispatcher tries to spawn the worker. Spawn fails (`RuntimeError: AWS_ACCESS_KEY_ID not set`). The dispatcher releases the claim, increments a failure counter, and tries again next tick. Because this example sets `--max-retries 3`, the circuit trips after three consecutive failures: the task goes to `blocked` with outcome `gave_up`. If you omit the flag, SOCIS uses `kanban.failure_limit` (default: 2). No more retries until a human unblocks it.
 
 Click the blocked task:
-
-![Circuit breaker — 2 spawn_failed + 1 gave_up](/img/kanban-tutorial/11-drawer-gave-up.png)
 
 Three runs, all with the same error on the `error` field. The first two are `spawn_failed` (retryable), the third is `gave_up` (terminal). The event log above shows the full sequence: `created → claimed → spawn_failed → claimed → spawn_failed → claimed → gave_up`.
 
@@ -254,8 +240,6 @@ The example in the seed data is a migration that was running out of memory:
 ```
 
 The drawer shows the full two-attempt history:
-
-![Crash and recovery — 1 crashed + 1 completed](/img/kanban-tutorial/06-drawer-crash-recovery.png)
 
 Run 1 — `crashed`, with the error `OOM kill at row 2.3M (process 99999 gone)`. Run 2 — `completed`, with `"strategy": "chunked with LIMIT + WHERE id > last_id"` in its metadata. The retrying worker saw the crash of run 1 in its context and picked a safer strategy; the metadata makes it obvious to a future observer (or postmortem writer) what changed.
 
@@ -297,8 +281,6 @@ Prefer a fresh worktree/branch for the remediation card. Checking out the origin
 ## Inspecting a task currently running
 
 For completeness — here's the drawer of a task still in flight (the API implementation from Story 1, claimed by `backend-dev` but not yet complete):
-
-![Claimed, in-flight task](/img/kanban-tutorial/10-drawer-in-flight.png)
 
 Status is `Running`. The active run appears in the Run History section with outcome `active` and no `ended_at`. If this worker dies or times out, the dispatcher closes this run with the appropriate outcome and opens a new one on the next claim — the attempt row never disappears.
 
