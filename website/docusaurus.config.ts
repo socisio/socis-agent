@@ -99,20 +99,24 @@ const config: Config = {
 
   themeConfig: {
     image: 'img/socis-agent-banner.png',
-    // Algolia DocSearch (replaces @easyops-cn/docusaurus-search-local).
-    // The local plugin shipped a ~16 MB client-side lunr index that every
-    // visitor downloaded and hydrated before their first result; DocSearch
-    // answers from Algolia's servers with no client index at all. These are
-    // public search-only credentials — safe to commit (the admin key is not
-    // in the repo). Index is populated by the Algolia Crawler configured at
-    // crawler.algolia.com; contextualSearch scopes results to the active
-    // locale via the docusaurus_tag/lang facets the crawler records carry.
-    algolia: {
-      appId: '2JLBVEYZN5',
-      apiKey: '8fda2a49223ce185ac30c2dbf6898a07',
-      indexName: 'socis docs',
-      contextualSearch: true,
-    },
+    // Search is currently disabled.
+    //
+    // This block previously carried Hermes Agent's Algolia DocSearch
+    // credentials verbatim — the appId and search-only apiKey it carried
+    // belong to Nous Research's Algolia application, not ours. The rebrand
+    // renamed indexName from 'hermes docs' to 'socis docs' but left the
+    // credentials, so DocSearch queried an index that does not exist in that
+    // application and the search box silently returned nothing.
+    //
+    // To re-enable, apply for DocSearch (free for open-source docs) at
+    // https://docsearch.algolia.com/apply — Algolia crawls agent.socis.io and
+    // issues OUR appId, search-only apiKey and index name. Restore the block
+    // with those values. Do not reuse another project's credentials.
+    //
+    // The alternative is @easyops-cn/docusaurus-search-local, which this site
+    // used before: it works with no third-party account, at the cost of a
+    // large client-side index every visitor downloads before their first
+    // result.
     colorMode: {
       defaultMode: 'dark',
       respectPrefersColorScheme: true,

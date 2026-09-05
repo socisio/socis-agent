@@ -54,7 +54,25 @@ function tryExec(cmd, opts) {
 export function fromCI(env = process.env) {
   const sha = env.GITHUB_SHA
   if (!sha) return null
-  const branch = env.GITHUB_REF_NAME || env.GITHUB_HEAD_REF || null
+  // On a TAG push GITHUB_REF_NAME is the tag ("v0.1.0"), not a branch. The
+  // desktop bootstrap passes this straight to install.sh as --branch, so a
+  // release build produced installs that cloned and tracked origin/v0.1.0 —
+  // a tag ref that never advances. `socis update` then reports:
+  //   ✗ Branch 'main' does not exist locally or on origin
+  //
+  // The release workflow resolves the real branch containing the tag and
+  // exports it as SOCIS_AGENT_BUILD_PIN_BRANCH; prefer that. Fall back to
+  // GITHUB_REF_NAME only when the ref is genuinely a branch
+  // (GITHUB_REF_TYPE === "branch"), and to the default branch otherwise.
+  const pinned = (env.SOCIS_AGENT_BUILD_PIN_BRANCH || "").trim()
+  let branch = pinned || null
+  if (!branch) {
+    if (env.GITHUB_REF_TYPE === "tag") {
+      branch = env.GITHUB_HEAD_REF || FALLBACK_BRANCH
+    } else {
+      branch = env.GITHUB_REF_NAME || env.GITHUB_HEAD_REF || null
+    }
+  }
   return {
     commit: sha,
     branch: branch,
