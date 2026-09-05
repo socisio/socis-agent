@@ -1,0 +1,244 @@
+# SOCIS Agent
+
+> The self-improving AI agent built by SOCIS. A terminal-native autonomous coding and task agent with persistent memory, agent-created skills, and a messaging gateway that lives on 21+ messaging platforms — 19 native to the gateway plus IRC and Microsoft Teams via plugins (Telegram, Discord, Slack, SMS, Matrix, ...). Runs on local, Docker, SSH, Daytona, Modal, or Singularity backends. Works with Nous Portal, OpenRouter, OpenAI, Anthropic, Google, or any OpenAI-compatible endpoint.
+
+Install: `curl -fsSL https://raw.githubusercontent.com/socisio/socis-agent/main/scripts/install.sh | bash`  (Linux, macOS, WSL2, Termux)
+
+Repo: https://github.com/socisio/socis-agent
+
+## Getting Started
+
+- [Installation](https://agent.socis.io/docs/getting-started/installation): Install SOCIS Agent on Linux, macOS, WSL2, native Windows, or Android via Termux
+- [Quickstart](https://agent.socis.io/docs/getting-started/quickstart): Your first conversation with SOCIS Agent — from install to chatting in under 5 minutes
+- [Learning Path](https://agent.socis.io/docs/getting-started/learning-path): Choose your learning path through the SOCIS Agent documentation based on your experience level and goals.
+- [Updating](https://agent.socis.io/docs/getting-started/updating): How to update SOCIS Agent to the latest version or uninstall it
+- [Termux (Android)](https://agent.socis.io/docs/getting-started/termux): Run SOCIS Agent directly on an Android phone with Termux
+- [Nix Setup](https://agent.socis.io/docs/getting-started/nix-setup): Install and deploy SOCIS Agent with Nix — from quick `nix run` to fully declarative NixOS module with container mode
+- [Platform Support](https://agent.socis.io/docs/getting-started/platform-support): Which operating systems, distribution methods, and features SOCIS Agent supports.
+
+## Using SOCIS
+
+- [CLI](https://agent.socis.io/docs/user-guide/cli): Master the SOCIS Agent terminal interface — commands, keybindings, personalities, and more
+- [TUI (Ink terminal UI)](https://agent.socis.io/docs/user-guide/tui): Launch the modern terminal UI for SOCIS — mouse-friendly, rich overlays, and non-blocking input.
+- [Configuration](https://agent.socis.io/docs/user-guide/configuration): Configure SOCIS Agent — config.yaml, providers, models, API keys, and more
+- [Configuring Models](https://agent.socis.io/docs/user-guide/configuring-models)
+- [Sessions](https://agent.socis.io/docs/user-guide/sessions): Session persistence, resume, search, management, and per-platform session tracking
+- [Profiles](https://agent.socis.io/docs/user-guide/profiles)
+- [Git Worktrees](https://agent.socis.io/docs/user-guide/git-worktrees): Run multiple SOCIS agents safely on the same repository using git worktrees and isolated checkouts
+- [Docker Backend](https://agent.socis.io/docs/user-guide/docker): Running SOCIS Agent in Docker and using Docker as a terminal backend
+- [Security](https://agent.socis.io/docs/user-guide/security): Security model, dangerous command approval, user authorization, container isolation, and production deployment best practices
+- [Checkpoints & Rollback](https://agent.socis.io/docs/user-guide/checkpoints-and-rollback): Filesystem safety nets for destructive operations using shadow git repos and automatic snapshots
+- [Bot Mode](https://agent.socis.io/docs/user-guide/bot-mode): Turn your SOCIS profiles into a roster of named Bots — each with its own chat, role, model, memory, skills, and avatar. Bots run routines, share group chats, and message each other.
+- [SOCIS Agent Desktop](https://agent.socis.io/docs/user-guide/desktop): The native SOCIS desktop app — a polished experience for chatting with SOCIS, with streaming tool output, side-by-side previews, a file browser, voice, cron, profiles, skills, and settings. macOS, Windows, and Linux.
+- [Egress proxy](https://agent.socis.io/docs/user-guide/egress)
+- [Egress credential-injection proxy (iron-proxy)](https://agent.socis.io/docs/user-guide/egress/iron-proxy)
+- [Import from Other Agents](https://agent.socis.io/docs/user-guide/import-from-other-agents): One-command import of a Claude Code (~/.claude) or OpenAI Codex CLI (~/.codex) setup into SOCIS — instructions, allowlists, MCP servers, skills, and memories.
+- [Local Models](https://agent.socis.io/docs/user-guide/local-models): Run models entirely on your own machine — no account, no API key, nothing leaves your computer.
+- [Managed Scope](https://agent.socis.io/docs/user-guide/managed-scope): Administrator-pinned, user-immutable config and secrets via a system-level managed directory
+- [Connecting Desktop to Many SOCIS Instances](https://agent.socis.io/docs/user-guide/multi-connection-desktop)
+- [Running Many Gateways at Once](https://agent.socis.io/docs/user-guide/multi-profile-gateways)
+- [Profile Distributions: Share a Whole Agent](https://agent.socis.io/docs/user-guide/profile-distributions)
+- [Secrets](https://agent.socis.io/docs/user-guide/secrets)
+- [Bitwarden Secrets Manager](https://agent.socis.io/docs/user-guide/secrets/bitwarden)
+- [Command Helper Secret Source](https://agent.socis.io/docs/user-guide/secrets/command)
+- [1Password](https://agent.socis.io/docs/user-guide/secrets/onepassword)
+- [Which File Does What?](https://agent.socis.io/docs/user-guide/which-file-does-what): SOUL.md vs USER.md vs MEMORY.md vs AGENTS.md — a one-page map of the agent's files, who writes each one, and when the agent actually sees them
+- [Windows (Native) Guide](https://agent.socis.io/docs/user-guide/windows-native): Run SOCIS Agent natively on Windows 10 / 11 — install, feature matrix, UTF-8 console, Git Bash, gateway as a Scheduled Task, editor handling, PATH, uninstall, and common pitfalls
+- [Windows (WSL2) Guide](https://agent.socis.io/docs/user-guide/windows-wsl-quickstart): Run SOCIS Agent on Windows via WSL2 — setup, filesystem access between Windows and Linux, networking, and common pitfalls
+
+## Core Features
+
+- [Features Overview](https://agent.socis.io/docs/user-guide/features/overview)
+- [Tools](https://agent.socis.io/docs/user-guide/features/tools): Overview of SOCIS Agent's tools — what's available, how toolsets work, and terminal backends
+- [Skills System](https://agent.socis.io/docs/user-guide/features/skills): On-demand knowledge documents — progressive disclosure, agent-managed skills, and the Skills Hub
+- [Curator](https://agent.socis.io/docs/user-guide/features/curator): Background maintenance for agent-created skills — usage tracking, staleness, archival, and LLM-driven review
+- [Memory](https://agent.socis.io/docs/user-guide/features/memory): How SOCIS Agent remembers across sessions — MEMORY.md, USER.md, and session search
+- [Memory Providers](https://agent.socis.io/docs/user-guide/features/memory-providers): External memory provider plugins — Honcho, OpenViking, Mem0, Hindsight, Holographic, RetainDB, ByteRover, Supermemory
+- [Context Files](https://agent.socis.io/docs/user-guide/features/context-files): Project context files — .socis.md, AGENTS.md, CLAUDE.md, global SOUL.md, and .cursorrules — automatically injected into every conversation
+- [Context References](https://agent.socis.io/docs/user-guide/features/context-references): Inline @-syntax for attaching files, folders, git diffs, and URLs directly into your messages
+- [Personality & SOUL.md](https://agent.socis.io/docs/user-guide/features/personality): Customize SOCIS Agent's personality with a global SOUL.md, built-in personalities, and custom persona definitions
+- [Plugins](https://agent.socis.io/docs/user-guide/features/plugins): Extend SOCIS with custom tools, hooks, and integrations via the plugin system
+- [Built-in Plugins](https://agent.socis.io/docs/user-guide/features/built-in-plugins): Plugins shipped with SOCIS Agent that run automatically via lifecycle hooks — disk-cleanup and friends
+- [Codex App-Server Runtime (optional)](https://agent.socis.io/docs/user-guide/features/codex-app-server-runtime)
+- [Computer Use](https://agent.socis.io/docs/user-guide/features/computer-use)
+- [Deliverable Mode (Artifacts in Chat)](https://agent.socis.io/docs/user-guide/features/deliverable-mode): How the agent ships generated charts, PDFs, spreadsheets, and other files as native attachments in messaging platforms.
+- [Document Extraction](https://agent.socis.io/docs/user-guide/features/document-extraction): How read_file converts PDFs, Office documents, and notebooks to text — and what to do when a PDF is scanned images
+- [Extending the Dashboard](https://agent.socis.io/docs/user-guide/features/extending-the-dashboard): Build themes and plugins for the SOCIS web dashboard — palettes, typography, layouts, custom tabs, shell slots, page-scoped slots, and backend API routes
+- [Session Heartbeats](https://agent.socis.io/docs/user-guide/features/heartbeat): A recurring prompt that re-enters your current session whenever it's idle — /heartbeat every 10m Check the deployment.
+- [Kanban worker lanes](https://agent.socis.io/docs/user-guide/features/kanban-worker-lanes)
+- [Recurring Loops](https://agent.socis.io/docs/user-guide/features/loops): Re-run a prompt on a recurring interval inside your session — SOCIS' take on Claude Code's /loop.
+- [LSP — Semantic Diagnostics](https://agent.socis.io/docs/user-guide/features/lsp): Real language servers (pyright, gopls, rust-analyzer, …) wired into the post-write lint check used by write_file and patch.
+- [Mixture of Agents](https://agent.socis.io/docs/user-guide/features/mixture-of-agents): Create named MoA presets that appear as selectable models under the Mixture of Agents provider
+- [Pets (Petdex Mascots)](https://agent.socis.io/docs/user-guide/features/pets): Adopt an animated mascot that reacts to agent activity across the CLI, TUI, and desktop app
+- [Skins & Themes](https://agent.socis.io/docs/user-guide/features/skins): Customize the SOCIS CLI with built-in and user-defined skins
+- [Spotify](https://agent.socis.io/docs/user-guide/features/spotify)
+- [Subscription Proxy](https://agent.socis.io/docs/user-guide/features/subscription-proxy): Use your Nous Portal subscription (or other OAuth provider) as an OpenAI-compatible endpoint for external apps
+- [Nous Tool Gateway](https://agent.socis.io/docs/user-guide/features/tool-gateway): One subscription, every tool. Web search, image generation, TTS, and cloud browsers — all routed through Nous Portal with no extra API keys.
+- [Tool Search](https://agent.socis.io/docs/user-guide/features/tool-search)
+- [Wake Word](https://agent.socis.io/docs/user-guide/features/wake-word): Hands-free 'Hey SOCIS' wake word — start a voice session by speaking, the 'Hey Siri' way
+- [SOCIS Web Dashboard](https://agent.socis.io/docs/user-guide/features/web-dashboard): Browser-based administration panel for managing configuration, API keys, MCP servers, messaging pairing, webhooks, the gateway, memory, credentials, sessions, logs, analytics, cron jobs, and skills
+- [Web Search & Extract](https://agent.socis.io/docs/user-guide/features/web-search): Search the web and extract page content with multiple backend providers — including free self-hosted SearXNG.
+- [X (Twitter) Search](https://agent.socis.io/docs/user-guide/features/x-search): Search X (Twitter) posts and threads from within the agent using xAI's built-in x_search Responses tool — works with either a SuperGrok OAuth login or an XAI_API_KEY.
+
+## Automation
+
+- [Cron Jobs](https://agent.socis.io/docs/user-guide/features/cron): Schedule automated tasks with natural language, manage them with one cron tool, and attach one or more skills
+- [Delegation](https://agent.socis.io/docs/user-guide/features/delegation): Spawn isolated child agents for parallel workstreams with delegate_task
+- [Kanban Multi-Agent](https://agent.socis.io/docs/user-guide/features/kanban): Durable SQLite-backed task board for coordinating multiple SOCIS profiles
+- [Kanban Tutorial](https://agent.socis.io/docs/user-guide/features/kanban-tutorial)
+- [Persistent Goals](https://agent.socis.io/docs/user-guide/features/goals): Set a standing goal and let SOCIS keep working across turns until it's done. Our take on the Ralph loop.
+- [Code Execution](https://agent.socis.io/docs/user-guide/features/code-execution): Programmatic Python execution with RPC tool access — collapse multi-step workflows into a single turn
+- [Hooks](https://agent.socis.io/docs/user-guide/features/hooks): Run custom code at key lifecycle points — log activity, send alerts, post to webhooks
+- [Batch Processing](https://agent.socis.io/docs/user-guide/features/batch-processing): Generate agent trajectories at scale — parallel processing, checkpointing, and toolset distributions
+
+## Media & Web
+
+- [Voice Mode](https://agent.socis.io/docs/user-guide/features/voice-mode): Real-time voice conversations with SOCIS Agent — CLI, Telegram, Discord (DMs, text channels, and voice channels)
+- [Browser](https://agent.socis.io/docs/user-guide/features/browser): Control browsers with multiple providers, local Chromium-family browsers via CDP, or cloud browsers for web interaction, form filling, scraping, and more.
+- [Vision](https://agent.socis.io/docs/user-guide/features/vision): Paste images from your clipboard into the SOCIS CLI for multimodal vision analysis.
+- [Image Generation](https://agent.socis.io/docs/user-guide/features/image-generation): Generate images via FAL.ai — 11 models including FLUX 2, GPT Image (1.5 & 2), Nano Banana Pro, Ideogram, Recraft V4 Pro, Krea 2, and more, selectable via `socis tools`.
+- [Text-to-Speech](https://agent.socis.io/docs/user-guide/features/tts): Text-to-speech and voice message transcription across all platforms
+
+## Messaging Platforms
+
+- [Overview](https://agent.socis.io/docs/user-guide/messaging): Chat with SOCIS from Telegram, Discord, Slack, WhatsApp, Signal, SMS, Email, Home Assistant, Mattermost, Matrix, DingTalk, Yuanbao, Microsoft Teams, LINE, Raft, Webhooks, or any OpenAI-compatible frontend via the API server — architecture and setup overview
+- [Telegram](https://agent.socis.io/docs/user-guide/messaging/telegram): Set up SOCIS Agent as a Telegram bot
+- [Discord](https://agent.socis.io/docs/user-guide/messaging/discord): Set up SOCIS Agent as a Discord bot
+- [Slack](https://agent.socis.io/docs/user-guide/messaging/slack): Set up SOCIS Agent as a Slack bot using Socket Mode
+- [WhatsApp](https://agent.socis.io/docs/user-guide/messaging/whatsapp): Set up SOCIS Agent as a WhatsApp bot via the built-in Baileys bridge
+- [Signal](https://agent.socis.io/docs/user-guide/messaging/signal): Set up SOCIS Agent as a Signal messenger bot via signal-cli daemon
+- [Email](https://agent.socis.io/docs/user-guide/messaging/email): Set up SOCIS Agent as an email assistant via IMAP/SMTP
+- [SMS](https://agent.socis.io/docs/user-guide/messaging/sms): Set up SOCIS Agent as an SMS chatbot via Twilio
+- [Matrix](https://agent.socis.io/docs/user-guide/messaging/matrix): Set up SOCIS Agent as a Matrix bot
+- [Mattermost](https://agent.socis.io/docs/user-guide/messaging/mattermost): Set up SOCIS Agent as a Mattermost bot
+- [Home Assistant](https://agent.socis.io/docs/user-guide/messaging/homeassistant): Control your smart home with SOCIS Agent via Home Assistant integration.
+- [Webhooks](https://agent.socis.io/docs/user-guide/messaging/webhooks): Receive events from GitHub, GitLab, and other services to trigger SOCIS agent runs
+- [A2A (Agent-to-Agent)](https://agent.socis.io/docs/user-guide/messaging/a2a)
+- [BlueBubbles (iMessage)](https://agent.socis.io/docs/user-guide/messaging/bluebubbles)
+- [Buzz](https://agent.socis.io/docs/user-guide/messaging/buzz)
+- [DingTalk](https://agent.socis.io/docs/user-guide/messaging/dingtalk): Set up SOCIS Agent as a DingTalk chatbot
+- [Feishu / Lark](https://agent.socis.io/docs/user-guide/messaging/feishu): Set up SOCIS Agent as a Feishu or Lark bot
+- [Google Chat](https://agent.socis.io/docs/user-guide/messaging/google_chat): Set up SOCIS Agent as a Google Chat bot using Cloud Pub/Sub
+- [IRC](https://agent.socis.io/docs/user-guide/messaging/irc)
+- [LINE](https://agent.socis.io/docs/user-guide/messaging/line): Set up SOCIS Agent as a LINE Messaging API bot
+- [Microsoft Graph Webhook Listener](https://agent.socis.io/docs/user-guide/messaging/msgraph-webhook): Receive Microsoft Graph change notifications (meetings, calendar, chat, etc.) in SOCIS
+- [ntfy](https://agent.socis.io/docs/user-guide/messaging/ntfy)
+- [Open WebUI](https://agent.socis.io/docs/user-guide/messaging/open-webui): Connect Open WebUI to SOCIS Agent via the OpenAI-compatible API server
+- [Photon iMessage](https://agent.socis.io/docs/user-guide/messaging/photon)
+- [QQ Bot](https://agent.socis.io/docs/user-guide/messaging/qqbot)
+- [Raft](https://agent.socis.io/docs/user-guide/messaging/raft): Connect SOCIS Agent to Raft as an external agent via wake-channel bridge
+- [SOCIS Relay](https://agent.socis.io/docs/user-guide/messaging/relay): Connect SOCIS to messaging platforms through a relay connector that owns the platform credentials — enrollment, capabilities, config, and troubleshooting
+- [SimpleX Chat](https://agent.socis.io/docs/user-guide/messaging/simplex)
+- [Microsoft Teams](https://agent.socis.io/docs/user-guide/messaging/teams): Set up SOCIS Agent as a Microsoft Teams bot
+- [Teams Meetings](https://agent.socis.io/docs/user-guide/messaging/teams-meetings): Set up the Microsoft Teams meeting summary pipeline with Microsoft Graph webhooks
+- [WeCom (Enterprise WeChat)](https://agent.socis.io/docs/user-guide/messaging/wecom): Connect SOCIS Agent to WeCom via the AI Bot WebSocket gateway
+- [WeCom Callback (Self-Built App)](https://agent.socis.io/docs/user-guide/messaging/wecom-callback)
+- [Weixin (WeChat)](https://agent.socis.io/docs/user-guide/messaging/weixin): Connect SOCIS Agent to personal WeChat accounts via the iLink Bot API
+- [WhatsApp Business (Cloud API)](https://agent.socis.io/docs/user-guide/messaging/whatsapp-cloud): Set up SOCIS Agent as a WhatsApp bot via Meta's official Business Cloud API
+- [Yuanbao](https://agent.socis.io/docs/user-guide/messaging/yuanbao): Connect SOCIS Agent to the Yuanbao enterprise messaging platform via WebSocket gateway
+
+## Integrations
+
+- [Integrations Overview](https://agent.socis.io/docs/integrations)
+- [Providers](https://agent.socis.io/docs/integrations/providers)
+- [MCP (Model Context Protocol)](https://agent.socis.io/docs/user-guide/features/mcp): Connect SOCIS Agent to external tool servers via MCP — and control exactly which MCP tools SOCIS loads
+- [ACP (Agent Context Protocol)](https://agent.socis.io/docs/user-guide/features/acp): Use SOCIS Agent inside ACP-compatible editors and collaboration platforms
+- [API Server](https://agent.socis.io/docs/user-guide/features/api-server): Expose socis-agent as an OpenAI-compatible API for any frontend
+- [Honcho Memory](https://agent.socis.io/docs/user-guide/features/honcho): AI-native persistent memory via Honcho — dialectic reasoning, multi-agent user modeling, and deep personalization
+- [Provider Routing](https://agent.socis.io/docs/user-guide/features/provider-routing): Configure OpenRouter or Nous Portal provider preferences to optimize for cost, speed, or quality.
+- [Fallback Providers](https://agent.socis.io/docs/user-guide/features/fallback-providers): Configure automatic failover to backup LLM providers when your primary model is unavailable.
+- [Credential Pools](https://agent.socis.io/docs/user-guide/features/credential-pools): Pool multiple API keys or OAuth tokens per provider for automatic rotation and rate limit recovery.
+- [Buzz Integration](https://agent.socis.io/docs/integrations/buzz): All three ways to connect SOCIS Agent to Buzz — Block's Nostr-based human+agent workspace
+- [Nous Portal](https://agent.socis.io/docs/integrations/nous-portal): One subscription, 300+ frontier models, and the Tool Gateway — the recommended way to run SOCIS Agent
+
+## Guides & Tutorials
+
+- [Tips & Best Practices](https://agent.socis.io/docs/guides/tips): Practical advice to get the most out of SOCIS Agent — prompt tips, CLI shortcuts, context files, memory, cost optimization, and security
+- [Local LLMs on Mac](https://agent.socis.io/docs/guides/local-llm-on-mac): Set up a local OpenAI-compatible LLM server on macOS with llama.cpp or MLX, including model selection, memory optimization, and real benchmarks on Apple Silicon
+- [Daily Briefing Bot](https://agent.socis.io/docs/guides/daily-briefing-bot): Build an automated daily briefing bot that researches topics, summarizes findings, and delivers them to Telegram or Discord every morning
+- [Team Telegram Assistant](https://agent.socis.io/docs/guides/team-telegram-assistant): Step-by-step guide to setting up a Telegram bot that your whole team can use for code help, research, system admin, and more
+- [Use SOCIS as a Python Library](https://agent.socis.io/docs/guides/python-library): Embed AIAgent in your own Python scripts, web apps, or automation pipelines — no CLI required
+- [Use MCP with SOCIS](https://agent.socis.io/docs/guides/use-mcp-with-socis): A practical guide to connecting MCP servers to SOCIS Agent, filtering their tools, and using them safely in real workflows
+- [Use Voice Mode with SOCIS](https://agent.socis.io/docs/guides/use-voice-mode-with-socis): A practical guide to setting up and using SOCIS voice mode across CLI, Telegram, Discord, and Discord voice channels
+- [Use SOUL.md with SOCIS](https://agent.socis.io/docs/guides/use-soul-with-socis): How to use SOUL.md to shape SOCIS Agent's default voice, what belongs there, and how it differs from AGENTS.md and /personality
+- [Automate with Cron](https://agent.socis.io/docs/guides/automate-with-cron): Real-world automation patterns using SOCIS cron — monitoring, reports, pipelines, and multi-skill workflows
+- [Work with Skills](https://agent.socis.io/docs/guides/work-with-skills): Find, install, use, and create skills — on-demand knowledge that teaches SOCIS new workflows
+- [Delegation Patterns](https://agent.socis.io/docs/guides/delegation-patterns): When and how to use subagent delegation — patterns for parallel research, code review, and multi-file work
+- [GitHub PR Review Agent](https://agent.socis.io/docs/guides/github-pr-review-agent): Build an automated AI code reviewer that monitors your repos, reviews pull requests, and delivers feedback — hands-free
+- [Give Your Agent Its Own Email Address](https://agent.socis.io/docs/guides/agent-email-address): Set up a dedicated mailbox your agent can read and send from using the bundled Himalaya skill, with a cron polling pattern and safety notes
+- [Automation Blueprints](https://agent.socis.io/docs/guides/automation-blueprints): Ready-to-use automation blueprints — scheduled tasks, GitHub event triggers, API webhooks, and multi-skill workflows
+- [AWS Bedrock](https://agent.socis.io/docs/guides/aws-bedrock): Use SOCIS Agent with Amazon Bedrock — native Converse API, Anthropic SDK routing, OpenAI models via Bedrock Mantle, IAM authentication, Guardrails, and cross-region inference
+- [Microsoft Foundry](https://agent.socis.io/docs/guides/azure-foundry): Use SOCIS Agent with Microsoft Foundry — OpenAI-style and Anthropic-style endpoints, auto-detection of transport and deployed models
+- [Script-Only Cron Jobs (No LLM)](https://agent.socis.io/docs/guides/cron-script-only): Classic watchdog cron jobs that skip the LLM entirely — a script runs on schedule and its stdout gets delivered to your messaging platform. Memory alerts, disk alerts, CI pings, periodic health checks.
+- [Cron Troubleshooting](https://agent.socis.io/docs/guides/cron-troubleshooting): Diagnose and fix common SOCIS cron issues — jobs not firing, delivery failures, skill loading errors, and performance problems
+- [Desktop Native Sign-In (RFC 8252)](https://agent.socis.io/docs/guides/desktop-native-signin): How the SOCIS Agent Desktop app signs in to a gated gateway using your system browser and PKCE — no embedded webview, no session cookies
+- [Google Gemini](https://agent.socis.io/docs/guides/google-gemini): Use SOCIS Agent with Google Gemini — native AI Studio API, API-key setup, tool calling, streaming, and quota guidance
+- [Google Vertex AI](https://agent.socis.io/docs/guides/google-vertex): Use SOCIS Agent with Gemini on Google Cloud Vertex AI — OAuth2 service account or ADC, GCP billing and quotas, no static API key
+- [Run SOCIS Locally with Ollama — Zero API Cost](https://agent.socis.io/docs/guides/local-ollama-setup): Step-by-step guide to running SOCIS Agent entirely on your own machine with Ollama and open-weight models like Gemma 4, no cloud API keys or paid subscriptions needed
+- [Manage SOCIS Cloud with MCP](https://agent.socis.io/docs/guides/manage-socis-cloud-with-mcp): Connect SOCIS Agent to the Nous Portal MCP server so your local agent can list, start, stop, and manage your SOCIS Cloud instances conversationally
+- [Register a Microsoft Graph Application](https://agent.socis.io/docs/guides/microsoft-graph-app-registration): Azure portal walkthrough for creating the app registration that powers the Teams meeting pipeline
+- [Migrate from OpenClaw](https://agent.socis.io/docs/guides/migrate-from-openclaw): Complete guide to migrating your OpenClaw / Clawdbot setup to SOCIS Agent — what gets migrated, how config maps, and what to check after.
+- [MiniMax OAuth](https://agent.socis.io/docs/guides/minimax-oauth): Log into MiniMax via browser OAuth and use MiniMax-M2.7 models in SOCIS Agent — no API key required
+- [OAuth over SSH / Remote Hosts](https://agent.socis.io/docs/guides/oauth-over-ssh): How to complete browser-based OAuth (Spotify, MCP servers) when SOCIS runs on a remote machine, container, or behind a jump box
+- [Operate the Teams Meeting Pipeline](https://agent.socis.io/docs/guides/operate-teams-meeting-pipeline): Runbook, go-live checklist, and operator worksheet for the Microsoft Teams meeting pipeline
+- [Pipe Script Output to Messaging Platforms](https://agent.socis.io/docs/guides/pipe-script-output): Send text from any shell script, cron job, CI hook, or monitoring daemon to Telegram, Discord, Slack, Signal, and other platforms using `socis send`.
+- [Run Nemotron 3 Ultra free in SOCIS Agent](https://agent.socis.io/docs/guides/run-nemotron-3-ultra-free): Try NVIDIA Nemotron 3 Ultra on Nous Portal — free June 4–18 — with day 0 support in SOCIS Agent
+- [Run SOCIS Agent with Nous Portal](https://agent.socis.io/docs/guides/run-socis-with-nous-portal): Start-to-finish walkthrough: subscribe, set up, switch models, enable gateway tools, and verify routing
+- [Running SOCIS on a Personal or Work Machine](https://agent.socis.io/docs/guides/secure-socis-on-a-work-machine): A security-posture walkthrough for running SOCIS Agent on the machine you live on — what the defaults protect, how to tighten further, and how to undo mistakes
+- [Troubleshooting: \"My Agent Feels Dumber\"](https://agent.socis.io/docs/guides/troubleshooting-agent-quality): A diagnostic checklist for when SOCIS seems less capable than before or forgets things mid-session — model switches, context pressure, wrong context detection, and the frozen memory snapshot
+- [Automated GitHub PR Comments with Webhooks](https://agent.socis.io/docs/guides/webhook-github-pr-review): Connect SOCIS to GitHub so it automatically fetches PR diffs, reviews code changes, and posts comments — triggered by webhooks with no manual prompting
+- [xAI Grok OAuth (SuperGrok / X Premium+)](https://agent.socis.io/docs/guides/xai-grok-oauth): Sign in with your SuperGrok or X Premium+ subscription to use Grok models in SOCIS Agent — no API key required
+
+## Developer Guide
+
+- [Contributing](https://agent.socis.io/docs/developer-guide/contributing): How to contribute to SOCIS Agent — dev setup, code style, PR process
+- [Architecture](https://agent.socis.io/docs/developer-guide/architecture): SOCIS Agent internals — major subsystems, execution paths, data flow, and where to read next
+- [Agent Loop](https://agent.socis.io/docs/developer-guide/agent-loop): Detailed walkthrough of AIAgent execution, API modes, tools, callbacks, and fallback behavior
+- [Prompt Assembly](https://agent.socis.io/docs/developer-guide/prompt-assembly): How SOCIS builds the system prompt, preserves cache stability, and injects ephemeral layers
+- [Context Compression & Caching](https://agent.socis.io/docs/developer-guide/context-compression-and-caching)
+- [Gateway Internals](https://agent.socis.io/docs/developer-guide/gateway-internals): How the messaging gateway boots, authorizes users, routes sessions, and delivers messages
+- [Session Storage](https://agent.socis.io/docs/developer-guide/session-storage)
+- [Provider Runtime](https://agent.socis.io/docs/developer-guide/provider-runtime): How SOCIS resolves providers, credentials, API modes, and auxiliary models at runtime
+- [Adding Tools](https://agent.socis.io/docs/developer-guide/adding-tools): How to add a new tool to SOCIS Agent — schemas, handlers, registration, and toolsets
+- [Adding Providers](https://agent.socis.io/docs/developer-guide/adding-providers): How to add a new inference provider to SOCIS Agent — auth, runtime resolution, CLI flows, adapters, tests, and docs
+- [Adding Platform Adapters](https://agent.socis.io/docs/developer-guide/adding-platform-adapters)
+- [Creating Skills](https://agent.socis.io/docs/developer-guide/creating-skills): How to create skills for SOCIS Agent — SKILL.md format, guidelines, and publishing
+- [Extending the CLI](https://agent.socis.io/docs/developer-guide/extending-the-cli): Build wrapper CLIs that extend the SOCIS TUI with custom widgets, keybindings, and layout changes
+- [ACP Internals](https://agent.socis.io/docs/developer-guide/acp-internals): How the ACP adapter works: lifecycle, sessions, event bridge, approvals, and tool rendering
+- [Browser Provider Plugins](https://agent.socis.io/docs/developer-guide/browser-provider-plugin): How to build a cloud browser backend plugin for SOCIS Agent
+- [Browser CDP Supervisor](https://agent.socis.io/docs/developer-guide/browser-supervisor): How SOCIS detects and responds to native JS dialogs and interacts with cross-origin iframes via a persistent CDP connection.
+- [Codebase Ownership Map](https://agent.socis.io/docs/developer-guide/codebase-ownership): Which directories belong to which subsystem, and where the right docs entry point lives for each
+- [Context Engine Plugins](https://agent.socis.io/docs/developer-guide/context-engine-plugin): How to build a context engine plugin that replaces the built-in ContextCompressor
+- [Cron Internals](https://agent.socis.io/docs/developer-guide/cron-internals): How SOCIS stores, schedules, edits, pauses, skill-loads, and delivers cron jobs
+- [Desktop Plugin SDK (@socis/plugin-sdk)](https://agent.socis.io/docs/developer-guide/desktop-plugin-sdk): Extend the native SOCIS Agent Desktop app — panes, pages, sidebar nav, status bar, palette commands, keybinds, themes, and a scoped backend namespace, with one import and no build step.
+- [Egress proxy internals](https://agent.socis.io/docs/developer-guide/egress-internals): How the iron-proxy egress firewall integrates with SOCIS — module layout, lifecycle, security invariants, and extension points
+- [Image Generation Provider Plugins](https://agent.socis.io/docs/developer-guide/image-gen-provider-plugin): How to build an image-generation backend plugin for SOCIS Agent
+- [Memory Provider Plugins](https://agent.socis.io/docs/developer-guide/memory-provider-plugin): How to build a memory provider plugin for SOCIS Agent
+- [Model Provider Plugins](https://agent.socis.io/docs/developer-guide/model-provider-plugin): How to build a model provider (inference backend) plugin for SOCIS Agent
+- [Plugin LLM Access](https://agent.socis.io/docs/developer-guide/plugin-llm-access): Run any LLM call from inside a plugin via ctx.llm — chat or structured, sync or async. Host-owned auth, fail-closed trust gate, optional JSON Schema validation.
+- [Build a SOCIS Plugin](https://agent.socis.io/docs/developer-guide/plugins): Step-by-step guide to building a complete SOCIS plugin with tools, hooks, data files, and skills
+- [Programmatic Integration](https://agent.socis.io/docs/developer-guide/programmatic-integration): Three protocols for driving socis-agent from external programs: ACP, the TUI gateway JSON-RPC, and the OpenAI-compatible HTTP API
+- [Secret Source Plugins](https://agent.socis.io/docs/developer-guide/secret-source-plugin): How to build a secret-manager backend plugin for SOCIS Agent
+- [Public Subagent Lifecycle API](https://agent.socis.io/docs/developer-guide/subagent-lifecycle-api)
+- [Terminal Environment Provider Plugins](https://agent.socis.io/docs/developer-guide/terminal-environment-plugin)
+- [Tools Runtime](https://agent.socis.io/docs/developer-guide/tools-runtime): Runtime behavior of the tool registry, toolsets, dispatch, and terminal environments
+- [Trajectory Format](https://agent.socis.io/docs/developer-guide/trajectory-format)
+- [Video Generation Provider Plugins](https://agent.socis.io/docs/developer-guide/video-gen-provider-plugin): How to build a video-generation backend plugin for SOCIS Agent
+- [Web Search Provider Plugins](https://agent.socis.io/docs/developer-guide/web-search-provider-plugin): How to build a web-search/extract/crawl backend plugin for SOCIS Agent
+- [TUI & Desktop from Worktrees](https://agent.socis.io/docs/developer-guide/worktree-ui-dev): Run the Ink TUI and Electron desktop app from a git worktree without a full npm install per checkout
+
+## Reference
+
+- [CLI Commands](https://agent.socis.io/docs/reference/cli-commands): Authoritative reference for SOCIS terminal commands and command families
+- [Slash Commands](https://agent.socis.io/docs/reference/slash-commands): Complete reference for interactive CLI and messaging slash commands
+- [Profile Commands](https://agent.socis.io/docs/reference/profile-commands)
+- [Environment Variables](https://agent.socis.io/docs/reference/environment-variables): Complete reference of all environment variables used by SOCIS Agent
+- [Tools Reference](https://agent.socis.io/docs/reference/tools-reference): Authoritative reference for SOCIS built-in tools, grouped by toolset
+- [Toolsets Reference](https://agent.socis.io/docs/reference/toolsets-reference): Reference for SOCIS core, composite, platform, and dynamic toolsets
+- [MCP Config Reference](https://agent.socis.io/docs/reference/mcp-config-reference): Reference for SOCIS Agent MCP configuration keys, filtering semantics, and utility-tool policy
+- [Model Catalog](https://agent.socis.io/docs/reference/model-catalog): Remotely-hosted manifest driving curated model picker lists for OpenRouter and Nous Portal.
+- [Bundled Skills Catalog](https://agent.socis.io/docs/reference/skills-catalog): Table of all ~90 skills bundled with SOCIS
+- [Optional Skills Catalog](https://agent.socis.io/docs/reference/optional-skills-catalog): Table of ~60 additional installable skills
+- [FAQ & Troubleshooting](https://agent.socis.io/docs/reference/faq): Frequently asked questions and solutions to common issues with SOCIS Agent
+- [Automation Blueprints Catalog](https://agent.socis.io/docs/reference/automation-blueprints-catalog): Ready-to-run automation blueprints — set one up from the dashboard, CLI, TUI, any messenger, or the desktop app.
+- [CLI Symbols Glossary](https://agent.socis.io/docs/reference/cli-symbols): What every symbol in the SOCIS terminal UI means — transcript markers, status-bar badges, overlay glyphs, and approval prompts.
