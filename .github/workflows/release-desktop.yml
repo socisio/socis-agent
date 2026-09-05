@@ -110,6 +110,25 @@ jobs:
       # Writing to $GITHUB_ENV conditionally leaves them genuinely absent, so
       # electron-builder takes its unsigned path and after-pack.mjs ad-hoc
       # signs instead.
+      # Artifact filenames come from package.json / Cargo.toml, NOT the git tag.
+      # A v0.1.1 tag with 0.0.1 still in src-tauri/Cargo.toml produced installers
+      # named "SOCIS-0.0.1-..." — published under the wrong version with no
+      # warning. Fail here instead: a red build is cheap, a mislabelled release
+      # is not.
+      - name: Verify version matches tag
+        shell: bash
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          want="${tag#v}"
+          python3 scripts/set-version.py --check
+          have="$(python3 -c "import json;print(json.load(open('apps/desktop/package.json'))['version'])")"
+          if [ "$have" != "$want" ]; then
+            echo "::error::Tag $tag expects version $want but the repo says $have."
+            echo "Run: python3 scripts/set-version.py $want   (then commit and re-tag)"
+            exit 1
+          fi
+          echo "Version $have matches tag $tag"
+
       - name: Configure signing
         shell: bash
         env:

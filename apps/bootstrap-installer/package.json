@@ -1,7 +1,7 @@
 {
   "name": "@socis/bootstrap-installer",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SOCIS Setup \u2014 signed installer that drives scripts/install.ps1 with a polished native UI.",
   "type": "module",
   "scripts": {

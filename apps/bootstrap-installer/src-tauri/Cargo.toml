@@ -1,6 +1,6 @@
 [package]
 name = "socis-bootstrap"
-version = "0.0.1"
+version = "0.1.1"
 description = "SOCIS Setup — signed installer that drives scripts/install.ps1"
 authors = ["SOCIS <info@socis.io>"]
 edition = "2021"
