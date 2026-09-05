@@ -31,8 +31,11 @@
  */
 
 import { execFile } from 'node:child_process'
+import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
+
+import { Arch } from 'electron-builder'
 
 import { stampExeIdentity } from './set-exe-identity.mjs'
 
@@ -60,7 +63,55 @@ async function adhocSignMac(appPath) {
   console.log(`[after-pack] ad-hoc signed ${path.basename(appPath)}`)
 }
 
+
+/**
+ * Fail the build if the PACKED app carries a node-pty prebuild for the wrong
+ * architecture.
+ *
+ * This has to run here, not in stage-native-deps.mjs. That script rmSync's its
+ * destination before staging, so by the time it validates, only the arch it
+ * just wrote can be present — the check is vacuous. The damage happens later:
+ * if two arches are packed from the same shared dist/ directory, one target's
+ * staging can land in the other's bundle. Only the packed output shows it.
+ *
+ * The symptom this prevents shipping:
+ *   Error: Failed to load native module: pty.node
+ *   Cannot find module './prebuilds/darwin-arm64//pty.node'
+ * — an app that builds, installs, launches, and then dies.
+ */
+function assertPrebuildArch(context) {
+  const platform = context.electronPlatformName
+  const arch = typeof context.arch === 'number' ? Arch[context.arch] : undefined
+  if (!platform || !arch || arch === 'universal') return
+
+  // electron-builder unpacks per asarUnpack; node-pty lands under app.asar.unpacked.
+  const roots = [
+    path.join(context.appOutDir, `${context.packager?.appInfo?.productFilename || 'SOCIS'}.app`,
+              'Contents', 'Resources', 'app.asar.unpacked', 'dist', 'node_modules', 'node-pty'),
+    path.join(context.appOutDir, 'resources', 'app.asar.unpacked', 'dist', 'node_modules', 'node-pty')
+  ]
+  const root = roots.find((r) => existsSync(path.join(r, 'prebuilds')))
+  if (!root) return  // no prebuilds dir — build/Release path, nothing to compare
+
+  const expected = `${platform}-${arch}`
+  const found = readdirSync(path.join(root, 'prebuilds'), { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+  const strays = found.filter((n) => n !== expected)
+  if (strays.length > 0) {
+    throw new Error(
+      `[after-pack] packed app contains node-pty prebuilds for the WRONG arch.\n` +
+      `  target: ${expected}\n  found:  ${found.join(', ')}\n` +
+      `This ships an app that crashes on launch. Build each arch in its own ` +
+      `electron-builder invocation instead of passing several --arch flags.`
+    )
+  }
+  console.log(`[after-pack] verified node-pty prebuild matches ${expected}`)
+}
+
 export default async function afterPack(context) {
+  assertPrebuildArch(context)
+
   if (context.electronPlatformName === 'darwin') {
     const productName = context.packager?.appInfo?.productFilename || 'SOCIS'
     const app = path.join(context.appOutDir, `${productName}.app`)
