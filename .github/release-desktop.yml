@@ -21,6 +21,17 @@ on:
         required: true
         type: string
 
+# Action versions: GitHub is retiring the Node 20 action runtime, so every
+# action here is pinned to a major that declares `runs.using: node24`.
+#   checkout        v5
+#   setup-node      v5
+#   upload-artifact v6  <- NOT v5. v5 only had *preliminary* node24 support and
+#                          still defaulted to node20, so it does not clear the
+#                          deprecation warning.
+#   download-artifact v4 is left as-is: all artifact actions from v4 up share
+#                          the same backend and interoperate, so mixing v6
+#                          upload with v4 download is safe. Bump it when you
+#                          next touch this file.
 permissions:
   contents: write
 
@@ -50,7 +61,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag || github.ref }}
           # electron-builder stamps the build with the commit; a shallow
@@ -85,7 +96,7 @@ jobs:
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "Pinning installer to $branch @ $commit"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 26
 
@@ -133,7 +144,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: socis-desktop-${{ matrix.platform }}
           path: |
