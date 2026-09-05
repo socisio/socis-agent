@@ -51,7 +51,7 @@ CORAL_DEEP='\033[38;2;196;34;72m'  # #C42248
 # Configuration
 REPO_URL_SSH="git@github.com:socisio/socis-agent.git"
 REPO_URL_HTTPS="https://github.com/socisio/socis-agent.git"
-SOCIS_AGENT_HOME="${SOCIS_AGENT_HOME:-$HOME/.socis}"
+SOCIS_AGENT_HOME="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}"
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
 # explicit directory — if so we never override it.
@@ -67,7 +67,7 @@ NODE_VERSION="26"
 
 # FHS-style root install layout (set by resolve_install_layout when applicable):
 #   code at /usr/local/lib/socis-agent, command at /usr/local/bin/socis,
-#   data still at /root/.socis (SOCIS_AGENT_HOME).  Matches Claude Code / Codex CLI
+#   data still at /root/.socis-agent (SOCIS_AGENT_HOME).  Matches Claude Code / Codex CLI
 #   and keeps Docker bind-mounted /root/ volumes lean.
 ROOT_FHS_LAYOUT=false
 DETECTED_BROWSER_EXECUTABLE=""
@@ -200,7 +200,7 @@ while [[ $# -gt 0 ]]; do
             echo "  /usr/local/lib/socis-agent and links the command into"
             echo "  /usr/local/bin/socis (FHS layout — matches Claude Code / Codex CLI)."
             echo "  Data, config, sessions, and logs still live in \$SOCIS_AGENT_HOME"
-            echo "  (default /root/.socis).  This keeps Docker bind-mounted volumes"
+            echo "  (default /root/.socis-agent).  This keeps Docker bind-mounted volumes"
             echo "  small and ensures the command is on PATH for all shells."
             echo "  Existing installs at \$SOCIS_AGENT_HOME/socis-agent are preserved in-place."
             echo "  --ensure DEPS  Install only specified deps (comma-separated)"

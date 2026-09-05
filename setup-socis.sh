@@ -470,7 +470,7 @@ fi
 # Seed bundled skills into ~/.socis-agent/skills/
 # ============================================================================
 
-SOCIS_AGENT_SKILLS_DIR="${SOCIS_AGENT_HOME:-$HOME/.socis}/skills"
+SOCIS_AGENT_SKILLS_DIR="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/skills"
 mkdir -p "$SOCIS_AGENT_SKILLS_DIR"
 
 echo ""
