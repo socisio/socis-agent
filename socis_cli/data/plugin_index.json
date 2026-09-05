@@ -3,26 +3,42 @@
   "generated_at": "2026-08-12T00:00:00Z",
   "plugins": [
     {
-      "name": "socis-media-studio",
-      "description": "Media Studio — generative media workspace plugin for SOCIS Agent Desktop (fal + Krea, durable job queue, library).",
+      "name": "hermes-media-studio",
+      "description": "Media Studio \u2014 generative media workspace plugin for SOCIS Agent Desktop (fal + Krea, durable job queue, library).",
       "author": "SOCIS",
-      "tags": ["media", "image-gen", "video-gen", "dashboard", "desktop"],
-      "repo": "SOCIS/socis-media-studio",
+      "tags": [
+        "media",
+        "image-gen",
+        "video-gen",
+        "dashboard",
+        "desktop"
+      ],
+      "repo": "NousResearch/hermes-media-studio",
       "ref": "e8d59971d2b7901405b39dac7b03bdd616272d0d",
       "homepage": "https://github.com/SOCIS/socis-media-studio",
-      "capabilities": ["tools", "dashboard"],
+      "capabilities": [
+        "tools",
+        "dashboard"
+      ],
       "api_version": 1,
       "added_at": "2026-08-12"
     },
     {
-      "name": "socis-telegram-business",
-      "description": "Observe-with-approval Telegram Business Mode (secretary bot) plugin — every drafted reply requires owner approval before it reaches the customer.",
+      "name": "hermes-telegram-business",
+      "description": "Observe-with-approval Telegram Business Mode (secretary bot) plugin \u2014 every drafted reply requires owner approval before it reaches the customer.",
       "author": "SOCIS",
-      "tags": ["telegram", "gateway", "approvals", "messaging"],
-      "repo": "SOCIS/socis-telegram-business",
+      "tags": [
+        "telegram",
+        "gateway",
+        "approvals",
+        "messaging"
+      ],
+      "repo": "NousResearch/hermes-telegram-business",
       "ref": "e905f3bc5eeaa5a9dab9bc5155601b3ebec75757",
       "homepage": "https://github.com/SOCIS/socis-telegram-business",
-      "capabilities": ["platform"],
+      "capabilities": [
+        "platform"
+      ],
       "api_version": 1,
       "added_at": "2026-08-12"
     },
@@ -30,37 +46,60 @@
       "name": "plugin-llm-example",
       "description": "Reference plugin showing host-owned structured LLM access via ctx.llm.complete_structured(). Registers a /receipt-extract slash command.",
       "author": "SOCIS",
-      "tags": ["example", "llm", "reference", "slash-command"],
-      "repo": "SOCIS/socis-example-plugins",
+      "tags": [
+        "example",
+        "llm",
+        "reference",
+        "slash-command"
+      ],
+      "repo": "NousResearch/hermes-example-plugins",
       "subdir": "plugin-llm-example",
       "ref": "38fe0fb53eff98d477f807432e965429e665ca33",
       "homepage": "https://github.com/SOCIS/socis-example-plugins/tree/main/plugin-llm-example",
-      "capabilities": ["commands", "llm"],
+      "capabilities": [
+        "commands",
+        "llm"
+      ],
       "api_version": 1,
       "added_at": "2026-08-12"
     },
     {
       "name": "plugin-llm-async-example",
-      "description": "Reference plugin demonstrating async host-owned LLM access from plugin code — the asyncio counterpart to plugin-llm-example.",
+      "description": "Reference plugin demonstrating async host-owned LLM access from plugin code \u2014 the asyncio counterpart to plugin-llm-example.",
       "author": "SOCIS",
-      "tags": ["example", "llm", "async", "reference"],
-      "repo": "SOCIS/socis-example-plugins",
+      "tags": [
+        "example",
+        "llm",
+        "async",
+        "reference"
+      ],
+      "repo": "NousResearch/hermes-example-plugins",
       "subdir": "plugin-llm-async-example",
       "ref": "38fe0fb53eff98d477f807432e965429e665ca33",
       "homepage": "https://github.com/SOCIS/socis-example-plugins/tree/main/plugin-llm-async-example",
-      "capabilities": ["commands", "llm"],
+      "capabilities": [
+        "commands",
+        "llm"
+      ],
       "api_version": 1,
       "added_at": "2026-08-12"
     },
     {
-      "name": "socis-plugin-chrome-profiles",
+      "name": "hermes-plugin-chrome-profiles",
       "description": "Switch SOCIS browser tools between Chrome profiles via CDP.",
       "author": "anpicasso",
-      "tags": ["browser", "chrome", "cdp", "tools"],
-      "repo": "anpicasso/socis-plugin-chrome-profiles",
+      "tags": [
+        "browser",
+        "chrome",
+        "cdp",
+        "tools"
+      ],
+      "repo": "anpicasso/hermes-plugin-chrome-profiles",
       "ref": "5b9c3257b464c0f926d4355149a8aed9c8f307b4",
       "homepage": "https://github.com/anpicasso/hermes-plugin-chrome-profiles",
-      "capabilities": ["tools"],
+      "capabilities": [
+        "tools"
+      ],
       "api_version": 1,
       "added_at": "2026-08-12"
     }
