@@ -353,10 +353,35 @@ def _discover_providers() -> None:
     #    genuinely new providers.
     _discover_entry_point_providers()
 
+    # `plugins.disabled` from config.yaml. Only the entry-point scan above
+    # consulted this; bundled and user directory plugins imported
+    # unconditionally, so disabling e.g. ``model-providers/opencode-free`` had
+    # no effect and the provider still appeared in every model picker.
+    # Registry keys are path-derived (see socis_cli.plugins), so a bundled
+    # provider at plugins/model-providers/foo/ is keyed
+    # ``model-providers/foo``; accept the bare directory name too, since that
+    # is what people reach for first.
+    try:
+        from socis_cli.plugins import _get_disabled_plugins
+
+        _disabled = _get_disabled_plugins()
+    except Exception:  # pragma: no cover — config layer unavailable
+        _disabled = set()
+
+    def _is_disabled(child) -> bool:
+        if not _disabled:
+            return False
+        if {child.name, f"model-providers/{child.name}"} & _disabled:
+            logger.debug("provider plugin %r skipped: disabled in config", child.name)
+            return True
+        return False
+
     # 1. Bundled plugins — shipped with socis-agent.
     if _BUNDLED_PLUGINS_DIR.is_dir():
         for child in sorted(_BUNDLED_PLUGINS_DIR.iterdir()):
             if not child.is_dir() or child.name.startswith(("_", ".")):
+                continue
+            if _is_disabled(child):
                 continue
             _import_plugin_dir(child, "bundled")
 
@@ -367,6 +392,8 @@ def _discover_providers() -> None:
     if user_dir is not None:
         for child in sorted(user_dir.iterdir()):
             if not child.is_dir() or child.name.startswith(("_", ".")):
+                continue
+            if _is_disabled(child):
                 continue
             _import_plugin_dir(child, "user")
 
