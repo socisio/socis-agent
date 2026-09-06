@@ -2880,6 +2880,41 @@ def _is_vendored_path(path: str) -> bool:
     )
 
 
+
+def _repair_narrow_fetch_refspec(git_cmd: list[str], cwd, branch: str) -> bool:
+    """Widen a single-branch/tag fetch refspec, then fetch ``branch``.
+
+    Returns True when ``origin/<branch>`` exists afterwards, so the caller can
+    retry the checkout. Best-effort: any failure returns False and the caller
+    reports the original error.
+    """
+
+    def _run(args: list[str]):
+        return subprocess.run(
+            git_cmd + args, cwd=cwd, capture_output=True,
+            text=True, encoding="utf-8", errors="replace",
+        )
+
+    current = _run(["config", "--get", "remote.origin.fetch"]).stdout.strip()
+    if current == "+refs/heads/*:refs/remotes/origin/*":
+        return False  # refspec is already correct — a different problem
+
+    print(f"  ⚠ Fetch refspec is scoped to '{current or '(unset)'}' — "
+          f"origin/{branch} can never arrive. Repairing...")
+    if _run(["config", "remote.origin.fetch",
+             "+refs/heads/*:refs/remotes/origin/*"]).returncode != 0:
+        return False
+    # --prune drops refs the narrowed spec left stale; unshallow is skipped
+    # deliberately (a shallow clone still updates fine and re-downloading full
+    # history on a user's machine is not our call).
+    if _run(["fetch", "--prune", "origin"]).returncode != 0:
+        _run(["fetch", "origin", branch])  # narrower retry before giving up
+    ok = _run(["rev-parse", "--verify", "--quiet",
+               f"refs/remotes/origin/{branch}"]).returncode == 0
+    print(f"  {'✓ Repaired — origin/' + branch + ' is now tracked' if ok else '⚠ Repair did not recover origin/' + branch}")
+    return ok
+
+
 def _restored_python_paths(
     git_cmd: list[str], cwd: Path
 ) -> tuple[str, ...] | None:
@@ -8803,6 +8838,32 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     capture_output=True,
                     text=True, encoding="utf-8", errors="replace",
                 )
+                if track_result.returncode != 0:
+                    # Self-heal a narrowed fetch refspec before giving up.
+                    #
+                    # `git clone --single-branch --branch X` scopes
+                    # remote.origin.fetch to X alone, and when X is a TAG the
+                    # refspec becomes +refs/tags/X:refs/tags/X. origin/<branch>
+                    # is then never fetched, `git fetch` can NEVER create it
+                    # (the refspec excludes it), and every update dies here
+                    # with "Branch 'main' does not exist locally or on origin"
+                    # — permanently, with no way for a shipped fix to reach the
+                    # install, because delivering it requires the update that
+                    # is broken.
+                    #
+                    # Restoring the default wildcard is the documented repair
+                    # (git-scm.com/docs/git-clone). It is also strictly safer
+                    # than `remote set-branches origin <branch>`: it recovers
+                    # every branch, not just this one, so the checkout can
+                    # never be stranded this way again.
+                    if _repair_narrow_fetch_refspec(git_cmd, _m().PROJECT_ROOT, branch):
+                        track_result = subprocess.run(
+                            git_cmd + ["checkout", "-B", branch, f"origin/{branch}"],
+                            cwd=_m().PROJECT_ROOT,
+                            capture_output=True,
+                            text=True, encoding="utf-8", errors="replace",
+                        )
+
                 if track_result.returncode != 0:
                     # Restore the user's prior stash before bailing
                     # so we don't leave them stranded in a weird state.
