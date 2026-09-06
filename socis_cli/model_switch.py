@@ -2953,6 +2953,26 @@ def _collect_authed_provider_slugs(
     return [s for s in slugs if s != "nous"]
 
 
+
+def _disabled_overlay_slugs() -> set:
+    """Provider slugs disabled via ``plugins.disabled`` in config.yaml.
+
+    Accepts both the registry key (``model-providers/opencode-free``) and the
+    bare slug, and returns bare slugs lowercased for membership tests against
+    SOCIS_AGENT_OVERLAYS keys.
+    """
+    try:
+        from providers import _read_disabled_plugins
+    except Exception:  # pragma: no cover — providers unavailable
+        return set()
+    out = set()
+    for entry in _read_disabled_plugins():
+        slug = str(entry).rsplit("/", 1)[-1].strip().lower()
+        if slug:
+            out.add(slug)
+    return out
+
+
 def list_authenticated_providers(
     current_provider: str = "",
     current_base_url: str = "",
@@ -3328,8 +3348,22 @@ def list_authenticated_providers(
     # while _PROVIDER_MODELS and config.yaml use SOCIS IDs ("copilot").
     _mdev_to_socis = {v: k for k, v in PROVIDER_TO_MODELS_DEV.items()}
 
+    _overlay_disabled = _disabled_overlay_slugs()
+
     for pid, overlay in SOCIS_AGENT_OVERLAYS.items():
         if pid.lower() in seen_slugs:
+            continue
+        # `plugins.disabled` must reach this loop too.
+        #
+        # This iterates SOCIS_AGENT_OVERLAYS directly — a plain dict, not the
+        # plugin registry and not CANONICAL_PROVIDERS. Disabling a provider
+        # plugin therefore removed it from `socis model` and from
+        # CANONICAL_PROVIDERS while this function kept returning it, so the
+        # desktop picker (which builds from here via
+        # build_model_options_payload) still showed it. Keyless providers made
+        # it worse: has_creds is forced True below, so they can never be
+        # filtered out by a missing credential either.
+        if _overlay_disabled and pid.lower() in _overlay_disabled:
             continue
 
         # Resolve SOCIS slug — e.g. "github-copilot" → "copilot"
