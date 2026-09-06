@@ -97,6 +97,36 @@ def list_providers() -> list[ProviderProfile]:
     return list(result)
 
 
+def _read_disabled_plugins() -> set:
+    """``plugins.disabled`` from config.yaml, with no socis_cli.plugins import.
+
+    Deliberately standalone: socis_cli.plugins imports THIS module at its own
+    import time, so asking it for the deny-list mid-initialisation raises
+    ImportError on a partially-initialised module. Only stdlib + yaml here,
+    both safe at any point in startup.
+    """
+    import os
+
+    home = os.environ.get("SOCIS_AGENT_HOME")
+    if home:
+        cfg = Path(home) / "config.yaml"
+    elif os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+        cfg = Path(os.environ["LOCALAPPDATA"]) / "socis" / "config.yaml"
+    else:
+        cfg = Path.home() / ".socis-agent" / "config.yaml"
+    try:
+        if not cfg.is_file():
+            return set()
+        import yaml
+
+        data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+        entries = ((data.get("plugins") or {}).get("disabled")) or []
+        return {str(e) for e in entries} if isinstance(entries, list) else set()
+    except Exception as exc:  # pragma: no cover — unreadable / invalid yaml
+        logger.debug("could not read plugins.disabled: %s", exc)
+        return set()
+
+
 def _user_plugins_dir() -> Path | None:
     """Return ``$SOCIS_AGENT_HOME/plugins/model-providers/`` if it exists."""
     try:
@@ -361,12 +391,17 @@ def _discover_providers() -> None:
     # provider at plugins/model-providers/foo/ is keyed
     # ``model-providers/foo``; accept the bare directory name too, since that
     # is what people reach for first.
-    try:
-        from socis_cli.plugins import _get_disabled_plugins
-
-        _disabled = _get_disabled_plugins()
-    except Exception:  # pragma: no cover — config layer unavailable
-        _disabled = set()
+    # Read config.yaml DIRECTLY rather than via socis_cli.plugins.
+    #
+    # socis_cli.plugins imports this module at its own import time, so provider
+    # discovery runs while socis_cli.plugins is still initialising. Importing
+    # _get_disabled_plugins back out of it then raises ImportError on a
+    # partially-initialised module, the except swallows it, and the deny-list
+    # silently becomes empty — so nothing is disabled. The failure is
+    # order-dependent and invisible: importing socis_cli.models alone blocks
+    # the provider correctly, while the real app (which imports
+    # socis_cli.plugins first) does not.
+    _disabled = _read_disabled_plugins()
 
     def _is_disabled(child) -> bool:
         if not _disabled:
