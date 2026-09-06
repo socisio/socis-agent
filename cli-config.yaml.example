@@ -5,6 +5,35 @@
 # variables in .env take precedence over their corresponding settings.
 
 # =============================================================================
+# Plugins
+# =============================================================================
+# Plugins are enabled by default. List registry keys here to turn one off.
+# The key is the path under plugins/ — e.g. plugins/model-providers/foo/
+# has the key "model-providers/foo".
+plugins:
+  disabled:
+    # OpenCode Free — the keyless tier at https://opencode.ai/zen/v1.
+    #
+    # Disabled by default for three reasons:
+    #
+    #  1. Redundant. It is the SAME endpoint as opencode-zen; the only
+    #     difference is that Zen sends OPENCODE_ZEN_API_KEY and Free sends
+    #     nothing. Configure Zen and its free models appear anyway.
+    #  2. It always shows as "available" because there is no credential to
+    #     validate — while several of the models it advertises return
+    #     "HTTP 400: Model is unavailable" when actually called. A provider
+    #     that looks configured and then fails is worse than an absent one.
+    #  3. Anonymous, unauthenticated inference to a third party is not a
+    #     default SOCIS should ship for security work.
+    #
+    # The models that do work are slow (~38s for a short reply) because free
+    # anonymous traffic queues behind paying traffic.
+    #
+    # To re-enable, delete this line. opencode-zen and opencode-go are
+    # separate and unaffected.
+    - model-providers/opencode-free
+
+# =============================================================================
 # Database Configuration
 # =============================================================================
 # WAL is the normal default. SOCIS automatically falls back to DELETE when
