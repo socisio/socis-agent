@@ -2844,6 +2844,42 @@ def _git_untracked_paths(git_cmd: list[str], cwd: Path) -> set[str] | None:
     return {path for path in result.stdout.split("\0") if path}
 
 
+
+# Directories whose Python files are NOT ours and must never gate an update.
+#
+# node_modules is untracked, so every .py that npm vendors was being fed to
+# py_compile — including node-pty's bundled winpty build scripts, which are
+# Python 2 and can never parse under Python 3:
+#
+#   node_modules/node-pty/deps/winpty/misc/DumpLines.py
+#     print i, "X" * 78
+#     SyntaxError: Missing parentheses in call to 'print'
+#
+# The check exists to catch a stash restore that broke SOCIS's own source. A
+# third party's vendored Python 2 script says nothing about that, and letting
+# it fail the restore blocks every update taken after an `npm install`.
+_VENDORED_PATH_PARTS = (
+    "node_modules/",
+    "venv/",
+    ".venv/",
+    "site-packages/",
+    "web_dist/",
+    "dist/node_modules/",
+    ".git/",
+)
+
+
+def _is_vendored_path(path: str) -> bool:
+    """True when *path* is third-party or build output, not SOCIS source."""
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    return any(
+        normalized.startswith(part) or f"/{part}" in normalized
+        for part in _VENDORED_PATH_PARTS
+    )
+
+
 def _restored_python_paths(
     git_cmd: list[str], cwd: Path
 ) -> tuple[str, ...] | None:
@@ -2870,7 +2906,10 @@ def _restored_python_paths(
     untracked = _git_untracked_paths(git_cmd, cwd)
     if untracked is None:
         return None
-    paths.update(path for path in untracked if path.endswith(".py"))
+    paths.update(
+        path for path in untracked
+        if path.endswith(".py") and not _is_vendored_path(path)
+    )
     paths.discard("")
     return tuple(sorted(paths))
 
