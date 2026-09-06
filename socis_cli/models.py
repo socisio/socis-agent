@@ -1435,7 +1435,23 @@ PROVIDER_GROUPS: dict[str, tuple[str, str, list[str]]] = {
     "google":   ("Google Gemini",   "Google AI Studio (API key)",                     ["gemini"]),
     "openai":   ("OpenAI",          "ChatGPT/Codex subscription or direct OpenAI API", ["openai-codex", "openai-api"]),
     "qwen":     ("Qwen",            "Qwen Cloud / DashScope, Coding Plan, Token Plan & Qwen CLI OAuth", ["alibaba", "alibaba-cn", "alibaba-coding-plan", "alibaba-coding-plan-cn", "alibaba-token-plan", "alibaba-token-plan-cn", "qwen-oauth"]),
-    "opencode": ("OpenCode",        "Zen pay-as-you-go, Go subscription, or free tier", ["opencode-zen", "opencode-go", "opencode-free"]),
+    # opencode-free intentionally omitted. It is the SAME endpoint as
+    # opencode-zen (https://opencode.ai/zen/v1) with no API key attached, so
+    # a configured Zen key already exposes the free models. Because it is
+    # keyless it always rendered as "available" in the desktop picker while
+    # several models it advertises return
+    #   HTTP 400: Upstream request failed: Model is unavailable.
+    # A provider that looks configured and then fails is worse than an absent
+    # one, and anonymous unauthenticated inference is not a default SOCIS
+    # should ship. The provider itself still exists (socis_cli/providers.py,
+    # plugins/model-providers/opencode-free/) and can be selected explicitly;
+    # this only removes it from the grouped picker.
+    #
+    # NOTE: PROVIDER_GROUPS — not CANONICAL_PROVIDERS, not the plugin
+    # registry, not plugins.disabled, and not provider_models_cache.json — is
+    # what populates the desktop model menu's provider sections. Changing any
+    # of those others has no effect on what the picker shows.
+    "opencode": ("OpenCode",        "Zen pay-as-you-go or Go subscription", ["opencode-zen", "opencode-go"]),
     "copilot":  ("GitHub Copilot",  "GitHub token API or copilot --acp process",       ["copilot", "copilot-acp"]),
     "tencent":  ("Tencent Hy",      "Hy4 / Hy3 via TokenHub & TokenPlan", ["tencent-tokenhub", "tencent-tokenplan"]),
 }
