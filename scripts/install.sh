@@ -3478,13 +3478,60 @@ _sigma_ensure_path() {
 }
 
 _sigma_backend_hint() {
-    # sigma-cli ships NO backends. Without one, `sigma convert -t splunk` fails
-    # with an error that does not explain why, so say it at install time.
-    log_info "sigma-cli installs no SIEM backends by default. Add the ones you use:"
-    log_info "  sigma plugin list                    # everything available"
-    log_info "  sigma plugin install splunk          # or elasticsearch, qradar, loki..."
-    log_info "  sigma list targets                   # confirm what is installed"
+    # sigma-cli ships with NO backends, and a bare `sigma convert -t splunk`
+    # then fails with an error that never mentions why. Leaving that to the
+    # user means every analyst hits it once and some conclude the tool is
+    # broken — so install them here rather than printing instructions.
+    #
+    # There is no "install all". Roughly 8 of the ~19 published backends are
+    # marked `Compatible? no` against current pySigma at any moment
+    # (ibm-qradar-aql, insightidr, qradar, stix, powershell, hawk, datadog and
+    # dictquery, as of pySigma 3.1.0) and `sigma plugin install` errors on
+    # them. That set moves with every pySigma release, so the list below is a
+    # best-effort target and each install is allowed to fail on its own
+    # without aborting the rest.
+    local backends=(
+        splunk           # SPL, tstats data models, savedsearches.conf
+        elasticsearch    # Lucene, ES|QL, EQL, Kibana NDJSON
+        opensearch
+        loki             # Grafana — pairs with the `grafana` MCP entry
+        kusto            # Sentinel / Defender Advanced Hunting
+        crowdstrike      # Falcon LogScale
+        secops           # Google SecOps (Chronicle) UDM + YARA-L
+        sentinelone
+        sentinelone-pq
+        cortexxdr
+        carbonblack
+    )
+
+    if ! command -v sigma &>/dev/null; then
+        log_warn "sigma not on PATH — skipping backend install."
+        return 0
+    fi
+
+    log_info "Installing Sigma backends (${#backends[@]} targets)..."
+    local ok=0
+    local failed=()
+    for b in "${backends[@]}"; do
+        if sigma plugin install "$b" >/dev/null 2>&1; then
+            ok=$((ok + 1))
+        else
+            failed+=("$b")
+        fi
+    done
+
+    log_success "Sigma backends: $ok of ${#backends[@]} installed"
+    if [ ${#failed[@]} -gt 0 ]; then
+        # Not an error worth alarming about. A backend usually fails because it
+        # has not yet been updated for the installed pySigma — the maintainer's
+        # timeline, not a local fault.
+        log_warn "Not installed: ${failed[*]}"
+        log_info "  Usually means the backend lags the installed pySigma."
+        log_info "  Check state with: sigma plugin list --plugin-type backend"
+    fi
+    log_info "Confirm what is available: sigma list targets"
 }
+
 
 install_yargen() {
     if command -v yarGen &>/dev/null || command -v yargen &>/dev/null; then

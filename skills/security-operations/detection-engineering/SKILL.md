@@ -56,21 +56,28 @@ architecture.
 
 ```bash
 bash ~/.socis-agent/socis-agent/scripts/install.sh --ensure sigma
-# or directly: pipx install sigma-cli
-
-sigma plugin list               # every backend that exists
-sigma plugin install splunk     # each SIEM is a SEPARATE package
-sigma plugin install microsoft365defender
-sigma plugin install elasticsearch
-
-sigma list targets              # what is actually installed HERE
-sigma list pipelines            # and which field mappings are available
+sigma list targets              # what this machine can convert to
 ```
 
-`sigma-cli` ships with **no backends**. A fresh install converts to nothing,
-and `sigma convert -t splunk` fails with an unhelpful error rather than saying
-so. Check `sigma list targets` before assuming a conversion is possible — the
-`sigma_list` tool does this if the `sigma` toolset is enabled.
+That installs sigma-cli **and** the SIEM backends — splunk, elasticsearch,
+opensearch, loki, kusto, crowdstrike, secops, sentinelone, sentinelone-pq,
+cortexxdr, carbonblack. Nothing further to do by hand.
+
+`sigma-cli` itself ships with **no backends**, and a bare
+`sigma convert -t splunk` then fails with an error that never mentions why —
+which is why the installer handles it rather than leaving it to you.
+
+Not every published backend installs. Around 8 of ~19 are marked
+`Compatible? no` against current pySigma at any moment — qradar, insightidr,
+powershell, datadog, stix and others as of pySigma 3.1.0 — and that set moves
+with each release, so the installer reports which it skipped. To check later:
+
+```bash
+sigma plugin list --plugin-type backend    # State and Compatible? columns
+```
+
+Use `sigma_list` (what=targets) from the `sigma` toolset to confirm a target
+exists before attempting a conversion.
 
 Backend maturity is uneven. Splunk, Elasticsearch and Sentinel are the most
 actively maintained; others may lag the spec or miss modifiers.
