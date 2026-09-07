@@ -2,9 +2,22 @@
 # Presence in this directory = approval. Merged via PR review.
 manifest_version: 1
 
-name: cve-lookup
+name: nvd
 description: >-
   CVE detail, CVSS scoring and keyword search from the NIST NVD database.
+# NAMED `nvd`, NOT `cve-lookup`.
+#
+# Tool names are prefixed with the entry name, so `cve-lookup` produced
+# `mcp__cve_lookup__search_cves`. The Shodan entry (`attack-surface`) exposes a
+# tool of its own literally called `cve_lookup`, giving
+# `mcp__attack_surface__cve_lookup` — so the string "cve_lookup" appeared both
+# as a server name here and as a tool name there.
+#
+# That was not theoretical. Asked to search NVD, the model listed
+# `mcp__attack_surface__cve_lookup` twice, could not work out which server did
+# what, and concluded it had no suitable tool — then fell back to web_search.
+# `nvd` is unambiguous: it names the authoritative source and collides with
+# nothing.
 # First-party: written and maintained by SOCIS. Unlike the other community
 # entries there is no upstream to track — see the age-rule note below.
 source: https://github.com/0x4hm3d/nvd-cve-mcp-server

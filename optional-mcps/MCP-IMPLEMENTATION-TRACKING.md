@@ -29,9 +29,26 @@ a name that describes what an analyst gets, not who wrote the upstream server:
 | `ioc-reputation` | Ioc-Reputation | mcp-virustotal |
 | `attack-surface` | Attack-Surface | mcp-shodan |
 | `domain-permutation` | Domain-Permutation | mcp-dnstwist |
-| `cve-lookup` | Cve-Lookup | nvd-cve-mcp-server |
+| `nvd` | Nvd | nvd-cve-mcp-server |
 | `cti-platform` | Cti-Platform | OpenCTI |
 | `intel-sharing` | Intel-Sharing | MISP |
+
+### An entry name must not collide with another entry's TOOL name
+
+Tool names are prefixed with the entry name, so entry `cve-lookup` produced
+`mcp__cve_lookup__search_cves`. The Shodan entry (`attack-surface`) exposes a
+tool of its own called `cve_lookup`, giving `mcp__attack_surface__cve_lookup`.
+
+The string `cve_lookup` therefore appeared both as a server name and as a tool
+name on a different server — and it broke the model. Asked to search NVD, its
+reasoning listed `mcp__attack_surface__cve_lookup` twice, could not resolve
+which server did what, concluded it had no suitable tool, and fell back to
+`web_search`. The entry has been renamed to **`nvd`**.
+
+**Check before naming a new entry.** The functional-naming scheme is good, but
+functional names are exactly the ones likely to already exist as a tool
+somewhere. A quick check of the other entries' tool lists costs a minute; the
+failure mode is a tool that is installed, enabled, and silently never chosen.
 
 ### Attribution is not optional
 
@@ -80,7 +97,7 @@ clean. See Handover at the end for the test order and what carries forward.
 | 8 | `ioc-reputation` (VirusTotal) | MIT | **DONE** — 105d, parses, **axios override applied** | — |
 | 9 | `attack-surface` (Shodan) | MIT | **DONE** — 159d, parses, **axios override applied** | — |
 | 10 | `domain-permutation` (dnstwist) | MIT | **REPLACED** — see `tools/domain_permutations.py` | remove from catalog |
-| 11 | `cve-lookup` (NVD) | **first-party** | **DONE** — security-reviewed and fixed, parses | publish 1.1.0 to npm, then simplify to npx |
+| 11 | `nvd` (was `cve-lookup`) | **first-party** | **DONE** — security-reviewed and fixed, parses | publish 1.1.0 to npm, then simplify to npx |
 | 12 | `cti-platform` (OpenCTI) | MIT | **HOLD** — unfixable HIGH advisory in a pinned pre-1.0 SDK | see below |
 | 13 | `intel-sharing` (MISP) | **NO LICENCE** | **WILL NOT SHIP** | nothing — see below |
 
