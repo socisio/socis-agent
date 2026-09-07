@@ -5169,6 +5169,24 @@ function Write-SigmaBackendHint {
         (Join-Path $SOCISHome "tools\sigma\Scripts\python.exe")
     )) { if (Test-Path $c) { $toolPy = $c; break } }
 
+    # PRE-FLIGHT: is the CLI working before we start? If a previously-installed
+    # backend broke autodiscover, sigma fails at import and EVERY
+    # `sigma plugin install` returns non-zero — which reads as "all backends
+    # are incompatible" when the real cause is one bad backend already present.
+    $null = sigma list targets 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "The sigma CLI is not working before any install."
+        Write-Info "  Usually a previously-installed backend broke autodiscover -"
+        Write-Info "  pySigma imports every backend at startup, so one bad import"
+        Write-Info "  disables the whole CLI. See the real error with:"
+        Write-Info "    sigma list targets"
+        Write-Info "  Then remove the offending backend, e.g.:"
+        $py = if ($toolPy) { $toolPy } else { "<sigma-python>" }
+        Write-Info "    $py -m pip uninstall -y pysigma-backend-cortexxdr"
+        Write-Info "  Re-run this once sigma works again."
+        return
+    }
+
     Write-Info "Installing Sigma backends ($($backends.Count) targets)..."
     $ok = 0
     $failed = @()

@@ -3560,6 +3560,25 @@ _sigma_backend_hint() {
         [ -x "$_cand" ] && { _tool_py="$_cand"; break; }
     done
 
+    # PRE-FLIGHT: is the CLI working before we start?
+    #
+    # If a previously-installed backend has broken autodiscover, `sigma` fails
+    # at import and EVERY `sigma plugin install` returns non-zero — which reads
+    # as "all backends are incompatible" when the real cause is one bad backend
+    # already present. Diagnose that here rather than reporting 0 of 11 and
+    # sending the reader after the wrong thing.
+    if ! sigma list targets >/dev/null 2>&1; then
+        log_warn "The sigma CLI is not working before any install."
+        log_info "  Usually a previously-installed backend broke autodiscover —"
+        log_info "  pySigma imports every backend at startup, so one bad import"
+        log_info "  disables the whole CLI. See the real error with:"
+        log_info "    sigma list targets"
+        log_info "  Then remove the offending backend, e.g.:"
+        log_info "    ${_tool_py:-<sigma-python>} -m pip uninstall -y pysigma-backend-cortexxdr"
+        log_info "  Re-run this once sigma works again."
+        return 1
+    fi
+
     log_info "Installing Sigma backends (${#backends[@]} targets)..."
     local ok=0
     local failed=()
