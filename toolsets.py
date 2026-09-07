@@ -128,11 +128,15 @@ TOOLSETS = {
 
     "yara": {
         "description": (
-            "Compile, scan with, and generate YARA rules. Requires the `yara` "
-            "binary; `yarGen` additionally enables goodware-filtered string "
-            "extraction from samples."
+            "Compile, scan with, and generate YARA rules. `yara_extract` and "
+            "`yara_goodware_index` are pure stdlib and always available — they "
+            "replace yarGen for single-sample triage without its 913 MB database "
+            "or 3-6 GB memory footprint. The `yara` binary enables compile and "
+            "scan; `yarGen` is optional and only needed for large sample sets."
         ),
-        "tools": ["yara_compile", "yara_scan", "yargen_generate"],
+        "tools": ["yara_compile", "yara_scan", "yargen_generate",
+                   "yara_extract", "yara_goodware_index",
+                   "yara_goodware_status", "yara_goodware_forget"],
         "includes": []
     },
 
