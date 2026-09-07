@@ -573,6 +573,18 @@ py-modules = [
   "socis_agent_constants",
   "socis_agent_state",
   "socis_agent_state_common",
+  # These two were missing, and the failure mode was slow and confusing.
+  # socis_agent_state.py (declared above) imports socis_agent_state_holders,
+  # and gateway/run.py imports socis_agent_state_registry — but neither was
+  # listed, so a FRESH install got the importer without the imported module:
+  #     ModuleNotFoundError: No module named 'socis_agent_state_holders'
+  # An existing venv keeps working, which hides it. What surfaced it was the
+  # managed-Python remediation for the SQLite WAL-reset bug: it builds a
+  # replacement environment, runs an import smoke test, fails on this, and
+  # correctly declines to swap the venv — so `socis update` reported
+  # "partially complete" on every run with no way to make progress.
+  "socis_agent_state_holders",
+  "socis_agent_state_registry",
   "socis_agent_state_portability",
   "socis_agent_state_schema",
   "socis_agent_state_search",
