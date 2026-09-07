@@ -285,7 +285,22 @@ def _build_persisted_message(
     msg += (
         "Recovery: page through the saved file with read_file (offset/limit) or "
         "process it with execute_code — do NOT re-request the same data from the "
-        "remote API; the full result is already on disk.\n\n"
+        "remote API; the full result is already on disk.\n"
+    )
+    # Spell out the execute_code path. Saying "process it with execute_code"
+    # without showing how led to models shelling out to `cat` from inside
+    # execute_code — which routes the file back through the terminal tool and
+    # its own output cap, re-truncating the very content spillover saved. The
+    # symptom is a JSONDecodeError ("Unterminated string" on a truncated tail,
+    # "Extra data" when a wrapper is included), which names neither the
+    # truncation nor the cause.
+    msg += (
+        "In execute_code, open the file directly — do NOT run `cat` through the "
+        "terminal tool, which re-truncates it:\n"
+        "    with open(path, encoding='utf-8', errors='replace') as f:\n"
+        "        data = json.load(f)          # or f.read() for text\n"
+        "If json.load raises 'Extra data', the file is JSONL — parse per line:\n"
+        "    rows = [json.loads(l) for l in open(path) if l.strip()]\n\n"
     )
     msg += f"Preview (first {len(preview)} chars):\n"
     msg += preview
