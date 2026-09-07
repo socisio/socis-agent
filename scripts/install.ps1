@@ -5040,36 +5040,77 @@ function Install-DetectionPackage {
 function Install-SigmaCli {
     <#
     .SYNOPSIS
-    Install sigma-cli (pure Python, so Windows is a first-class target here).
+    Install sigma-cli, preferring the SOCIS-managed uv.
+
+    .DESCRIPTION
+    Order matters and the obvious first choice is wrong. `pip install --user`
+    fails outright on any PEP 668 environment, and while Windows Python is
+    usually not externally-managed, `uv tool install` is the better path
+    regardless: an isolated venv per tool, a shim on PATH, no system
+    site-packages touched, and uv is already installed by Install-Uv.
+
+    Falls back to pipx, then to a dedicated venv under $SOCISHome\tools\sigma.
     #>
     if (Get-Command sigma -ErrorAction SilentlyContinue) {
         Write-Success "sigma-cli already installed"
-    } else {
-        if (Get-Command pipx -ErrorAction SilentlyContinue) {
-            Write-Info "Installing sigma-cli via pipx..."
-            try { $null = pipx install sigma-cli 2>&1 } catch { }
-        }
-        if (-not (Get-Command sigma -ErrorAction SilentlyContinue)) {
-            Write-Info "Installing sigma-cli via pip --user..."
-            try { $null = python -m pip install --user sigma-cli 2>&1 } catch { }
-        }
+        Write-SigmaBackendHint
+        return $true
+    }
+
+    Resolve-UvCmd
+    if ($script:UvCmd -and (Test-Path $script:UvCmd)) {
+        Write-Info "Installing sigma-cli via managed uv..."
+        try { $null = & $script:UvCmd tool install sigma-cli 2>&1 } catch { }
         if (Get-Command sigma -ErrorAction SilentlyContinue) {
             Write-Success "sigma-cli installed"
-        } else {
-            Write-Warn "Could not install sigma-cli. Try: pipx install sigma-cli"
-            Write-Info "If sigma is still not found after installing, the Python"
-            Write-Info "Scripts directory is not on PATH -- usually"
-            Write-Info "  %APPDATA%\Python\Python3xx\Scripts"
-            return $false
+            Write-SigmaBackendHint
+            return $true
+        }
+        Write-Warn "uv tool install did not produce a usable sigma; trying pipx"
+    }
+
+    if (Get-Command pipx -ErrorAction SilentlyContinue) {
+        Write-Info "Installing sigma-cli via pipx..."
+        try { $null = pipx install sigma-cli 2>&1 } catch { }
+        if (Get-Command sigma -ErrorAction SilentlyContinue) {
+            Write-Success "sigma-cli installed"
+            Write-SigmaBackendHint
+            return $true
         }
     }
+
+    $venv = Join-Path $SOCISHome "tools\sigma"
+    Write-Info "Creating a dedicated venv for sigma-cli at $venv ..."
+    try {
+        $null = python -m venv $venv 2>&1
+        $venvPip = Join-Path $venv "Scripts\pip.exe"
+        if (Test-Path $venvPip) {
+            $null = & $venvPip install --quiet sigma-cli 2>&1
+        }
+    } catch { }
+    $venvSigma = Join-Path $venv "Scripts\sigma.exe"
+    if (Test-Path $venvSigma) {
+        Write-Success "sigma-cli installed (venv)"
+        Write-Info "  Add to PATH:  $(Join-Path $venv 'Scripts')"
+        Write-SigmaBackendHint
+        return $true
+    }
+
+    Write-Warn "Could not install sigma-cli automatically."
+    Write-Info "  scoop install pipx; pipx install sigma-cli"
+    Write-Info "  or: python -m pip install --user sigma-cli"
+    Write-Info "If sigma is still not found after installing, the Python Scripts"
+    Write-Info "directory is not on PATH -- usually %APPDATA%\Python\Python3xx\Scripts"
+    return $false
+}
+
+function Write-SigmaBackendHint {
     # sigma-cli ships NO backends. Without one, `sigma convert -t splunk` fails
-    # with an error that does not explain why, so say it here instead.
+    # with an error that does not explain why, so say it at install time.
     Write-Info "sigma-cli installs no SIEM backends by default. Add the ones you use:"
     Write-Info "  sigma plugin list                 # everything available"
     Write-Info "  sigma plugin install splunk       # or elasticsearch, qradar, loki..."
     Write-Info "  sigma list targets                # confirm what is installed"
-    return $true
 }
 
 function Install-YarGen {

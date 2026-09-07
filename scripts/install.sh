@@ -3401,22 +3401,89 @@ _install_detection_pkg() {
 install_sigma_cli() {
     if command -v sigma &>/dev/null; then
         log_success "sigma-cli already installed"
-    elif command -v pipx &>/dev/null; then
-        log_info "Installing sigma-cli via pipx..."
-        pipx install sigma-cli || { log_warn "pipx install failed"; return 1; }
-        log_success "sigma-cli installed"
-    else
-        log_info "Installing sigma-cli via pip (pipx not found)..."
-        python3 -m pip install --user sigma-cli || { log_warn "pip install failed"; return 1; }
-        log_success "sigma-cli installed"
+        _sigma_backend_hint
+        return 0
     fi
-    # sigma-cli ships with NO backends. Without one, `sigma convert -t splunk`
-    # fails with an error that does not explain why, so say it here instead.
+
+    # Install order matters here, and the obvious first choice is wrong.
+    #
+    # `pip install --user` fails outright on any PEP 668 environment —
+    # Homebrew Python and Debian's system Python both mark themselves
+    # externally-managed and refuse:
+    #     error: externally-managed-environment
+    # Overriding that with --break-system-packages is exactly what Homebrew
+    # warns can break its own installation, so it is not an option in an
+    # installer that runs unattended.
+    #
+    # SOCIS already owns a uv at $SOCIS_AGENT_HOME/bin/uv (see install_uv), and
+    # `uv tool install` is pipx-equivalent: an isolated venv per tool, binary
+    # shimmed onto PATH, no system site-packages touched. Prefer it — it needs
+    # no new dependency and no elevated permissions.
+    local _managed_uv="$SOCIS_AGENT_HOME/bin/uv"
+    if [ -x "$_managed_uv" ]; then
+        log_info "Installing sigma-cli via managed uv..."
+        if "$_managed_uv" tool install sigma-cli; then
+            log_success "sigma-cli installed"
+            _sigma_ensure_path
+            _sigma_backend_hint
+            return 0
+        fi
+        log_warn "uv tool install failed; trying pipx"
+    fi
+
+    if command -v pipx &>/dev/null; then
+        log_info "Installing sigma-cli via pipx..."
+        if pipx install sigma-cli; then
+            log_success "sigma-cli installed"
+            _sigma_backend_hint
+            return 0
+        fi
+        log_warn "pipx install failed"
+    fi
+
+    # Last resort: a dedicated venv we own. Same isolation as the paths above,
+    # just done by hand — this is what makes the function work on a machine
+    # with neither uv nor pipx and a PEP 668 system Python.
+    local _venv="$SOCIS_AGENT_HOME/tools/sigma"
+    log_info "Creating a dedicated venv for sigma-cli at $_venv ..."
+    if python3 -m venv "$_venv" 2>/dev/null \
+        && "$_venv/bin/pip" install --quiet --upgrade pip \
+        && "$_venv/bin/pip" install --quiet sigma-cli; then
+        mkdir -p "$HOME/.local/bin"
+        ln -sf "$_venv/bin/sigma" "$HOME/.local/bin/sigma"
+        log_success "sigma-cli installed (venv) → ~/.local/bin/sigma"
+        _sigma_ensure_path
+        _sigma_backend_hint
+        return 0
+    fi
+
+    log_warn "Could not install sigma-cli automatically."
+    log_info "  brew install pipx && pipx install sigma-cli      (macOS)"
+    log_info "  pipx install sigma-cli                           (Linux)"
+    log_info "Do NOT use 'pip install --break-system-packages' on Homebrew Python."
+    return 1
+}
+
+_sigma_ensure_path() {
+    # uv tool and the venv fallback both shim into ~/.local/bin. If that is not
+    # on PATH the install "succeeds" and `sigma` is still not found, which reads
+    # as a failed install rather than a PATH problem.
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *)
+            log_warn "~/.local/bin is not on your PATH — 'sigma' will not be found."
+            log_info "  Add to your shell profile:  export PATH=\"\$HOME/.local/bin:\$PATH\""
+            ;;
+    esac
+}
+
+_sigma_backend_hint() {
+    # sigma-cli ships NO backends. Without one, `sigma convert -t splunk` fails
+    # with an error that does not explain why, so say it at install time.
     log_info "sigma-cli installs no SIEM backends by default. Add the ones you use:"
     log_info "  sigma plugin list                    # everything available"
     log_info "  sigma plugin install splunk          # or elasticsearch, qradar, loki..."
     log_info "  sigma list targets                   # confirm what is installed"
-    return 0
 }
 
 install_yargen() {
