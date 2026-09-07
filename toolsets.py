@@ -140,6 +140,16 @@ TOOLSETS = {
         "includes": []
     },
 
+    "domain-intel": {
+        "description": (
+            "Typosquat and lookalike-domain discovery. Pure stdlib — no "
+            "dependencies, no Docker, no API key, so unlike the MCP servers in "
+            "this space there is no dependency tree to audit."
+        ),
+        "tools": ["domain_permutations"],
+        "includes": []
+    },
+
     "suricata": {
         "description": (
             "Validate Suricata rules and replay PCAPs to confirm they fire. "
