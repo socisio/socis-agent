@@ -73,7 +73,31 @@ install:
   # which case this override becomes unnecessary rather than wrong.
   bootstrap:
     - "npm install"
-    - "npm install --save-exact axios@1.18.0"
+    # Clear transitive advisories before the build (see the ordering note below).
+    #
+    # This server declares four dependencies; npm resolves ~190 packages,
+    # because fastmcp pulls a complete HTTP SERVER stack (hono, @hono/node-server,
+    # koa, express-rate-limit, body-parser, path-to-regexp) for its HTTP
+    # transport mode. This server runs stdio and never opens a listener, so most
+    # of that is dead code — but it is dead VULNERABLE code, and a customer
+    # running `npm audit` on a SOCIS install will not care that the paths are
+    # unreachable.
+    #
+    # Measured on a clean install: 14 advisories (1 critical, 9 high) before,
+    # 11 (0 critical, 8 high) after the axios pin, 0 after `npm audit fix`.
+    # No --force: every fix npm offered here was semver-compatible, and --force
+    # is free to make breaking major bumps. If a future fix is not compatible,
+    # `npm run build` below fails loudly rather than shipping a broken server.
+    # Order matters. Break the axios cap FIRST so `npm audit fix` can see an
+    # unconstrained range, then let audit fix resolve everything else — and
+    # potentially bump axios further within ^1, which is desirable.
+    #
+    # A CARET, not --save-exact. Upstream's mistake was an upper bound
+    # (">=1.7.8 <1.14.1") that froze axios below the fix for CVE-2026-40175.
+    # Replacing it with an exact pin would recreate the same trap one version
+    # later, and would let a later `npm audit fix` be undone by this step.
+    - "npm install axios@^1.18.0"
+    - "npm audit fix"
     - "npm run build"
 
 suggest:
