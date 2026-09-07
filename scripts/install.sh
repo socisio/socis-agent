@@ -3491,21 +3491,43 @@ install_yargen() {
         log_success "yarGen already installed"
         return 0
     fi
-    # yarGen is not reliably on PyPI and needs a goodware database to be useful
-    # at all — without one its filtering does nothing and every generated rule
-    # is full of KERNEL32.dll. Both steps are the user's to run deliberately.
-    log_warn "yarGen is not installed automatically."
-    log_info "It requires a multi-gigabyte goodware database to be useful — a rule"
-    log_info "generated without one matches every Windows binary on the system."
+    # Lead with the fact that SOCIS already does this. The previous wording
+    # described the 913 MB download as a prerequisite without mentioning the
+    # built-in alternative, so a user reasonably concluded they had to install
+    # yarGen to author YARA rules. They do not.
+    log_info "yarGen is NOT installed automatically — and you probably do not need it."
+    log_info ""
+    log_info "SOCIS already does this. The 'yara' toolset includes:"
+    log_info "  yara_goodware_index   build a goodware string index from paths you choose"
+    log_info "  yara_extract          extract and score candidate strings from a sample"
+    log_info ""
+    log_info "Ask the agent: \"index /usr/bin as goodware for YARA rule generation\""
+    log_info "then \"extract candidate YARA strings from <sample>\"."
+    log_info ""
+    log_info "Why that is usually the better option:"
+    log_info "  - no 913 MB download; the index is built locally and incrementally"
+    log_info "  - ~35 MB of memory, against yarGen's 3 GB (6 GB with --opcodes)"
+    log_info "  - the corpus is software from YOUR environment, which filters more"
+    log_info "    accurately than a generic database built from someone else's"
+    log_info ""
+    log_info "Install yarGen only for LARGE SAMPLE SETS. It loads its corpus once"
+    log_info "and amortises it across many files, and it does opcode analysis and"
+    log_info "'super rules' from strings shared across a malware family — neither"
+    log_info "of which the built-in single-sample path covers."
+    log_info ""
+    log_info "If you do want it, note the database is required, not optional: without"
+    log_info "it the goodware filtering does nothing and every generated rule matches"
+    log_info "every Windows binary on the system."
     log_info ""
     log_info "  git clone https://github.com/Neo23x0/yarGen.git"
     log_info "  cd yarGen && pip install -r requirements.txt"
-    log_info "  python yarGen.py --update      # downloads the goodware DBs"
+    log_info "  python yarGen.py --update      # 913 MB goodware databases"
     log_info ""
-    log_info "Or the Go rewrite, if you have Go:"
+    log_info "Or the Go rewrite, which upstream now recommends over the Python one:"
     log_info "  go install github.com/Neo23x0/yarGen-Go/cmd/yargen@latest"
     return 0
 }
+
 
 ensure_mode() {
     detect_os

@@ -55,28 +55,52 @@ This skill is about the second problem.
 ```bash
 bash ~/.socis-agent/socis-agent/scripts/install.sh --ensure yara
 yara --version
-yarGen -h                       # see below — not installed automatically
 ```
 
-`yara` is installed by `--ensure yara`. **yarGen is not**, deliberately: it is
-useless without a multi-gigabyte goodware database, and a rule generated
-without one matches every Windows binary on the system. Both steps are yours
-to run:
+That is all you need. String extraction and goodware filtering are **built in**
+— the `yara` toolset provides them with no external tool:
+
+| Tool | Does |
+|---|---|
+| `yara_goodware_index` | Builds a goodware string index from paths you choose |
+| `yara_extract` | Extracts and scores candidate strings from a sample |
+| `yara_compile` / `yara_scan` | Compile-check a rule; scan with it (needs the `yara` binary) |
+
+Build the index once before extracting anything, or nothing gets filtered:
+
+```
+index /usr/bin as goodware for YARA rule generation
+```
+
+Roughly 90k–160k strings in a few seconds. Index a gold image or application
+share from the environment you defend as well — a string common across your
+estate is goodware *for you* whether or not it appears in a public corpus.
+
+### On yarGen
+
+`yarGen` (Florian Roth) is the reference implementation of this idea and the
+built-in tools follow its approach. **You do not need to install it**, and by
+default it is not: it requires a 913 MB goodware database, holds 3 GB resident
+(6 GB with `--opcodes`), and is unmaintained — upstream now points at
+`yarGen-Go`.
+
+Install it only for **large sample sets**. It loads its corpus once and
+amortises that across many files, and it does opcode analysis and "super
+rules" from strings shared across a malware family — neither of which the
+built-in single-sample path covers. For "what is in this file", the built-in
+tools are faster and filter against a more relevant corpus.
+
+If you do install it, the database is required rather than optional:
 
 ```bash
 git clone https://github.com/Neo23x0/yarGen.git
 cd yarGen && pip install -r requirements.txt
-python yarGen.py --update       # downloads the goodware databases
+python yarGen.py --update       # 913 MB
 ```
 
-`yarGen` (Florian Roth) extracts candidate strings from samples and scores them
-against a large goodware corpus, which removes the strings that appear in every
-Windows binary. There is also `yarGen-Go`, a Go rewrite with a REST API, and
-`yaraQA`, which lints rules for quality problems. `YaraML` (Sophos, Apache-2.0)
-takes an ML approach from labelled malicious/benign sets.
-
-Install the goodware databases before first use — without them, yarGen's
-filtering does nothing and you get a rule full of `KERNEL32.dll`.
+Without them its filtering does nothing and you get a rule full of
+`KERNEL32.dll`. Also worth having: `yaraQA` lints rules for quality problems,
+and `YaraML` (Sophos, Apache-2.0) takes an ML approach from labelled sets.
 
 ---
 
@@ -96,17 +120,30 @@ deliberately and say so in the metadata.
 
 ### 2. Extract candidates
 
+Built-in, one sample:
+
+```
+extract candidate YARA strings from ./samples/mal.bin with min_score 10
+```
+
+`yara_extract` pulls ASCII and UTF-16LE strings, checks each against the
+goodware index, and scores what survives. Raise `min_score` to see only likely
+keepers; drop it to 0 to see everything with its score and reason.
+
+For a **sample set** where yarGen is installed:
+
 ```bash
 yarGen -m ./samples --opcodes -a "SOCIS" -o candidates.yar
 ```
 
-Multiple samples of the same family beat one. yarGen generates "super rules"
-from the strings common to a set, which is what makes a rule generic rather
-than a fingerprint of one file.
+Multiple samples of one family beat a single file either way. yarGen adds
+"super rules" built from strings common to the set, which is what makes a rule
+generic rather than a fingerprint of one binary — that part has no built-in
+equivalent, and it is the main reason to install it.
 
 ### 3. Triage the strings — this is the part that needs judgement
 
-yarGen scores; it does not decide. Read every string it kept and ask what
+The tool scores; it does not decide. Read every string it kept and ask what
 makes it durable:
 
 | Keep | Why |
