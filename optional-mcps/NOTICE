@@ -65,22 +65,6 @@ attack-surface
 Shodan host, service and certificate intelligence.
 
 
-domain-permutation
-------------------
-    Copyright (c) BurtTheCoder
-    https://github.com/w0h1v/mcp-dnstwist
-    Licensed under the MIT License
-    Pinned commit af62d09328f762a3581cd354997299ed0a758c11 (pushed 2025-03-03)
-
-Typosquat and lookalike-domain discovery via dnstwist.
-
-Last upstream push was 2025-03-03 — roughly 18 months before this entry was
-written. Treat it as unmaintained: no upstream security or dependency fixes
-should be expected. Acceptable for a keyless read-only wrapper with a small
-dependency surface; it would not be acceptable for anything holding
-credentials to a customer platform.
-
-
 cti-platform
 ------------
     https://github.com/zxzinn/opencti-mcp
@@ -92,6 +76,19 @@ connector status.
 
 Reached at zxzinn/opencti-mcp; the widely-cited Spathodea-Network path
 redirects there. Default branch is `master`.
+
+
+Removed entries
+---------------
+`domain-permutation` (BurtTheCoder / w0h1v, mcp-dnstwist) was previously listed
+here. It has been replaced by tools/domain_permutations.py, an independent
+implementation of the published permutation techniques with no third-party code
+— so there is nothing left to attribute. See
+optional-mcps/MCP-IMPLEMENTATION-TRACKING.md for the reasoning.
+
+Credit is still due: dnstwist (Marcin Ulikowski) is the reference
+implementation of this idea and defined the fuzzer taxonomy the tool follows.
+That credit is recorded in the tool's own module docstring.
 
 
 Modifications made by SOCIS

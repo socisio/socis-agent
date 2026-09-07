@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from collections import OrderedDict
@@ -198,11 +199,32 @@ def main() -> int:
         present = {v for v in found.values() if v is not None}
         for rel, v in found.items():
             print(f"  {rel:52} {v}")
-        if len(present) == 1:
+        # uv.lock is not in the managed list — it is a lockfile, not a version
+        # file — but it embeds the project version, so it drifts the same way
+        # and the failure is quieter: `uv sync --locked` refuses and the
+        # hash-verified install tier is skipped without anyone noticing.
+        lock_v = None
+        lock = ROOT / "uv.lock"
+        if lock.is_file():
+            m = re.search(r'name = "socis-agent"\nversion = "([^"]+)"',
+                          lock.read_text(encoding="utf-8"))
+            if m:
+                lock_v = m.group(1)
+                print(f"  {'uv.lock (project version)':52} {lock_v}")
+
+        if len(present) == 1 and (lock_v is None or lock_v in present):
             print(f"\nOK — all files agree on {present.pop()}")
             return 0
-        print(f"\nVERSION DRIFT: {sorted(present)}")
-        print("Fix with: python3 scripts/set-version.py <version>")
+
+        if len(present) > 1:
+            print(f"\nVERSION DRIFT: {sorted(present)}")
+            print("Fix with: python3 scripts/set-version.py <version>")
+        if lock_v is not None and lock_v not in present:
+            print(f"\nuv.lock is at {lock_v} but the project is at "
+                  f"{sorted(present)[0] if present else 'unknown'}.")
+            print("Fix with: uv lock   (then commit uv.lock)")
+            print("Left alone, `socis update` falls back to an install tier")
+            print("that is not hash-verified.")
         return 1
 
     version = args[0].lstrip("v")
@@ -212,6 +234,30 @@ def main() -> int:
     print(f"Setting version to {version}")
     n = write_version(version)
     print(f"\n{n} file(s) updated" if n else "\nAlready up to date")
+
+    # uv.lock records the project's own version, so a bump desyncs it and
+    # `uv sync --locked` then refuses:
+    #     error: The lockfile at `uv.lock` needs to be updated, but
+    #            `--locked` was provided.
+    # That fails the hash-verified install tier during `socis update` and
+    # falls back to an unverified one — quietly, which is the problem.
+    # Refreshing it here keeps the two in step, since forgetting is the
+    # default outcome otherwise.
+    if n and (ROOT / "uv.lock").is_file():
+        uv = shutil.which("uv") or str(Path.home() / ".socis-agent" / "bin" / "uv")
+        if Path(uv).exists() or shutil.which("uv"):
+            print("\nRefreshing uv.lock ...")
+            r = subprocess.run([uv, "lock"], cwd=ROOT, capture_output=True, text=True)
+            if r.returncode == 0:
+                print("  ✓ uv.lock refreshed — commit it with the version files")
+            else:
+                print(f"  ⚠ `uv lock` failed: {(r.stderr or '').strip().splitlines()[-1] if r.stderr else r.returncode}")
+                print("    Run `uv lock` by hand before committing, or `socis update`")
+                print("    will fall back to an unverified install tier.")
+        else:
+            print("\n⚠ uv not found — run `uv lock` manually before committing.")
+            print("  Otherwise uv.lock stays at the old version and the")
+            print("  hash-verified install tier fails on `--locked`.")
     return 0
 
 

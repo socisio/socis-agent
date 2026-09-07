@@ -59,7 +59,7 @@ is where a reviewer or auditor looks and a user does not.
 
 ## Status
 
-**10 of 13 built and parsing. 9 recommended for use.**
+**10 of 13 built and parsing. 8 recommended, 1 replaced by a native tool.**
 
 The other 3 are decided, not outstanding — MISP has no licence, Elastic has no
 published endpoint, and `domain-permutation` is held pending a connection test.
@@ -79,7 +79,7 @@ clean. See Handover at the end for the test order and what carries forward.
 | 7 | `endpoint-siem` (Wazuh) | MIT | **DONE** — 27d, parses | needs a running Wazuh MCP deployment to test |
 | 8 | `ioc-reputation` (VirusTotal) | MIT | **DONE** — 105d, parses, **axios override applied** | — |
 | 9 | `attack-surface` (Shodan) | MIT | **DONE** — 159d, parses, **axios override applied** | — |
-| 10 | `domain-permutation` (dnstwist) | MIT | **HOLD — confirmed broken** | requires Docker; fails on any host without a running daemon |
+| 10 | `domain-permutation` (dnstwist) | MIT | **REPLACED** — see `tools/domain_permutations.py` | remove from catalog |
 | 11 | `cve-lookup` (NVD) | **first-party** | **DONE** — security-reviewed and fixed, parses | publish 1.1.0 to npm, then simplify to npx |
 | 12 | `cti-platform` (OpenCTI) | MIT | **HOLD** — unfixable HIGH advisory in a pinned pre-1.0 SDK | see below |
 | 13 | `intel-sharing` (MISP) | **NO LICENCE** | **WILL NOT SHIP** | nothing — see below |
@@ -573,7 +573,55 @@ applies: ask the author, find another implementation, or reach OpenCTI's
 GraphQL API through the `terminal` toolset with a skill and skip the server
 entirely.
 
-### `domain-permutation`: a fifth reason, and a security one
+### `domain-permutation` — REPLACED, not held
+
+Superseded by `tools/domain_permutations.py`: a native SOCIS tool in the
+`domain-intel` toolset, pure stdlib, no dependencies at all.
+
+Every one of the five reasons this entry was held turned out to be about
+**packaging**, not technique. The algorithms are published — dnstwist's own
+fuzzer list is in its source, and the techniques appear in papers and patents
+— so there was nothing to inherit. Implementing them independently removed the
+whole dependency chain:
+
+| | mcp-dnstwist entry | `domain_permutations` |
+|---|---|---|
+| dependencies | MCP SDK `^0.4.0` + Docker | **none** |
+| advisories | 1 HIGH, unfixable | **0 — nothing to audit** |
+| Docker daemon | required | not used |
+| MCP protocol | 5 revisions behind | n/a — native tool |
+| maintenance | upstream, 18 months stale | ours |
+| fuzzers | 13 (in a container) | 13 |
+| MX / page similarity | yes | no — documented, not hidden |
+
+**Live-tested against `socis.io`:** 184 permutations, 23 registered. It also
+produced an actionable finding — `socis.com` is a 26-year-old domain parked for
+sale on Afternic, which is the highest-value item on the list because typing
+`.com` is reflex, and it is purchasable.
+
+**Two analytic features the original does not have**, both found by running it
+rather than reading it:
+
+1. **Wildcard detection.** The `subdomain` fuzzer turns `socis.io` into
+   `soc.is.io` — a subdomain of `is.io`. That resolving means the parent
+   exists, not that anyone registered a lookalike. In the first live run the
+   model ranked two such hits as *the strongest typosquat candidates* when they
+   were the weakest. The tool now probes each parent with a random label and
+   labels confirmed wildcards as "not a registration".
+
+2. **IP clustering.** Four lookalikes on one address are not four actors. In
+   testing, four sat on `13.248.169.48` and four on `76.223.54.146`, both AWS
+   parking ranges — collapsing 23 candidates into three things worth checking.
+   The inverse is the interesting case, and the output says so: a cluster *not*
+   on a known parking range means one party holds several of your lookalikes.
+
+**Action:** delete `optional-mcps/domain-permutation/` and its NOTICE entry.
+Retained here as the record of why, and because the reasoning generalises —
+when an MCP server's only real contribution is packaging a published algorithm,
+reimplementing it natively removes an entire dependency tree and every advisory
+in it.
+
+### `domain-permutation`: the original five reasons (superseded)
 
     @modelcontextprotocol/sdk <1.24.0   HIGH
     DNS rebinding protection not enabled by default
