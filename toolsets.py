@@ -107,6 +107,43 @@ TOOLSETS = {
         "tools": ["web_search", "web_extract"],
         "includes": []  # No other toolsets included
     },
+
+    # Detection engineering. Each of these gates on a system binary via the
+    # tool's check_fn — absent the binary the tools are not offered at all and
+    # `socis doctor` reports "system dependency not met". That matters because
+    # the detection-engineering, yara-authoring and network-signature-authoring
+    # skills all assert that an untested rule is not finished; without gating,
+    # the agent would skip verification silently and present a rule as done.
+    "sigma": {
+        "description": (
+            "Validate and convert Sigma rules to any supported SIEM. Requires "
+            "`pipx install sigma-cli`; each SIEM backend is then a separate "
+            "package installed with `sigma plugin install <backend>` — splunk, "
+            "esql, elasticsearch, qradar, insightidr, loki, microsoft365defender "
+            "and others. Use sigma_list to see what is present."
+        ),
+        "tools": ["sigma_list", "sigma_check", "sigma_convert"],
+        "includes": []
+    },
+
+    "yara": {
+        "description": (
+            "Compile, scan with, and generate YARA rules. Requires the `yara` "
+            "binary; `yarGen` additionally enables goodware-filtered string "
+            "extraction from samples."
+        ),
+        "tools": ["yara_compile", "yara_scan", "yargen_generate"],
+        "includes": []
+    },
+
+    "suricata": {
+        "description": (
+            "Validate Suricata rules and replay PCAPs to confirm they fire. "
+            "Requires the `suricata` binary."
+        ),
+        "tools": ["suricata_check", "suricata_replay"],
+        "includes": []
+    },
     
     "search": {
         "description": "Web search only (no content extraction/scraping)",

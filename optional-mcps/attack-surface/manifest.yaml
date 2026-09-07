@@ -1,0 +1,77 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: attack-surface
+description: >-
+  Shodan host, service and certificate intelligence for exposed infrastructure.
+# Upstream project. MIT requires the copyright and permission notice travel
+# with the work — see optional-mcps/NOTICE.
+#
+# Canonical path. The widely-cited BurtTheCoder/mcp-shodan redirects here;
+# package metadata still names BurtTheCoder as author, so this is an account
+# rename rather than a change of maintainer.
+source: https://github.com/w0h1v/mcp-shodan
+
+transport:
+  type: stdio
+  command: node
+  args:
+    - "${INSTALL_DIR}/build/index.js"
+
+auth:
+  type: api_key
+  env:
+    - name: SHODAN_API_KEY
+      description: "Shodan API key from account.shodan.io. The free tier allows limited queries; most SOC use needs a paid membership."
+      required: true
+
+install:
+  type: git
+  url: https://github.com/w0h1v/mcp-shodan.git
+  # Full commit SHA, never a tag or branch. Repository last pushed 2026-03-31,
+  # so this commit is ~159 days old — well clear of the >=2 week rule.
+  ref: 59c70b91647a22b338bad04ac6269650af5a6f0f
+  #
+  # AXIOS OVERRIDE — same issue as ioc-reputation, same reasoning.
+  #
+  # Upstream declares `"axios": ">=1.7.8 <1.14.1"`. The upper bound reads as a
+  # response to the 2026-03-31 npm supply-chain attack (axios maintainer account
+  # compromised; 1.14.1 and 0.30.4 published carrying a RAT, since pulled). The
+  # consequence is that the range resolves to at most 1.14.0, which is vulnerable
+  # to CVE-2026-40175 / GHSA-fvcv-3m26-pcqx (CVSS 9.9 — prototype-pollution
+  # gadget escalating to RCE / AWS IMDSv2 bypass, fixed 1.15.0) and to
+  # CVE-2026-67312 / CVE-2026-67315 (fixed 1.18.0).
+  #
+  # 1.18.0 clears all of them and is above the compromised 1.14.1. See
+  # MCP-IMPLEMENTATION-TRACKING.md for the full advisory table.
+  bootstrap:
+    - "npm install"
+    - "npm install --save-exact axios@1.18.0"
+    - "npm run build"
+
+suggest:
+  keywords:
+    - shodan
+    - exposed service
+    - open port
+  hosts:
+    - shodan.io
+
+post_install: |
+  Get an API key at account.shodan.io and supply it as SHODAN_API_KEY.
+
+  Shodan queries are passive — they read an index Shodan already built, and do
+  not touch the target. That makes this safe to run against third-party
+  infrastructure during an investigation, unlike an active scan.
+
+  Two things worth knowing when reading results:
+
+  - Shodan data is a snapshot, not live. A port shown open may have been
+    closed weeks ago, and a banner may be stale. Check the timestamp on every
+    record before acting on it.
+  - Shared infrastructure produces misleading hits. A CDN or cloud egress
+    range will show services belonging to thousands of unrelated tenants.
+    Confirm ownership before attributing anything to a customer.
+
+  Restart the session so the tools load.

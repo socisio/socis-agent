@@ -18,6 +18,7 @@ toolsets:
   - terminal
   - file
   - web
+  - sigma
 metadata:
   socis:
     tags: [Security, DetectionEngineering, Sigma, SIEM]
@@ -54,12 +55,21 @@ architecture.
 ## Setup
 
 ```bash
-pipx install sigma-cli          # or: pip install sigma-cli
-sigma plugin list               # see available backends
-sigma plugin install splunk
+socis install --ensure sigma    # or: pipx install sigma-cli
+
+sigma plugin list               # every backend that exists
+sigma plugin install splunk     # each SIEM is a SEPARATE package
 sigma plugin install microsoft365defender
 sigma plugin install elasticsearch
+
+sigma list targets              # what is actually installed HERE
+sigma list pipelines            # and which field mappings are available
 ```
+
+`sigma-cli` ships with **no backends**. A fresh install converts to nothing,
+and `sigma convert -t splunk` fails with an unhelpful error rather than saying
+so. Check `sigma list targets` before assuming a conversion is possible — the
+`sigma_list` tool does this if the `sigma` toolset is enabled.
 
 Backend maturity is uneven. Splunk, Elasticsearch and Sentinel are the most
 actively maintained; others may lag the spec or miss modifiers.

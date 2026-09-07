@@ -1,0 +1,67 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: endpoint-siem
+description: >-
+  Wazuh alerts, agents, vulnerabilities and compliance from your own deployment.
+# Upstream project. Required: MIT's one condition is that the copyright and
+# permission notice travel with the work. See optional-mcps/NOTICE.
+source: https://github.com/gensecaihq/Wazuh-MCP-Server
+
+# Remote server, not a local process. The upstream project is containerised
+# (`docker compose up -d`) and speaks Streamable HTTP on /mcp with bearer auth,
+# so SOCIS connects to a deployment the customer already runs rather than
+# spawning one. That is also the right boundary: a SIEM bridge holding
+# credentials belongs on the customer's infrastructure, not on each analyst's
+# laptop.
+#
+# The URL below is the local default from the upstream compose file. Wazuh is
+# self-hosted, so every deployment differs — edit `mcp_servers.endpoint-siem.url`
+# in ~/.socis-agent/config.yaml after install. The manifest cannot template it:
+# transport.url is a fixed string and only ${INSTALL_DIR} is substituted.
+transport:
+  type: http
+  url: http://localhost:8000/mcp
+
+# type: http + api_key emits `Authorization: Bearer ${MCP_ENDPOINT_SIEM_API_KEY}`,
+# and the catalog enforces that exact env-var name at parse time — a manifest
+# declaring anything else installs cleanly and then 401s at connect time.
+auth:
+  type: api_key
+  env:
+    - name: MCP_ENDPOINT_SIEM_API_KEY
+      description: "Bearer token (JWT) issued by your Wazuh MCP Server deployment."
+      required: true
+
+suggest:
+  keywords:
+    - wazuh
+    - siem alert
+    - agent vulnerability
+  hosts:
+    - wazuh.com
+
+post_install: |
+  Requires a Wazuh MCP Server already running against your Wazuh manager —
+  see the upstream project for deployment. It is Docker-based and can run
+  fully air-gapped.
+
+  1. Set the endpoint. The default assumes localhost:8000; edit
+     `mcp_servers.endpoint-siem.url` in ~/.socis-agent/config.yaml to point at
+     your deployment.
+  2. Supply the bearer token as MCP_ENDPOINT_SIEM_API_KEY.
+
+  WRITE ACCESS — READ THIS BEFORE CONFIGURING CREDENTIALS.
+
+  This server exposes Wazuh active-response tooling: it can isolate hosts,
+  kill processes and run response scripts on managed agents. An agent acting
+  on a mistaken or prompt-injected instruction could disrupt production
+  systems on a customer estate.
+
+  Unless you have deliberately decided otherwise, create a READ-ONLY Wazuh API
+  user for this integration. Grant active-response permissions only where a
+  human approves each action, and never on a multi-tenant deployment where one
+  customer's session could reach another's agents.
+
+  Restart the session so the tools load.

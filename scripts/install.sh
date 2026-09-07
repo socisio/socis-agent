@@ -204,7 +204,9 @@ while [[ $# -gt 0 ]]; do
             echo "  small and ensures the command is on PATH for all shells."
             echo "  Existing installs at \$SOCIS_AGENT_HOME/socis-agent are preserved in-place."
             echo "  --ensure DEPS  Install only specified deps (comma-separated)"
-            echo "                   Supported: node, browser, ripgrep, ffmpeg"
+            echo "                   Supported: node, browser, ripgrep, ffmpeg,"
+            echo "                              yara, suricata, sigma, yargen, detection"
+            echo "                   'detection' installs all rule-authoring tooling"
             echo "                   Does NOT clone repo or create venv"
 
             exit 0
@@ -3295,6 +3297,98 @@ ensure_browser() {
     return 0
 }
 
+
+# ─── Detection-engineering tooling (opt-in) ──────────────────────────────────
+#
+# yara, suricata, sigma-cli and yarGen back the `yara`, `suricata` and `sigma`
+# toolsets. They are deliberately NOT part of the default install:
+#
+#   * Suricata is a full IDS with its own system dependencies.
+#   * yarGen is useless without a multi-gigabyte goodware database.
+#   * Most SOCIS users never author detection rules.
+#   * The tools already gate on their binaries via check_fn — an absent tool is
+#     not offered and `socis doctor` says "system dependency not met", so the
+#     platform degrades cleanly rather than breaking.
+#
+# Install them deliberately:
+#     socis install --ensure yara,sigma,suricata
+_install_detection_pkg() {
+    # $1 = binary to test for, $2 = apt/dnf package, $3 = brew package
+    local bin="$1" apt_pkg="$2" brew_pkg="$3"
+    if command -v "$bin" &>/dev/null; then
+        log_success "$bin already installed"
+        return 0
+    fi
+    case "$DISTRO" in
+        macos)
+            if command -v brew &>/dev/null; then
+                log_info "Installing $brew_pkg via Homebrew..."
+                brew install "$brew_pkg" && log_success "$bin installed" && return 0
+            fi
+            log_warn "Homebrew not found. Install manually: brew install $brew_pkg"
+            ;;
+        debian|ubuntu)
+            log_info "Installing $apt_pkg via apt..."
+            if sudo apt-get update -qq && sudo apt-get install -y "$apt_pkg"; then
+                log_success "$bin installed"; return 0
+            fi
+            ;;
+        fedora|rhel|centos)
+            log_info "Installing $apt_pkg via dnf..."
+            sudo dnf install -y "$apt_pkg" && log_success "$bin installed" && return 0
+            ;;
+        *)
+            log_warn "Unsupported platform for automatic install of $bin"
+            ;;
+    esac
+    log_warn "Could not install $bin automatically."
+    log_info "  macOS:  brew install $brew_pkg"
+    log_info "  Debian: sudo apt-get install $apt_pkg"
+    return 1
+}
+
+install_sigma_cli() {
+    if command -v sigma &>/dev/null; then
+        log_success "sigma-cli already installed"
+    elif command -v pipx &>/dev/null; then
+        log_info "Installing sigma-cli via pipx..."
+        pipx install sigma-cli || { log_warn "pipx install failed"; return 1; }
+        log_success "sigma-cli installed"
+    else
+        log_info "Installing sigma-cli via pip (pipx not found)..."
+        python3 -m pip install --user sigma-cli || { log_warn "pip install failed"; return 1; }
+        log_success "sigma-cli installed"
+    fi
+    # sigma-cli ships with NO backends. Without one, `sigma convert -t splunk`
+    # fails with an error that does not explain why, so say it here instead.
+    log_info "sigma-cli installs no SIEM backends by default. Add the ones you use:"
+    log_info "  sigma plugin list                    # everything available"
+    log_info "  sigma plugin install splunk          # or elasticsearch, qradar, loki..."
+    log_info "  sigma list targets                   # confirm what is installed"
+    return 0
+}
+
+install_yargen() {
+    if command -v yarGen &>/dev/null || command -v yargen &>/dev/null; then
+        log_success "yarGen already installed"
+        return 0
+    fi
+    # yarGen is not reliably on PyPI and needs a goodware database to be useful
+    # at all — without one its filtering does nothing and every generated rule
+    # is full of KERNEL32.dll. Both steps are the user's to run deliberately.
+    log_warn "yarGen is not installed automatically."
+    log_info "It requires a multi-gigabyte goodware database to be useful — a rule"
+    log_info "generated without one matches every Windows binary on the system."
+    log_info ""
+    log_info "  git clone https://github.com/Neo23x0/yarGen.git"
+    log_info "  cd yarGen && pip install -r requirements.txt"
+    log_info "  python yarGen.py --update      # downloads the goodware DBs"
+    log_info ""
+    log_info "Or the Go rewrite, if you have Go:"
+    log_info "  go install github.com/Neo23x0/yarGen-Go/cmd/yargen@latest"
+    return 0
+}
+
 ensure_mode() {
     detect_os
 
@@ -3324,6 +3418,25 @@ ensure_mode() {
                     HAS_RIPGREP=true
                     install_system_packages
                 fi
+                ;;
+            yara)
+                _install_detection_pkg yara yara yara
+                ;;
+            suricata)
+                _install_detection_pkg suricata suricata suricata
+                ;;
+            sigma)
+                install_sigma_cli
+                ;;
+            yargen)
+                install_yargen
+                ;;
+            detection)
+                # Everything the detection-engineering skills expect.
+                _install_detection_pkg yara yara yara
+                _install_detection_pkg suricata suricata suricata
+                install_sigma_cli
+                install_yargen
                 ;;
             *)
                 log_warn "Unknown dependency: $dep"

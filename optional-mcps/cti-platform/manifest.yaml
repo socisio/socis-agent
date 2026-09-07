@@ -1,0 +1,81 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: cti-platform
+description: >-
+  OpenCTI threat intelligence: STIX entities, indicators, reports, connectors.
+# Upstream project. MIT requires the copyright and permission notice travel
+# with the work — see optional-mcps/NOTICE.
+#
+# CANONICAL PATH. Widely cited as Spathodea-Network/opencti-mcp; that now
+# redirects to zxzinn/opencti-mcp. Third repository in this catalog to have
+# moved (see also w0h1v/mcp-virustotal, -shodan, -dnstwist). Recorded as
+# resolved rather than as the cited path, because a redirect is controlled by
+# whoever holds the old namespace and upstream-watch must follow the real repo.
+source: https://github.com/zxzinn/opencti-mcp
+
+transport:
+  type: stdio
+  command: node
+  args:
+    - "${INSTALL_DIR}/build/index.js"
+
+auth:
+  type: api_key
+  env:
+    - name: OPENCTI_URL
+      description: "Your OpenCTI instance, e.g. https://opencti.yourorg.internal. Self-hosted, so this differs per deployment."
+      required: true
+    - name: OPENCTI_TOKEN
+      description: "OpenCTI API token from Profile > API access. Use a dedicated read-only user unless you have deliberately chosen otherwise."
+      required: true
+
+install:
+  type: git
+  url: https://github.com/zxzinn/opencti-mcp.git
+  # Full commit SHA, never a tag or branch. Repository last pushed 2026-08-03
+  # — 34 days at pin time, clearing the >=2 week supply-chain rule.
+  #
+  # Default branch is `master`, not `main`. Worth noting because the SHA pin
+  # makes it irrelevant to the install, but anyone checking the repo by hand
+  # against `main` will find nothing.
+  ref: 7cd0c1e568dc712570970e91d76dfd36366433b9
+  # package.json declares `"prepare": "npm run build"`, so npm install already
+  # triggers tsc. The explicit build is kept because `prepare` does not run in
+  # every npm configuration (--ignore-scripts, some CI defaults), and a missing
+  # build/index.js fails at spawn time with a bare "module not found" that
+  # gives no hint about the cause.
+  bootstrap:
+    - "npm install"
+    - "npm run build"
+
+suggest:
+  keywords:
+    - opencti
+    - stix
+    - threat actor
+    - intrusion set
+  hosts:
+    - opencti.io
+
+post_install: |
+  Requires an OpenCTI instance you already run — this connects to it, it does
+  not deploy one.
+
+  1. OPENCTI_URL: your instance, e.g. https://opencti.yourorg.internal
+  2. OPENCTI_TOKEN: Profile > API access in the OpenCTI web UI.
+
+  Use a dedicated user with a read-only role. The OpenCTI API token carries
+  that user's full permissions, and the platform's roles include the ability
+  to create and modify entities, merge objects and manage connectors. An agent
+  acting on a mistaken instruction against a live CTI platform can corrupt the
+  knowledge base your detections are built on — and merges in particular are
+  not cleanly reversible.
+
+  MSSP note: an OpenCTI instance often aggregates intelligence across
+  customers or from feeds under specific sharing agreements. Confirm what this
+  token can see before using it in a customer-facing investigation, and do not
+  carry one customer's observables into another's context.
+
+  Restart the session so the tools load.

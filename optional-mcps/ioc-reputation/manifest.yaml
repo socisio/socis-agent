@@ -1,0 +1,104 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: ioc-reputation
+description: >-
+  VirusTotal reputation for files, URLs, IPs and domains, with relationships.
+# Upstream project. Required: MIT's one condition is that the copyright and
+# permission notice travel with the work. See optional-mcps/NOTICE.
+#
+# NOTE THE PATH. This project is widely referenced as
+# "BurtTheCoder/mcp-virustotal"; that now redirects to w0h1v/mcp-virustotal.
+#
+# This looks like an account RENAME, not a transfer to a third party: the
+# package.json still declares `author: BurtTheCoder`, npm scope
+# `@burtthecoder/mcp-virustotal`, and mcpName `io.github.BurtTheCoder/virustotal`.
+# A new owner would almost certainly have rewritten those. So the code is the
+# same author's — but the canonical URL is recorded here regardless, because a
+# redirect is controlled by whoever holds the old namespace and can be
+# re-pointed later. Attribution in optional-mcps/NOTICE credits BurtTheCoder.
+source: https://github.com/w0h1v/mcp-virustotal
+
+transport:
+  type: stdio
+  command: node
+  args:
+    - "${INSTALL_DIR}/build/index.js"
+
+auth:
+  type: api_key
+  env:
+    - name: VIRUSTOTAL_API_KEY
+      description: "VirusTotal API key — free tier at virustotal.com/gui/my-apikey. Public keys are rate-limited to 4 lookups/min."
+      required: true
+
+install:
+  type: git
+  url: https://github.com/w0h1v/mcp-virustotal.git
+  # Full commit SHA, never a tag or branch. Captured 2026-09-06; the repository's
+  # last push was 2026-05-24, so this commit is ~105 days old and clears the
+  # >=2 week supply-chain rule with room to spare.
+  #
+  # An npm package also exists — `@burtthecoder/mcp-virustotal@1.0.25`, whose
+  # scope matches the declared author, so it is not a name-squat. `npx -y` on a
+  # pinned version would skip the build step. The git pin is kept anyway: a
+  # commit SHA is content-addressed and cannot be altered, which is the
+  # guarantee the catalog's supply-chain policy is built around.
+  ref: 364ce0d0fb505644c52ed1a83c4f3d5f10abee1f
+  # `npm run build` is `tsc && chmod +x build/index.js`, producing the
+  # build/index.js referenced above (confirmed from package.json `main`).
+  #
+  # AXIOS OVERRIDE — do not remove without re-checking the advisories.
+  #
+  # Upstream declares `"axios": ">=1.4.0 <1.14.1"`. That upper bound reads as a
+  # deliberate response to the 2026-03-31 npm supply-chain attack, in which the
+  # axios maintainer account was compromised and 1.14.1 / 0.30.4 were published
+  # carrying a RAT (both since pulled from the registry). Sensible at the time.
+  #
+  # The side effect is that the range now resolves to at most 1.14.0, which is
+  # vulnerable to:
+  #   CVE-2026-40175 / GHSA-fvcv-3m26-pcqx  CVSS 9.9  prototype-pollution
+  #       gadget escalating to RCE / AWS IMDSv2 bypass   fixed 1.15.0
+  #   CVE-2025-62718   proxy resolution path             fixed 1.15.x
+  #   CVE-2026-67312   uncontrolled recursion            fixed 1.18.0
+  #   CVE-2026-67315   0.0.0.0 not treated as loopback   fixed 1.18.0
+  #
+  # 1.18.0 clears all four and is above the compromised 1.14.1, so upgrading
+  # does not walk back into the malicious release. The bump is within the 1.x
+  # line; if the build breaks, that is the signal to revisit rather than to
+  # silently drop this line.
+  #
+  # Re-verify at every pin bump: upstream may widen the range themselves, in
+  # which case this override becomes unnecessary rather than wrong.
+  bootstrap:
+    - "npm install"
+    - "npm install --save-exact axios@1.18.0"
+    - "npm run build"
+
+suggest:
+  keywords:
+    - virustotal
+    - file reputation
+    - hash lookup
+  hosts:
+    - virustotal.com
+
+post_install: |
+  Get a free API key at virustotal.com/gui/my-apikey and supply it as
+  VIRUSTOTAL_API_KEY. The free tier allows 4 lookups per minute, which is
+  fine for interactive triage and too slow for bulk enrichment.
+
+  DO NOT SUBMIT CUSTOMER DATA.
+
+  Hashes and public indicators are safe to look up. Files, and URLs containing
+  session tokens or internal hostnames, are NOT: submitting them to VirusTotal
+  publishes them, and anyone with a paid account can then retrieve them. That
+  has leaked real customer data for other organisations. Look up hashes;
+  detonate elsewhere.
+
+  Also note a clean result is not a verdict. Novel and targeted malware is
+  clean by definition, and a low detection count on a recently-submitted
+  sample is much weaker evidence than the same count on an old one.
+
+  Restart the session so the tools load.

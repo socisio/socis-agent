@@ -1,0 +1,77 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: threat-intel
+description: >-
+  IOC reputation and threat context from OTX, AbuseIPDB, GreyNoise and abuse.ch.
+# Upstream project. Required: MIT's one condition is that the copyright and
+# permission notice travel with the work. See optional-mcps/NOTICE.
+source: https://github.com/aplaceforallmystuff/mcp-threatintel
+
+transport:
+  type: stdio
+  command: node
+  args:
+    - "${INSTALL_DIR}/dist/index.js"
+
+# Four independent sources, every key optional. The server enables tools per
+# key present, and abuse.ch's Feodo Tracker works with no credential at all —
+# so a user who configures nothing still gets something back. That matters:
+# the ioc-enrichment skill is written to query whatever is connected and note
+# what is missing, rather than failing when a source is absent.
+auth:
+  type: api_key
+  env:
+    - name: OTX_API_KEY
+      description: "AlienVault OTX — free at otx.alienvault.com. Enables IOC pulses and campaign context."
+      required: false
+    - name: ABUSEIPDB_API_KEY
+      description: "AbuseIPDB — free at abuseipdb.com. Enables IP reputation and report history."
+      required: false
+    - name: GREYNOISE_API_KEY
+      description: "GreyNoise — free community tier. Classifies internet background noise vs targeted activity."
+      required: false
+    - name: ABUSECH_AUTH_KEY
+      description: "abuse.ch — free at auth.abuse.ch. Raises rate limits on URLhaus, MalwareBazaar and ThreatFox."
+      required: false
+
+install:
+  type: git
+  url: https://github.com/aplaceforallmystuff/mcp-threatintel.git
+  # Full commit SHA, never a tag or branch — tags move, SHAs do not. Verified
+  # 2026-08-09, 28 days old at pin time, against the >=2 week supply-chain rule
+  # applied to pyproject and npm dependencies. A freshly-pushed commit is what
+  # a compromised maintainer account produces; the delay is the window in which
+  # the community notices.
+  #
+  # An npm package `mcp-threatintel-server` also exists and would avoid the
+  # build step, but it has NOT been verified as published by the same author.
+  # npm name-squatting on a GitHub project is a known supply-chain pattern, so
+  # the git pin is used until that is confirmed.
+  ref: b71210b2e21766411de858844c1c864291630f30
+  bootstrap:
+    - "npm install"
+    - "npm run build"
+
+suggest:
+  keywords:
+    - abuseipdb
+    - greynoise
+    - threatfox
+    - urlhaus
+  hosts:
+    - otx.alienvault.com
+    - abuseipdb.com
+    - greynoise.io
+    - abuse.ch
+
+post_install: |
+  Every credential is optional — configure the sources you have. With none,
+  abuse.ch Feodo Tracker still works from its public feeds.
+
+  Free keys: otx.alienvault.com, abuseipdb.com, greynoise.io (community tier),
+  auth.abuse.ch.
+
+  All lookups are read-only against public reputation services. Nothing is
+  submitted or published. Restart the session so the tools load.

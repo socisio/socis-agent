@@ -1,0 +1,87 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: threatstream
+description: >-
+  Anomali ThreatStream indicator reputation, actor attribution and campaigns.
+source: https://www.anomali.com/resources/videos/anomali-threatstream-mcp-server-installation-guide
+
+# Vendor-official (Anomali). Reached through the mcp-remote stdio bridge rather
+# than `type: http`, because ThreatStream authenticates with
+# `Authorization: Api-Key <user>:<key>` — the catalog's http+api_key path emits
+# `Bearer` and TransportSpec has no headers field to override it.
+#
+# The bridge has a second benefit worth stating: auth.env puts the credential
+# in ~/.socis-agent/.env, where it is prompted for and masked, instead of
+# sitting in plaintext in a config file. During testing this credential was
+# leaked in a screenshot of mcp.json — exactly the failure mode this avoids.
+transport:
+  type: stdio
+  command: npx
+  args:
+    - "-y"
+    - "mcp-remote"
+    - "https://optic.threatstream.com/mcp"
+    - "--header"
+    - "Authorization:${THREATSTREAM_AUTH_HEADER}"
+
+auth:
+  type: api_key
+  env:
+    - name: THREATSTREAM_AUTH_HEADER
+      description: 'Literally "Api-Key <username>:<api-key>" — include the words Api-Key, the space, and the colon between username and key.'
+      required: true
+
+suggest:
+  keywords:
+    - threatstream
+    - anomali
+    - threat actor
+    - campaign attribution
+  hosts:
+    - threatstream.com
+    - anomali.com
+
+post_install: |
+  KNOWN ISSUE — verify before relying on this entry.
+
+  The transport above matches Anomali's published installation guide exactly:
+  same command, same endpoint, same `Authorization: Api-Key <user>:<key>`
+  header format. (The one addition is `-y` before `mcp-remote`, which
+  auto-confirms the npx package install — SOCIS spawns this non-interactively,
+  and without it npx can hang waiting for a prompt nobody sees.)
+
+  Despite that, a test connection returned:
+
+      StreamableHTTPError: Failed to open SSE stream: Not Acceptable
+      code: 406
+
+  Because the configuration is confirmed correct against vendor documentation,
+  the cause is upstream rather than local — do not spend time re-checking the
+  config. A 406 means the server rejected the client's Accept header, so the
+  likely explanations are that the endpoint does not speak Streamable HTTP the
+  way mcp-remote negotiates it, or that MCP access is gated on the account's
+  ThreatStream tier.
+
+  Ask Anomali directly:
+
+      "Connecting to https://optic.threatstream.com/mcp with mcp-remote and
+       Authorization: Api-Key <user>:<key> returns HTTP 406 on the SSE stream.
+       Is this the correct endpoint and transport, and does MCP access require
+       a specific entitlement on our account?"
+
+  If they supply a different URL or required headers, edit
+  mcp_servers.threatstream in ~/.socis-agent/config.yaml.
+
+  Credentials: ThreatStream credentials are issued by Anomali, not
+  self-service. Contact your Anomali representative if you do not have them.
+  Set THREATSTREAM_AUTH_HEADER to the full string `Api-Key user:key` —
+  including the words "Api-Key", the space, and the colon.
+
+  Note on tenancy: a ThreatStream key is tied to an organisation. In an MSSP
+  context, confirm which tenant's intelligence the key reaches before using it
+  across customer investigations — carrying one customer's observables into
+  another's context is the kind of mistake that ends an engagement.
+
+  Restart the session so the tools load.
