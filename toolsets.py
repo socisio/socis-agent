@@ -140,6 +140,20 @@ TOOLSETS = {
         "includes": []
     },
 
+    "cve-intel": {
+        "description": (
+            "Exploitation intelligence: CISA KEV (confirmed exploitation) and "
+            "FIRST EPSS (predicted probability), plus a combined triage tool for "
+            "ranking a patch backlog. CVSS says how bad a CVE could be; these say "
+            "whether anyone is actually using it. Pure stdlib — both are free "
+            "unauthenticated public APIs, so there is no server, no key and no "
+            "dependency tree to audit."
+        ),
+        "tools": ["kev_check", "kev_search", "epss_score",
+                   "exploitation_triage", "kev_status"],
+        "includes": []
+    },
+
     "domain-intel": {
         "description": (
             "Typosquat and lookalike-domain discovery. Pure stdlib — no "

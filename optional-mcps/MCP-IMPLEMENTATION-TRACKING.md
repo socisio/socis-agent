@@ -339,6 +339,72 @@ enabled those sources. That is the degrade-gracefully behaviour the manifest
 was written for and that `ioc-enrichment` depends on — the skill queries
 whatever is connected rather than failing when a source is absent.
 
+### Vulnerability-intelligence servers: four assessed, none adopted
+
+Four candidates were put forward for CVE/KEV/EPSS coverage. All four were
+declined, and the pattern across them is worth recording because it will
+recur.
+
+| Repo | Licence | Verdict |
+|---|---|---|
+| `yeger00/kev-mcp` | **none** | no licence; 1 star; documented deployment points at `amcipi.com`, an unknown personal host |
+| `WCoppedge/CISA-Threat-Intelligence-MCP-Server` | MIT | 4 commits, no tests, no packaging; install instruction is "copy the code into VS Code"; invented 0-100 threat score |
+| `martc03/cybersecurity-vuln-mcp` | open | designed for Apify hosting; lead-generation project; ATT&CK mapping covers **172 CVEs** of ~250,000 |
+| `badchars/cve-mcp` | — | same author as `darknet-mcp-server`, already held for dark-web/stealer-log scope |
+
+**The recurring problem is third-party hosting.** Two of the four document a
+remote endpoint as the normal way to use them. Every CVE an analyst checks
+would then be visible to whoever runs that host — which in an MSSP is client
+vulnerability posture leaving your control, traded away to avoid parsing a JSON
+file. That is not a trade worth making at any level of code quality.
+
+**The second is that the underlying data needs no server.** CISA KEV is one
+JSON document, published unauthenticated with no rate limit. FIRST EPSS is one
+unauthenticated GET. Wrapping either in an MCP server buys nothing and costs a
+dependency tree, a process and a supply-chain relationship.
+
+### Built natively instead: the `cve-intel` toolset
+
+`tools/cisa_kev.py` — stdlib only, no key, no server, nothing to audit.
+
+| Tool | Answers |
+|---|---|
+| `kev_check` | Is this CVE confirmed exploited? Plus ransomware association and the BOD 22-01 deadline |
+| `kev_search` | Which actively-exploited CVEs affect a vendor/product, or were added recently |
+| `epss_score` | How likely is exploitation in the next 30 days |
+| `exploitation_triage` | Rank a backlog by KEV **and** EPSS together |
+| `kev_status` | Catalogue version and cache age |
+
+**`exploitation_triage` is the one that matters.** KEV and EPSS answer
+different questions and are only useful together, and asking an analyst to run
+two tools and merge the output by hand is exactly where prioritisation breaks
+down:
+
+    CVSS  how bad COULD it be        severity of impact, if exploited
+    KEV   is it exploited NOW        confirmed observation, binary
+    EPSS  how LIKELY is exploitation prediction, probabilistic
+
+A CVSS 9.8 with EPSS 0.02% and no KEV entry is theoretically severe and
+practically ignorable this week. A CVSS 6.5 in KEV with EPSS 90% is not. Most
+vulnerability programmes still rank by CVSS alone, which is why they drown.
+
+It also accepts pasted scanner output and extracts the CVE IDs, so a Trivy or
+Grype dump can be triaged directly.
+
+**Two things deliberately built in, both about not overclaiming:**
+
+- A CVE absent from KEV reports that *"absence is NOT evidence the
+  vulnerability is unexploited... use it to escalate, never to dismiss."*
+  Without that line, "not in KEV" reads as "safe".
+- EPSS output states that it *predicts* rather than observes, and shows the
+  percentile alongside the raw score — 0.004 looks trivial until you see it is
+  the 59th percentile, because most CVEs score far lower.
+
+And a bug worth recording because testing found it and review would not have:
+the first implementation split pasted text on whitespace before pattern
+matching, so a Trivy dump produced table rows called `TRIVY`, `NOISE` and
+`LINE`. Matching `CVE-\d{4}-\d{4,}` directly, and never splitting, is the fix.
+
 ### Final position on the three that will not ship
 
 | Entry | Reason | Reversible? |
