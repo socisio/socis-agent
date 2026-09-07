@@ -54,7 +54,7 @@ replayed the PCAP and watched it alert.
 ## Prerequisites
 
 ```bash
-socis install --ensure suricata   # if not already present
+bash ~/.socis-agent/socis-agent/scripts/install.sh --ensure suricata
 suricata --build-info | head -5
 suricata -T -c /etc/suricata/suricata.yaml -S custom.rules   # syntax test
 tcpdump -r sample.pcap -nn | head                            # look first

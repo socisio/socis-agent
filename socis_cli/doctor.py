@@ -3222,6 +3222,15 @@ def run_doctor(args):
             else:
                 check_warn(label, detail)
 
+        # Toolsets backed by a binary that scripts/install.sh can install via
+        # its per-distro dispatch. Keys match the toolset names registered in
+        # tools/detection_tools.py.
+        _DETECTION_TOOLSET_INSTALL = {
+            "sigma": "install: bash scripts/install.sh --ensure sigma   (sigma-cli; then `sigma plugin install <backend>` per SIEM)",
+            "yara": "install: bash scripts/install.sh --ensure yara     (yarGen is separate — it needs a goodware DB)",
+            "suricata": "install: bash scripts/install.sh --ensure suricata",
+        }
+
         for item in unavailable:
             env_vars = item.get("missing_vars") or item.get("env_vars") or []
             if env_vars:
@@ -3229,6 +3238,14 @@ def run_doctor(args):
                 check_warn(item["name"], f"(missing {vars_str})")
             else:
                 check_warn(item["name"], "(system dependency not met)")
+                # For toolsets whose dependency is a binary SOCIS can fetch,
+                # print the command. "system dependency not met" alone tells
+                # the reader something is missing but not what, or how — and
+                # `--ensure` lives on scripts/install.sh, not the CLI, so it
+                # is not a command anyone would guess.
+                hint = _DETECTION_TOOLSET_INSTALL.get(item["name"])
+                if hint:
+                    check_info(hint)
 
         # Count missing API-key requirements only for toolsets enabled in the
         # current CLI platform. Default-off or explicitly disabled toolsets may

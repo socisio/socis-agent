@@ -3313,37 +3313,88 @@ ensure_browser() {
 # Install them deliberately:
 #     socis install --ensure yara,sigma,suricata
 _install_detection_pkg() {
-    # $1 = binary to test for, $2 = apt/dnf package, $3 = brew package
-    local bin="$1" apt_pkg="$2" brew_pkg="$3"
+    # $1 = binary to test for, $2 = package name (same on every manager here)
+    #
+    # Follows the same $OS-outer / $DISTRO-inner shape as the git and
+    # base-devel installers above, rather than inventing a second dispatch —
+    # DISTRO comes from $ID in /etc/os-release, so it can be any of ubuntu,
+    # debian, fedora, arch, alpine, opensuse and more. Handling only three of
+    # them silently degraded to "install it yourself" on the rest.
+    local bin="$1" pkg_name="$2"
     if command -v "$bin" &>/dev/null; then
         log_success "$bin already installed"
         return 0
     fi
-    case "$DISTRO" in
+
+    local sudo_cmd=""
+    [ "$(id -u)" -ne 0 ] && command -v sudo &>/dev/null && sudo_cmd="sudo"
+
+    case "$OS" in
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian|linuxmint|pop|elementary|zorin|kali|raspbian)
+                    log_info "Installing $pkg_name via apt..."
+                    $sudo_cmd apt-get update -qq \
+                        && $sudo_cmd apt-get install -y "$pkg_name" \
+                        && log_success "$bin installed" && return 0
+                    ;;
+                fedora|rhel|centos|rocky|almalinux)
+                    log_info "Installing $pkg_name via dnf..."
+                    $sudo_cmd dnf install -y "$pkg_name" \
+                        && log_success "$bin installed" && return 0
+                    ;;
+                arch|manjaro|endeavouros)
+                    log_info "Installing $pkg_name via pacman..."
+                    $sudo_cmd pacman -S --noconfirm "$pkg_name" \
+                        && log_success "$bin installed" && return 0
+                    ;;
+                alpine)
+                    log_info "Installing $pkg_name via apk..."
+                    $sudo_cmd apk add --no-cache "$pkg_name" \
+                        && log_success "$bin installed" && return 0
+                    ;;
+                opensuse*|sles)
+                    log_info "Installing $pkg_name via zypper..."
+                    $sudo_cmd zypper --non-interactive install "$pkg_name" \
+                        && log_success "$bin installed" && return 0
+                    ;;
+                *)
+                    log_warn "Unrecognised distro '$DISTRO' — cannot install $bin automatically."
+                    ;;
+            esac
+            ;;
         macos)
             if command -v brew &>/dev/null; then
-                log_info "Installing $brew_pkg via Homebrew..."
-                brew install "$brew_pkg" && log_success "$bin installed" && return 0
-            fi
-            log_warn "Homebrew not found. Install manually: brew install $brew_pkg"
-            ;;
-        debian|ubuntu)
-            log_info "Installing $apt_pkg via apt..."
-            if sudo apt-get update -qq && sudo apt-get install -y "$apt_pkg"; then
-                log_success "$bin installed"; return 0
+                log_info "Installing $pkg_name via Homebrew..."
+                brew install "$pkg_name" && log_success "$bin installed" && return 0
+            else
+                log_warn "Homebrew not found."
             fi
             ;;
-        fedora|rhel|centos)
-            log_info "Installing $apt_pkg via dnf..."
-            sudo dnf install -y "$apt_pkg" && log_success "$bin installed" && return 0
+        android)
+            log_info "Installing $pkg_name via pkg (Termux)..."
+            pkg install -y "$pkg_name" && log_success "$bin installed" && return 0
+            log_warn "$pkg_name may not be available in the Termux repos."
+            ;;
+        windows)
+            # No package manager is assumed present. Suricata ships an
+            # installer; yara is usually taken from GitHub releases.
+            log_warn "Automatic install of $bin is not supported on Windows."
+            log_info "  winget install $pkg_name    (if a manifest exists)"
+            log_info "  or download a release from the project's GitHub page"
+            return 1
             ;;
         *)
-            log_warn "Unsupported platform for automatic install of $bin"
+            log_warn "Unknown OS '$OS' — cannot install $bin automatically."
             ;;
     esac
-    log_warn "Could not install $bin automatically."
-    log_info "  macOS:  brew install $brew_pkg"
-    log_info "  Debian: sudo apt-get install $apt_pkg"
+
+    log_warn "Could not install $bin automatically. Install it manually:"
+    log_info "  macOS:        brew install $pkg_name"
+    log_info "  Debian/Ubuntu: sudo apt-get install $pkg_name"
+    log_info "  Fedora/RHEL:  sudo dnf install $pkg_name"
+    log_info "  Arch:         sudo pacman -S $pkg_name"
+    log_info "  Alpine:       sudo apk add $pkg_name"
     return 1
 }
 
@@ -3420,10 +3471,10 @@ ensure_mode() {
                 fi
                 ;;
             yara)
-                _install_detection_pkg yara yara yara
+                _install_detection_pkg yara yara
                 ;;
             suricata)
-                _install_detection_pkg suricata suricata suricata
+                _install_detection_pkg suricata suricata
                 ;;
             sigma)
                 install_sigma_cli
@@ -3433,8 +3484,8 @@ ensure_mode() {
                 ;;
             detection)
                 # Everything the detection-engineering skills expect.
-                _install_detection_pkg yara yara yara
-                _install_detection_pkg suricata suricata suricata
+                _install_detection_pkg yara yara
+                _install_detection_pkg suricata suricata
                 install_sigma_cli
                 install_yargen
                 ;;

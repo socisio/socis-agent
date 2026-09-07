@@ -54,6 +54,20 @@ param(
     [switch]$ShowResolvedPaths,
 
     # --- Ensure mode (dep_ensure.py entry point) ---
+    #
+    # Comma-separated list of optional dependencies to install and nothing else.
+    #   node, browser, ripgrep, ffmpeg
+    #   yara, suricata, sigma, yargen   -- detection-engineering tooling
+    #   detection                       -- all four of the above
+    #
+    # The detection tools back the yara / suricata / sigma toolsets in
+    # tools/detection_tools.py and are NOT part of a default install: Suricata
+    # is a full IDS, and yarGen is useless without a multi-gigabyte goodware
+    # database. Each toolset gates on its binary via check_fn, so an absent
+    # tool is simply not offered and `socis doctor` reports it -- the platform
+    # degrades cleanly rather than breaking.
+    #
+    #   powershell -File install.ps1 -Ensure detection
     [string]$Ensure = "",
     [switch]$PostInstall,
 
@@ -4946,6 +4960,138 @@ function Invoke-AllStages {
     }
 }
 
+function Install-DetectionPackage {
+    <#
+    .SYNOPSIS
+    Install a detection-engineering binary via winget, choco or scoop.
+
+    .DESCRIPTION
+    Backs the `yara` and `suricata` toolsets (tools/detection_tools.py). Follows
+    the same manager preference as Install-SystemPackages -- winget first since
+    it ships with modern Windows, then choco, then scoop -- and pins
+    `--source winget` for the reason documented there: a broken msstore source
+    makes winget bail before attempting the install AND exit 0, so the
+    surrounding try/catch never fires.
+
+    Returns $true when the binary is present afterwards. A failure is a warning
+    rather than a fatal error: the toolset gates on the binary via its check_fn,
+    so an absent tool is simply not offered and `socis doctor` reports "system
+    dependency not met". That is a better outcome than aborting an install.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Binary,
+        [string]$WingetId = "",
+        [string]$ChocoPkg = "",
+        [string]$ScoopPkg = "",
+        [string]$ManualUrl = ""
+    )
+
+    if (Get-Command $Binary -ErrorAction SilentlyContinue) {
+        Write-Success "$Binary already installed"
+        return $true
+    }
+
+    $hasWinget = Get-Command winget -ErrorAction SilentlyContinue
+    $hasChoco  = Get-Command choco  -ErrorAction SilentlyContinue
+    $hasScoop  = Get-Command scoop  -ErrorAction SilentlyContinue
+
+    if ($hasWinget -and $WingetId) {
+        Write-Info "Installing $Binary via winget..."
+        try {
+            $null = winget install --exact --id $WingetId --source winget --silent `
+                --accept-package-agreements --accept-source-agreements 2>&1
+        } catch {
+            Write-Warn "winget threw while installing $WingetId"
+        }
+        if (Get-Command $Binary -ErrorAction SilentlyContinue) {
+            Write-Success "$Binary installed"
+            return $true
+        }
+        Write-Warn "winget did not produce a usable $Binary; trying other managers"
+    }
+
+    if ($hasChoco -and $ChocoPkg) {
+        Write-Info "Installing $Binary via chocolatey..."
+        try { $null = choco install $ChocoPkg -y 2>&1 } catch { }
+        if (Get-Command $Binary -ErrorAction SilentlyContinue) {
+            Write-Success "$Binary installed"
+            return $true
+        }
+    }
+
+    if ($hasScoop -and $ScoopPkg) {
+        Write-Info "Installing $Binary via scoop..."
+        try { $null = scoop install $ScoopPkg 2>&1 } catch { }
+        if (Get-Command $Binary -ErrorAction SilentlyContinue) {
+            Write-Success "$Binary installed"
+            return $true
+        }
+    }
+
+    Write-Warn "Could not install $Binary automatically."
+    if ($WingetId) { Write-Info "  winget install --id $WingetId" }
+    if ($ChocoPkg) { Write-Info "  choco install $ChocoPkg" }
+    if ($ScoopPkg) { Write-Info "  scoop install $ScoopPkg" }
+    if ($ManualUrl) { Write-Info "  or download from $ManualUrl" }
+    Write-Info "The toolset stays disabled until the binary is on PATH; that is expected."
+    return $false
+}
+
+function Install-SigmaCli {
+    <#
+    .SYNOPSIS
+    Install sigma-cli (pure Python, so Windows is a first-class target here).
+    #>
+    if (Get-Command sigma -ErrorAction SilentlyContinue) {
+        Write-Success "sigma-cli already installed"
+    } else {
+        if (Get-Command pipx -ErrorAction SilentlyContinue) {
+            Write-Info "Installing sigma-cli via pipx..."
+            try { $null = pipx install sigma-cli 2>&1 } catch { }
+        }
+        if (-not (Get-Command sigma -ErrorAction SilentlyContinue)) {
+            Write-Info "Installing sigma-cli via pip --user..."
+            try { $null = python -m pip install --user sigma-cli 2>&1 } catch { }
+        }
+        if (Get-Command sigma -ErrorAction SilentlyContinue) {
+            Write-Success "sigma-cli installed"
+        } else {
+            Write-Warn "Could not install sigma-cli. Try: pipx install sigma-cli"
+            Write-Info "If sigma is still not found after installing, the Python"
+            Write-Info "Scripts directory is not on PATH -- usually"
+            Write-Info "  %APPDATA%\Python\Python3xx\Scripts"
+            return $false
+        }
+    }
+    # sigma-cli ships NO backends. Without one, `sigma convert -t splunk` fails
+    # with an error that does not explain why, so say it here instead.
+    Write-Info "sigma-cli installs no SIEM backends by default. Add the ones you use:"
+    Write-Info "  sigma plugin list                 # everything available"
+    Write-Info "  sigma plugin install splunk       # or elasticsearch, qradar, loki..."
+    Write-Info "  sigma list targets                # confirm what is installed"
+    return $true
+}
+
+function Install-YarGen {
+    <#
+    .SYNOPSIS
+    Print yarGen setup steps. Deliberately not automated.
+    #>
+    if ((Get-Command yarGen -ErrorAction SilentlyContinue) -or
+        (Get-Command yargen -ErrorAction SilentlyContinue)) {
+        Write-Success "yarGen already installed"
+        return $true
+    }
+    Write-Warn "yarGen is not installed automatically."
+    Write-Info "It needs a multi-gigabyte goodware database to be useful at all -- a"
+    Write-Info "rule generated without one matches every Windows binary on the system."
+    Write-Info ""
+    Write-Info "  git clone https://github.com/Neo23x0/yarGen.git"
+    Write-Info "  cd yarGen; pip install -r requirements.txt"
+    Write-Info "  python yarGen.py --update       # downloads the goodware DBs"
+    return $true
+}
+
 function Invoke-EnsureMode {
     param([string]$Deps)
     $depList = $Deps -split ","
@@ -4973,6 +5119,36 @@ function Invoke-EnsureMode {
             }
             "ffmpeg" {
                 Write-Info "ffmpeg: install manually on Windows (scoop install ffmpeg)"
+            }
+            "yara" {
+                # VirusTotal publishes YARA releases on GitHub; scoop and choco
+                # both carry it. No official winget manifest at time of writing.
+                [void](Install-DetectionPackage -Binary "yara" `
+                    -ChocoPkg "yara" -ScoopPkg "yara" `
+                    -ManualUrl "https://github.com/VirusTotal/yara/releases")
+            }
+            "suricata" {
+                # OISF ships an MSI. Not reliably in any package manager, so
+                # this usually falls through to the manual path.
+                [void](Install-DetectionPackage -Binary "suricata" `
+                    -ChocoPkg "suricata" `
+                    -ManualUrl "https://suricata.io/download/")
+            }
+            "sigma" {
+                [void](Install-SigmaCli)
+            }
+            "yargen" {
+                [void](Install-YarGen)
+            }
+            "detection" {
+                [void](Install-DetectionPackage -Binary "yara" `
+                    -ChocoPkg "yara" -ScoopPkg "yara" `
+                    -ManualUrl "https://github.com/VirusTotal/yara/releases")
+                [void](Install-DetectionPackage -Binary "suricata" `
+                    -ChocoPkg "suricata" `
+                    -ManualUrl "https://suricata.io/download/")
+                [void](Install-SigmaCli)
+                [void](Install-YarGen)
             }
             default {
                 Write-Err "Unknown dependency: $dep"

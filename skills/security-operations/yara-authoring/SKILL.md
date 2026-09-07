@@ -53,7 +53,7 @@ This skill is about the second problem.
 ## Prerequisites
 
 ```bash
-socis install --ensure yara     # installs the yara engine
+bash ~/.socis-agent/socis-agent/scripts/install.sh --ensure yara
 yara --version
 yarGen -h                       # see below — not installed automatically
 ```

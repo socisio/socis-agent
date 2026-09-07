@@ -55,7 +55,8 @@ architecture.
 ## Setup
 
 ```bash
-socis install --ensure sigma    # or: pipx install sigma-cli
+bash ~/.socis-agent/socis-agent/scripts/install.sh --ensure sigma
+# or directly: pipx install sigma-cli
 
 sigma plugin list               # every backend that exists
 sigma plugin install splunk     # each SIEM is a SEPARATE package
