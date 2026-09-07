@@ -592,8 +592,42 @@ def _build_server_config(
         cfg["command"] = _expand_install_dir(t.command or "", install_dir)
         if t.args:
             cfg["args"] = [_expand_install_dir(a, install_dir) for a in t.args]
-        if t.env:
-            cfg["env"] = dict(t.env)
+
+        # Declared credentials must reach the child process.
+        #
+        # transport.env carries STATIC values (telemetry opt-outs, mode flags).
+        # auth.env carries the CREDENTIALS the user was prompted for, which are
+        # saved to ~/.socis-agent/.env — but nothing wrote them into the server
+        # config, so a stdio server never saw them. It exited on startup with
+        # e.g. "SHODAN_API_KEY environment variable is required" while the key
+        # sat in .env, and the supervisor then respawned it in a tight loop.
+        #
+        # The `http` + api_key path already solved this by emitting a
+        # ${MCP_X_API_KEY} placeholder in its headers, which
+        # _resolve_mcp_server_config() interpolates from .env at connect time
+        # (#37792). Use the same placeholder mechanism here rather than writing
+        # secret VALUES into config.yaml — config.yaml is not the place for
+        # credentials, and a placeholder keeps .env the single source.
+        # Only emit a placeholder for a var that will actually resolve.
+        # _interpolate_env_vars() leaves an UNSET ${VAR} as the literal string
+        # "${VAR}" — so blindly listing every declared var hands an optional,
+        # unconfigured credential a non-empty bogus value. A server that checks
+        # `if (process.env.X)` then believes it is configured and authenticates
+        # with the literal placeholder, turning "skip this source" into "401 on
+        # every call". That is a worse failure than the missing-env one, and a
+        # quieter one.
+        #
+        # Required vars are guaranteed present (install fails without them).
+        # Optional vars are included only when the user actually supplied one.
+        env_block: Dict[str, str] = dict(t.env) if t.env else {}
+        if entry.auth.type == "api_key":
+            for spec in entry.auth.env:
+                if not spec.required and not get_env_value(spec.name):
+                    continue
+                # setdefault: never override a value transport.env pins.
+                env_block.setdefault(spec.name, "${%s}" % spec.name)
+        if env_block:
+            cfg["env"] = env_block
     elif t.type == "http":
         cfg["url"] = t.url
         if entry.auth.type == "oauth":
