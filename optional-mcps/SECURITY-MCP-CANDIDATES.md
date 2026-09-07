@@ -24,9 +24,27 @@ Published and supported by the vendor. Lowest risk, add first.
 | Grafana | https://github.com/grafana/mcp-grafana | http |
 | Datadog / Sentry / Cloudflare | already in catalog | http |
 
-**ThreatStream connection details** (from a hand-written `mcp.json` test, since
-removed): endpoint `https://optic.threatstream.com/mcp`, auth header
-`Api-Key <user>:<key>`, reached via `npx mcp-remote`.
+**ThreatStream — verified working.** Endpoint
+`https://optic.threatstream.com/mcp`, auth `Api-Key <user>:<key>`, via
+`npx mcp-remote` with **`--transport http-only`** (without it the SSE
+sub-connection returns 406 and kills the process).
+
+**35 tools**, and the capability is genuine: `get_actors`, `get_actor_details`,
+`get_intelligence`, `ioc_knowledge_tool`, `semantic_search_tool`,
+`get_threat_bulletins`, `get_investigations`, plus Anomali's PIR and
+agentic-task workflow.
+
+**But it costs ~66.2k tokens per call** — roughly half a 128k window on tool
+schemas alone, before any conversation. That is the largest single entry in
+this catalog by a wide margin, and the first symptom of overrunning it is
+truncated tool output rather than any error naming context as the cause. The
+manifest therefore pre-selects 12 read-only intelligence tools and leaves the
+rest available but unchecked.
+
+Worth remembering when assessing any large MCP server: **tool count is a
+context cost, and it competes with the conversation.** `falcon-mcp` solves the
+same problem with a `--dynamic` mode that loads schemas on demand; ThreatStream
+has no equivalent, so the filtering has to happen at install time.
 
 Note it needs the `mcp-remote` stdio bridge rather than a plain `type: http`
 entry — the catalog's `TransportSpec` has no `headers` field, so a server

@@ -50,6 +50,39 @@ auth:
       description: 'Literally "Api-Key <username>:<api-key>" — include the words Api-Key, the space, and the colon between username and key.'
       required: true
 
+# 35 tools, measured at ~66.2k tokens per call — roughly half a 128k context
+# window spent on schemas before a single message. With threat-intel,
+# ioc-reputation, attack-surface and cve-lookup also loaded there is very
+# little room left, and the first symptom is truncated tool output rather than
+# anything that names context as the cause.
+#
+# So pre-check only the read-only intelligence tools an analyst actually uses
+# during triage. Everything else stays available — the install-time checklist
+# shows the full 35 and the operator can enable more.
+#
+# Deliberately EXCLUDED from the default:
+#   create_* / update_* / import_* / test_execute_pir
+#     Write operations against a customer's threat-intel platform. Importing
+#     observables or creating Priority Intelligence Requirements is not
+#     something an agent should do while triaging an alert.
+#   *_pir*, *_agentic_task, *_marketplace_*
+#     Anomali's PIR and agentic-task workflow. Real capability, but it is
+#     workflow authoring rather than enrichment, and it is most of the 35.
+tools:
+  default_enabled:
+    - get_actors
+    - get_actor_details
+    - get_intelligence
+    - ioc_knowledge_tool
+    - search
+    - semantic_search_tool
+    - get_threat_bulletins
+    - get_threat_bulletin_details
+    - get_investigations
+    - get_investigation_details
+    - get_feeds
+    - get_rules
+
 suggest:
   keywords:
     - threatstream
@@ -81,5 +114,21 @@ post_install: |
   context, confirm which tenant's intelligence the key reaches before using it
   across customer investigations — carrying one customer's observables into
   another's context is the kind of mistake that ends an engagement.
+
+  EXPECTED NOISE: the log will show repeated
+
+      StreamableHTTPError: Failed to open SSE stream: Not Acceptable  code: 406
+
+  These are HARMLESS. mcp-remote still attempts an SSE stream alongside the
+  POST path; Anomali does not serve it. With --transport http-only the process
+  survives and the JSON-RPC exchange completes normally — check for
+  "Proxy established successfully" and matching request/response pairs rather
+  than judging by the 406 lines. Without http-only the same error is fatal,
+  which is what made this look like a vendor problem for a day.
+
+  CONTEXT COST: the server exposes 35 tools measured at ~66.2k tokens per
+  call. The manifest pre-selects 12 read-only intelligence tools; enable more
+  from the install checklist only if you need them, and expect truncated tool
+  output if you enable all 35 alongside other MCP servers.
 
   Restart the session so the tools load.
