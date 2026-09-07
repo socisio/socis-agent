@@ -3550,18 +3550,64 @@ _sigma_backend_hint() {
         return 0
     fi
 
+    # Resolve the tool env's python so a bad backend can be removed with pip.
+    # `sigma plugin uninstall` is useless for this: once a backend breaks
+    # autodiscover, the sigma CLI itself will not start.
+    local _tool_py=""
+    for _cand in "$HOME/.local/share/uv/tools/sigma-cli/bin/python" \
+                 "$SOCIS_AGENT_HOME/tools/sigma/bin/python" \
+                 "$HOME/.local/pipx/venvs/sigma-cli/bin/python"; do
+        [ -x "$_cand" ] && { _tool_py="$_cand"; break; }
+    done
+
     log_info "Installing Sigma backends (${#backends[@]} targets)..."
     local ok=0
     local failed=()
+    local broke=()
     for b in "${backends[@]}"; do
-        if sigma plugin install "$b" >/dev/null 2>&1; then
+        if ! sigma plugin install "$b" >/dev/null 2>&1; then
+            failed+=("$b")
+            continue
+        fi
+
+        # VERIFY AFTER EACH INSTALL — a successful install can still break the
+        # CLI. pySigma's autodiscover imports EVERY installed backend at
+        # startup, so one backend importing a symbol its pySigma does not have
+        # takes down `sigma` entirely, for all backends:
+        #
+        #   ImportError: cannot import name 'ConditionTransformation'
+        #     from 'sigma.processing.transformations'
+        #
+        # Observed with cortexxdr against pySigma 3.1.0 — and `sigma plugin
+        # list` reported it as `Compatible? yes`, so the published metadata
+        # cannot be trusted for this. The only reliable check is to run the CLI
+        # afterwards.
+        if sigma list targets >/dev/null 2>&1; then
             ok=$((ok + 1))
         else
-            failed+=("$b")
+            broke+=("$b")
+            if [ -n "$_tool_py" ]; then
+                "$_tool_py" -m pip uninstall -y "pysigma-backend-$b" >/dev/null 2>&1
+            fi
+            # Confirm the rollback actually restored a working CLI.
+            if ! sigma list targets >/dev/null 2>&1; then
+                log_error "sigma is broken after installing '$b' and the rollback failed."
+                log_info "  Remove it by hand:"
+                log_info "    ${_tool_py:-<sigma-python>} -m pip uninstall -y pysigma-backend-$b"
+                return 1
+            fi
         fi
     done
 
     log_success "Sigma backends: $ok of ${#backends[@]} installed"
+    if [ ${#broke[@]} -gt 0 ]; then
+        # Distinct from "failed": these installed cleanly and then broke the
+        # CLI, so they were rolled back. Worth naming separately — it is a
+        # bug in that backend against this pySigma, not a local problem.
+        log_warn "Rolled back (installed but broke the sigma CLI): ${broke[*]}"
+        log_info "  These import symbols the installed pySigma does not provide."
+        log_info "  Their 'Compatible? yes' flag in \`sigma plugin list\` is wrong."
+    fi
     if [ ${#failed[@]} -gt 0 ]; then
         # Not an error worth alarming about. A backend usually fails because it
         # has not yet been updated for the installed pySigma — the maintainer's

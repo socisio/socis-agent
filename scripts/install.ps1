@@ -5160,19 +5160,57 @@ function Write-SigmaBackendHint {
         return
     }
 
+    # Resolve the tool env python so a bad backend can be pip-uninstalled.
+    # `sigma plugin uninstall` is useless here: once a backend breaks
+    # autodiscover, the sigma CLI will not start at all.
+    $toolPy = ""
+    foreach ($c in @(
+        (Join-Path $env:USERPROFILE ".local\share\uv\tools\sigma-cli\Scripts\python.exe"),
+        (Join-Path $SOCISHome "tools\sigma\Scripts\python.exe")
+    )) { if (Test-Path $c) { $toolPy = $c; break } }
+
     Write-Info "Installing Sigma backends ($($backends.Count) targets)..."
     $ok = 0
     $failed = @()
+    $broke = @()
     foreach ($b in $backends) {
         try {
             $null = sigma plugin install $b 2>&1
-            if ($LASTEXITCODE -eq 0) { $ok++ } else { $failed += $b }
-        } catch {
-            $failed += $b
+            if ($LASTEXITCODE -ne 0) { $failed += $b; continue }
+        } catch { $failed += $b; continue }
+
+        # VERIFY AFTER EACH INSTALL. A successful install can still break the
+        # CLI: pySigma autodiscover imports EVERY installed backend at startup,
+        # so one backend importing a symbol its pySigma lacks takes down sigma
+        # entirely. Observed with cortexxdr on pySigma 3.1.0 - and
+        # `sigma plugin list` reported it Compatible? yes, so the published
+        # metadata cannot be trusted. Running the CLI is the only real check.
+        $null = sigma list targets 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $ok++
+        } else {
+            $broke += $b
+            if ($toolPy) {
+                $null = & $toolPy -m pip uninstall -y "pysigma-backend-$b" 2>&1
+            }
+            $null = sigma list targets 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Err "sigma is broken after installing '$b' and the rollback failed."
+                Write-Info "  Remove by hand: <sigma-python> -m pip uninstall -y pysigma-backend-$b"
+                return
+            }
         }
     }
 
     Write-Success "Sigma backends: $ok of $($backends.Count) installed"
+    if ($broke.Count -gt 0) {
+        # Distinct from "failed": these installed cleanly then broke the CLI,
+        # so they were rolled back. A bug in that backend against this
+        # pySigma, not a local problem.
+        Write-Warn "Rolled back (installed but broke the sigma CLI): $($broke -join ', ')"
+        Write-Info "  These import symbols the installed pySigma does not provide."
+        Write-Info "  Their 'Compatible? yes' flag in sigma plugin list is wrong."
+    }
     if ($failed.Count -gt 0) {
         # Not alarming: a backend usually fails because it has not yet been
         # updated for the installed pySigma - the maintainer's timeline, not a
