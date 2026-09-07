@@ -335,6 +335,34 @@ def _handle(args: dict, **_kw) -> str:
             results.append((d, f, ip))
 
     live = [r for r in results if r[2]]
+
+    # Subdomain hits are a false-positive class and need separating.
+    #
+    # The `subdomain` fuzzer inserts a dot, so socis.io -> soc.is.io. That
+    # resolving does NOT mean someone registered a lookalike — it means the
+    # PARENT (is.io) exists, and if it has wildcard DNS then every possible
+    # subdomain resolves. Reporting those alongside genuine registrations
+    # invites exactly the wrong conclusion, and in testing the model ranked
+    # them as the strongest candidates when they are the weakest.
+    #
+    # So resolve the parent for each subdomain hit and label accordingly.
+    parents = {d.split(".", 1)[1] for d, f, _ in live if f == "subdomain"}
+    parent_ips: dict[str, str | None] = {}
+    if parents:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(_DNS_WORKERS, len(parents))) as pool:
+            for parent, ip in zip(parents, pool.map(_resolve, parents)):
+                parent_ips[parent] = ip
+        # A random label under the parent: if THAT resolves, the parent has
+        # wildcard DNS and every subdomain permutation is meaningless.
+        wildcards = set()
+        probes = {p: f"socis-wildcard-probe-zzq7.{p}" for p in parents}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(_DNS_WORKERS, len(probes))) as pool:
+            for parent, ip in zip(probes, pool.map(_resolve, probes.values())):
+                if ip:
+                    wildcards.add(parent)
+    else:
+        wildcards = set()
+
     live.sort(key=lambda r: (_PRIORITY[r[1]], r[0]))
 
     out = [
@@ -346,9 +374,16 @@ def _handle(args: dict, **_kw) -> str:
     if not live:
         out.append("No permutations resolve. Nothing registered among those checked.")
     else:
-        out.append(f"  {'domain':<44} {'resolves to':<20} technique")
+        out.append(f"  {'domain':<40} {'resolves to':<18} technique")
         for d, f, ip in live:
-            out.append(f"  {d:<44} {ip:<20} {f}")
+            note = ""
+            if f == "subdomain":
+                parent = d.split(".", 1)[1]
+                if parent in wildcards:
+                    note = f"  ← WILDCARD on {parent}; not a registration"
+                elif parent_ips.get(parent):
+                    note = f"  ← subdomain of {parent}, which resolves"
+            out.append(f"  {d:<40} {ip:<18} {f}{note}")
 
     if not registered_only:
         dead = [r for r in results if not r[2]][:200]
@@ -356,6 +391,30 @@ def _handle(args: dict, **_kw) -> str:
             out += ["", f"# {len(dead)} shown of "
                         f"{len([r for r in results if not r[2]])} unregistered"]
             out += [f"  {d:<44} {'—':<20} {f}" for d, f, _ in dead]
+
+    # Cluster by resolved IP. This is the highest-value triage signal in the
+    # output and it is invisible in a flat list: four lookalikes on one address
+    # are not four actors. They are a parking service, a registrar holding
+    # page, or — more interestingly — one holder who registered the set.
+    #
+    # In testing against socis.io, four domains sat on 76.223.54.146 and four
+    # on 13.248.169.48 (both AWS/Route53 parking). Knowing that collapses
+    # sixteen "candidates" into three things worth looking at.
+    from collections import defaultdict
+    by_ip: dict[str, list[str]] = defaultdict(list)
+    for d, f, ip in live:
+        if ip and f != "subdomain":
+            by_ip[ip].append(d)
+    clusters = {ip: ds for ip, ds in by_ip.items() if len(ds) > 1}
+    if clusters:
+        out += ["", "# Clustered by IP — shared hosting means shared ownership:"]
+        for ip, ds in sorted(clusters.items(), key=lambda kv: -len(kv[1])):
+            out.append(f"    {ip:<18} {len(ds)} domains: {', '.join(sorted(ds))}")
+        out += ["",
+                "  A cluster is usually a parking service or registrar holding page "
+                "rather than separate actors. Check one, and you have effectively "
+                "checked all of them. A cluster NOT on a known parking range is the "
+                "more interesting case: one party holding several of your lookalikes."]
 
     if len(candidates) > _MAX_LOOKUPS:
         out += ["", f"⚠ Capped at {_MAX_LOOKUPS} lookups of {len(candidates)} "
@@ -375,6 +434,11 @@ def _handle(args: dict, **_kw) -> str:
         "# Ordered by technique: omission and transposition first, because a",
         "# registered domain there catches genuine typos. A vowel-swap or",
         "# full-alphabet addition hit is more often coincidence.",
+        "#",
+        "# IGNORE subdomain hits unless the parent is unexpected. socis.io ->",
+        "# soc.is.io is a SUBDOMAIN of is.io, so it resolving says the parent",
+        "# exists — not that anyone registered a lookalike. Any marked WILDCARD",
+        "# are meaningless: that parent resolves every possible subdomain.",
         "#",
         "# LIMITATION: A/AAAA records only (stdlib socket resolution). A",
         "# registered variant with MX records or a live HTTP server is higher",
