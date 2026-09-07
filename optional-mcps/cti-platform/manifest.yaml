@@ -61,6 +61,18 @@ install:
     # No --force: audit fix without it is limited to semver-compatible updates.
     # `npm run build` runs after, so an incompatible fix fails the install
     # loudly rather than shipping a broken server.
+    #
+    # THIS DOES NOT CLEAR THE SDK ADVISORY. Upstream pins
+    # "@modelcontextprotocol/sdk": "0.6.0" — an EXACT, pre-1.0 pin, so not even
+    # a patch can arrive. That version carries GHSA-w48q-cv73-mx4w (HIGH: DNS
+    # rebinding protection off by default) and the only fix is 1.30.0, across
+    # the 1.0 boundary where the SDK API changed substantially. A bootstrap step
+    # cannot do that; the server code would need rewriting.
+    #
+    # The step is kept because axios here is caret-ranged (^1.7.9) with no upper
+    # bound, so audit fix can still resolve anything that appears there. It just
+    # cannot fix the SDK, and a reader should not infer from a clean install log
+    # that this entry is clean.
     - "npm audit fix"
     - "npm run build"
 

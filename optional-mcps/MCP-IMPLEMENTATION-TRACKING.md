@@ -59,7 +59,7 @@ is where a reviewer or auditor looks and a user does not.
 
 ## Status
 
-**10 of 13 built and parsing. 0 installed or tested.**
+**10 of 13 built and parsing. 9 recommended for use.**
 
 The other 3 are decided, not outstanding — MISP has no licence, Elastic has no
 published endpoint, and `domain-permutation` is held pending a connection test.
@@ -81,7 +81,7 @@ clean. See Handover at the end for the test order and what carries forward.
 | 9 | `attack-surface` (Shodan) | MIT | **DONE** — 159d, parses, **axios override applied** | — |
 | 10 | `domain-permutation` (dnstwist) | MIT | **HOLD — confirmed broken** | requires Docker; fails on any host without a running daemon |
 | 11 | `cve-lookup` (NVD) | **first-party** | **DONE** — security-reviewed and fixed, parses | publish 1.1.0 to npm, then simplify to npx |
-| 12 | `cti-platform` (OpenCTI) | MIT | **DONE** — MIT, 34d, parses | — |
+| 12 | `cti-platform` (OpenCTI) | MIT | **HOLD** — unfixable HIGH advisory in a pinned pre-1.0 SDK | see below |
 | 13 | `intel-sharing` (MISP) | **NO LICENCE** | **WILL NOT SHIP** | nothing — see below |
 
 ---
@@ -519,6 +519,7 @@ adding any stdio MCP server to the catalog.
 | `cve-lookup` | 131 | **0** | 0 |
 | `threat-intel` | 96 | 6 (3 high) | pending re-install |
 | `domain-permutation` | 18 | 1 high — **unfixable** | see below |
+| `cti-platform` | 45 | 1 high — **unfixable** | see below |
 
 `cve-lookup` reporting **0 with no remediation step** is the pattern working:
 its dependencies are caret-ranged with no upper bounds, so npm resolves to
@@ -528,6 +529,49 @@ it because upstream capped axios below a fix.
 **The audit step is now in every git-installed manifest** — `threat-intel`,
 `cve-lookup` and `cti-platform` were missing it, on the mistaken assumption
 that a small dependency list meant a small surface.
+
+### `cti-platform` moves to HOLD — same advisory, worse pin
+
+Audited before shipping, and it should not ship:
+
+    45 packages, 1 high severity vulnerability
+    @modelcontextprotocol/sdk <1.24.0
+    GHSA-w48q-cv73-mx4w — DNS rebinding protection not enabled by default
+    fix available via `npm audit fix --force` -> 1.30.0 (breaking)
+
+The declared dependency is the problem:
+
+    "@modelcontextprotocol/sdk": "0.6.0"
+
+An **exact** pin, pre-1.0. Worse than `domain-permutation`'s `^0.4.0`, which
+at least allows 0.4.x patches — here nothing can arrive at all. The only fix
+crosses the 1.0 boundary, where the SDK API changed substantially, so the
+server code would need rewriting rather than a version bump. No bootstrap step
+can do that.
+
+**Why this one matters more than the count suggests.** The advisory concerns
+the SDK's Streamable-HTTP *server* transport not validating `Host`/`Origin`
+headers — DNS rebinding needs an HTTP listener for a browser to be tricked
+into reaching. This server runs stdio, so the path is very likely unreachable,
+the same reasoning that applies to the `hono` advisories.
+
+But unreachability is a weaker argument here than elsewhere, because the
+credential is an OpenCTI API token that can create, modify and **merge**
+entities in a customer's threat-intelligence platform — and merges are not
+cleanly reversible. Shipping a known-high advisory alongside that, on a
+dependency frozen at an exact pre-1.0 version, is not a trade worth making for
+a capability no customer has yet asked for.
+
+`npm audit fix` is **kept** in its manifest, unlike `domain-permutation`'s.
+The distinction is principled: `cti-platform` also depends on axios `^1.7.9`,
+caret-ranged with no cap, so the step can still resolve anything appearing
+there. It simply cannot fix the SDK, and the manifest says so explicitly — a
+clean install log must not be read as a clean entry.
+
+**Revisit when** upstream moves to a 1.x SDK. Failing that, MISP's situation
+applies: ask the author, find another implementation, or reach OpenCTI's
+GraphQL API through the `terminal` toolset with a skill and skip the server
+entirely.
 
 ### `domain-permutation`: a fifth reason, and a security one
 
