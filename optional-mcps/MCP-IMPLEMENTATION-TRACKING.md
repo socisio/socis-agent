@@ -79,7 +79,7 @@ clean. See Handover at the end for the test order and what carries forward.
 | 7 | `endpoint-siem` (Wazuh) | MIT | **DONE** — 27d, parses | needs a running Wazuh MCP deployment to test |
 | 8 | `ioc-reputation` (VirusTotal) | MIT | **DONE** — 105d, parses, **axios override applied** | — |
 | 9 | `attack-surface` (Shodan) | MIT | **DONE** — 159d, parses, **axios override applied** | — |
-| 10 | `domain-permutation` (dnstwist) | MIT | **HOLD** — pre-1.0 MCP SDK, unmaintained 18mo | confirm it connects before shipping |
+| 10 | `domain-permutation` (dnstwist) | MIT | **HOLD — confirmed broken** | requires Docker; fails on any host without a running daemon |
 | 11 | `cve-lookup` (NVD) | **first-party** | **DONE** — security-reviewed and fixed, parses | publish 1.1.0 to npm, then simplify to npx |
 | 12 | `cti-platform` (OpenCTI) | MIT | **DONE** — MIT, 34d, parses | — |
 | 13 | `intel-sharing` (MISP) | **NO LICENCE** | **WILL NOT SHIP** | nothing — see below |
@@ -250,6 +250,34 @@ Not a gap worth chasing: `splunk` and `grafana` already cover SIEM and
 log-datasource querying, and `grafana` reaches Elasticsearch datasources
 directly. Add Elastic the day someone hands over the endpoint.
 
+### TEST RESULT: `domain-permutation` requires Docker
+
+First live test confirmed the hold was right, for a reason the manifest had
+wrong. The server does not call a local `dnstwist` binary — it shells out to
+Docker:
+
+    Executing command: docker pull elceef/dnstwist
+    failed to connect to the docker API at unix:///Users/.../docker.sock
+    check if the path is correct and if the daemon is running
+
+Every lookup failed. The original `post_install` said `pip install dnstwist`,
+which was simply incorrect and would have sent users down the wrong path.
+Corrected to state the Docker requirement plainly.
+
+That makes three independent reasons this entry stays on hold: a pre-1.0 MCP
+SDK, 18 months unmaintained, and a hard dependency on a running Docker daemon
+for what is otherwise the least critical capability in the set.
+
+### TEST RESULT: `threat-intel` and `cve-lookup` work
+
+    Threat Intel MCP server running - configured: greynoise, feodo
+    NVD CVE MCP Server started
+
+`threat-intel` detected only the credentials that were actually set and
+enabled those sources. That is the degrade-gracefully behaviour the manifest
+was written for and that `ioc-enrichment` depends on — the skill queries
+whatever is connected rather than failing when a source is absent.
+
 ### Final position on the three that will not ship
 
 | Entry | Reason | Reversible? |
@@ -419,6 +447,107 @@ Shipping an entry that probably half-works, in a catalog a customer browses
 for security tooling, costs more in credibility than the feature returns. The
 manifest is written and validated; it can ship the moment someone confirms it
 connects. That is a better order than shipping it and finding out.
+
+### FINDING: the dependency count is the real story
+
+A live install of `attack-surface` — a wrapper around one HTTP API — resolved
+**190 packages** and reported **14 advisories (1 critical, 9 high)**. The axios
+pin cleared the critical and one high; 11 remained.
+
+Reading the actual advisory list explains why, and it is not carelessness in
+the server:
+
+    hono                 ~30 advisories   web framework
+    @hono/node-server                     HTTP server adapter
+    koa                                   a SECOND web framework
+    express-rate-limit                    a THIRD framework's middleware
+    body-parser, path-to-regexp, qs       HTTP request handling
+    file-type                             upload sniffing
+    undici               16 advisories    HTTP client
+    fast-uri, ip-address                  URI / IP parsing
+
+**CORRECTED.** I first attributed this to `fastmcp`. It is not — the
+**MCP TypeScript SDK itself** pulls the HTTP server stack, for its
+Streamable-HTTP transport. Proof: `threat-intel` declares exactly ONE
+dependency, `@modelcontextprotocol/sdk ^1.29.0`, and still resolves 96
+packages with 6 advisories including `hono`, `body-parser`, `fast-uri`,
+`ip-address` and `qs`.
+
+So there is no "pick a leaner MCP framework" escape. Every Node MCP server on
+the current SDK carries this, and `fastmcp` only adds on top of it. These
+servers run **stdio** and never open a listener, so the server-side paths stay
+unreachable — but the code is on disk and `npm audit` reports it.
+
+**7 of the 11 advisory roots are server-side code that never executes here** —
+serveStatic path traversal, CORS bypass, cookie injection, cache poisoning,
+route ReDoS. Unreachable.
+
+**4 are potentially reachable**: `undici` (the actual outbound HTTP client),
+`fast-uri` and `ip-address` (SSRF via parsing quirks), `qs` (query building).
+
+Unreachability is worth knowing but it is not a defence. It is the difference
+between *exposed* and *shipping dead vulnerable code* — and a customer running
+`npm audit` on a SOCIS install will not weigh that distinction generously.
+
+**Fix applied.** `npm audit` reported every one as fixable without `--force`,
+so the bootstrap now runs:
+
+    npm install
+    npm install axios@^1.18.0     # break the upstream cap first
+    npm audit fix                 # then resolve the rest
+    npm run build
+
+Order matters: breaking the cap before `audit fix` lets audit see an
+unconstrained range and bump axios further within `^1` if a newer fix lands.
+A caret, not `--save-exact` — an exact pin would recreate the upper-bound trap
+one version later, which is the mistake that caused this in the first place.
+`npm run build` runs last, so an incompatible fix fails the install loudly
+rather than shipping a broken server.
+
+**The general point for future entries.** Dependency count is a security
+property. A four-dependency package that resolves 190 is carrying a framework
+it does not use, and every one of those is a package whose maintainer could be
+compromised. Worth checking `npm ls --depth=0` and the resolved total before
+adding any stdio MCP server to the catalog.
+
+### Measured across every installed server
+
+| Server | Packages | Advisories before | After `npm audit fix` |
+|---|---|---|---|
+| `attack-surface` | 194 | 14 (1 critical, 9 high) | **0** |
+| `ioc-reputation` | 158 | 13 (9 high) | **0** |
+| `cve-lookup` | 131 | **0** | 0 |
+| `threat-intel` | 96 | 6 (3 high) | pending re-install |
+| `domain-permutation` | 18 | 1 high — **unfixable** | see below |
+
+`cve-lookup` reporting **0 with no remediation step** is the pattern working:
+its dependencies are caret-ranged with no upper bounds, so npm resolves to
+current and fixes arrive on their own. The two that needed remediation needed
+it because upstream capped axios below a fix.
+
+**The audit step is now in every git-installed manifest** — `threat-intel`,
+`cve-lookup` and `cti-platform` were missing it, on the mistaken assumption
+that a small dependency list meant a small surface.
+
+### `domain-permutation`: a fifth reason, and a security one
+
+    @modelcontextprotocol/sdk <1.24.0   HIGH
+    DNS rebinding protection not enabled by default
+    GHSA-w48q-cv73-mx4w
+    fix available via `npm audit fix --force`
+    Will install @modelcontextprotocol/sdk@1.30.0, which is a breaking change
+
+Its 18-package footprint looked like an advantage until this. The pre-1.0 SDK
+carries an unpatched high advisory whose **only** fix is a jump from `^0.4.0`
+to 1.30.0 — across the 1.0 boundary and five protocol revisions, on a project
+unmaintained for 18 months. `npm audit fix` without `--force` cannot touch it,
+which is why that step is deliberately absent from this manifest rather than
+added for consistency: it would run, report success, and change nothing.
+
+A smaller attack surface that cannot be patched is not a smaller risk. This
+now has five independent reasons to stay out of the catalog: pre-1.0 SDK, an
+unfixable high advisory, 18 months unmaintained, a hard Docker dependency,
+and the least critical capability in the set.
 
 ### Audit summary
 

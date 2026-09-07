@@ -48,6 +48,20 @@ install:
   # gives no hint about the cause.
   bootstrap:
     - "npm install"
+    # Clear transitive advisories before the build.
+    #
+    # This is needed even for a server declaring ONE dependency. threat-intel
+    # declares only @modelcontextprotocol/sdk ^1.29.0 and still resolved 96
+    # packages with 6 advisories (3 high) — hono, body-parser, fast-uri,
+    # ip-address, qs. The MCP TypeScript SDK itself pulls an HTTP server stack
+    # for its Streamable-HTTP transport; a stdio server never opens a listener,
+    # so most of it is unreachable, but it is still vulnerable code on disk and
+    # a customer's `npm audit` will report it.
+    #
+    # No --force: audit fix without it is limited to semver-compatible updates.
+    # `npm run build` runs after, so an incompatible fix fails the install
+    # loudly rather than shipping a broken server.
+    - "npm audit fix"
     - "npm run build"
 
 suggest:
