@@ -52,7 +52,7 @@ auth:
 
 # 35 tools, measured at ~66.2k tokens per call — roughly half a 128k context
 # window spent on schemas before a single message. With threat-intel,
-# ioc-reputation, attack-surface and cve-lookup also loaded there is very
+# ioc-reputation, attack-surface and nvd also loaded there is very
 # little room left, and the first symptom is truncated tool output rather than
 # anything that names context as the cause.
 #

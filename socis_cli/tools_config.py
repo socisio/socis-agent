@@ -124,6 +124,19 @@ CONFIGURABLE_TOOLSETS = [
     ("discord_admin",   "🛡️  Discord Server Admin",    "list channels/roles, pin, assign roles"),
     ("yuanbao",          "🤖 Yuanbao",                  "group info, member queries, DM"),
     ("computer_use",     "🖱️  Computer Use (macOS/Windows/Linux)", "background desktop control via cua-driver"),
+    # Detection engineering and vulnerability intelligence.
+    #
+    # NOTE FOR ANYONE ADDING A TOOLSET: declaring it in toolsets.py TOOLSETS is
+    # enough to make it selectable with `socis -t <name>`, and enough for
+    # `socis doctor` to report it under Tool Availability — but NOT enough for
+    # it to appear in `socis tools list` or the desktop Tools tab. Both read
+    # this list. A toolset missing here is invisible to anyone who does not
+    # already know its name, which is every user.
+    ("sigma",           "📋 Sigma Rules",               "validate and convert Sigma to any SIEM (needs sigma-cli)"),
+    ("yara",            "🧬 YARA Rules",                "extract candidate strings, build a goodware index, compile and scan"),
+    ("suricata",        "🛡️  Suricata Signatures",      "validate rules and replay PCAPs to confirm they fire (needs suricata)"),
+    ("domain-intel",    "🎣 Typosquat Discovery",       "find registered lookalike domains for a brand"),
+    ("cve-intel",       "🚨 Exploitation Intelligence", "CISA KEV, EPSS probability, and combined patch triage"),
 ]
 
 
