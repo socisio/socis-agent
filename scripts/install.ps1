@@ -5053,14 +5053,37 @@ function Install-SigmaCli {
     #>
     if (Get-Command sigma -ErrorAction SilentlyContinue) {
         Write-Success "sigma-cli already installed"
+        # An existing uv-installed sigma-cli may predate the --with pip fix, in
+        # which case every backend install fails and looks like an
+        # incompatibility. Detect and repair rather than reporting success.
+        $toolPy = Join-Path $env:USERPROFILE ".local\share\uv\tools\sigma-cli\Scripts\python.exe"
+        if (Test-Path $toolPy) {
+            & $toolPy -c "import pip" 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warn "sigma-cli's environment has no pip - backend installs cannot work."
+                Resolve-UvCmd
+                if ($script:UvCmd -and (Test-Path $script:UvCmd)) {
+                    Write-Info "Repairing: reinstalling sigma-cli with pip..."
+                    try { $null = & $script:UvCmd tool install --force sigma-cli --with pip 2>&1 } catch { }
+                } else {
+                    Write-Info "Repair by hand: uv tool install --force sigma-cli --with pip"
+                }
+            }
+        }
         Write-SigmaBackendHint
         return $true
     }
 
     Resolve-UvCmd
     if ($script:UvCmd -and (Test-Path $script:UvCmd)) {
+        # --with pip is REQUIRED. uv tool environments ship without pip, and
+        # sigma-cli's plugin mechanism shells out to `python -m pip install`
+        # to fetch each backend. Without it every backend install fails with
+        # "No module named pip" — a message that names pip, not sigma, so it
+        # reads as a compatibility problem rather than a missing package
+        # manager.
         Write-Info "Installing sigma-cli via managed uv..."
-        try { $null = & $script:UvCmd tool install sigma-cli 2>&1 } catch { }
+        try { $null = & $script:UvCmd tool install sigma-cli --with pip 2>&1 } catch { }
         if (Get-Command sigma -ErrorAction SilentlyContinue) {
             Write-Success "sigma-cli installed"
             Write-SigmaBackendHint
@@ -5155,8 +5178,19 @@ function Write-SigmaBackendHint {
         # updated for the installed pySigma - the maintainer's timeline, not a
         # local fault.
         Write-Warn "Not installed: $($failed -join ', ')"
-        Write-Info "  Usually means the backend lags the installed pySigma."
-        Write-Info "  Check state with: sigma plugin list --plugin-type backend"
+        if ($failed.Count -eq $backends.Count) {
+            # ALL failing is a different fault from SOME failing. Every backend
+            # failing means the environment cannot install anything - almost
+            # always a missing pip in a uv tool venv - not eleven simultaneous
+            # incompatibilities.
+            Write-Warn "  ALL backends failed. That is an environment fault, not compatibility."
+            Write-Info "  Run 'sigma plugin install splunk' bare to see the real error."
+            Write-Info "  If it says 'No module named pip':"
+            Write-Info "    uv tool install --force sigma-cli --with pip"
+        } else {
+            Write-Info "  Usually means the backend lags the installed pySigma."
+            Write-Info "  Check state with: sigma plugin list --plugin-type backend"
+        }
     }
     Write-Info "Confirm what is available: sigma list targets"
 }

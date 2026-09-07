@@ -3401,6 +3401,28 @@ _install_detection_pkg() {
 install_sigma_cli() {
     if command -v sigma &>/dev/null; then
         log_success "sigma-cli already installed"
+        # An EXISTING uv-installed sigma-cli may predate the --with pip fix
+        # below, in which case every `sigma plugin install` fails with
+        # "No module named pip" and the failure looks like a compatibility
+        # problem. Detect that and repair it rather than reporting success and
+        # leaving the user with zero backends.
+        local _managed_uv="$SOCIS_AGENT_HOME/bin/uv"
+        local _toolenv="$HOME/.local/share/uv/tools/sigma-cli"
+        if [ -x "$_toolenv/bin/python" ] \
+           && ! "$_toolenv/bin/python" -c "import pip" >/dev/null 2>&1; then
+            log_warn "sigma-cli's environment has no pip — backend installs cannot work."
+            if [ -x "$_managed_uv" ]; then
+                log_info "Repairing: reinstalling sigma-cli with pip..."
+                if "$_managed_uv" tool install --force sigma-cli --with pip; then
+                    log_success "sigma-cli environment repaired"
+                else
+                    log_warn "Repair failed. Run by hand:"
+                    log_info "  uv tool install --force sigma-cli --with pip"
+                fi
+            else
+                log_info "Repair by hand: uv tool install --force sigma-cli --with pip"
+            fi
+        fi
         _sigma_backend_hint
         return 0
     fi
@@ -3421,8 +3443,26 @@ install_sigma_cli() {
     # no new dependency and no elevated permissions.
     local _managed_uv="$SOCIS_AGENT_HOME/bin/uv"
     if [ -x "$_managed_uv" ]; then
+        # `--with pip` is REQUIRED, not decoration.
+        #
+        # uv tool environments ship without pip. sigma-cli's own plugin
+        # mechanism shells out to `<toolenv>/bin/python -m pip install
+        # pysigma-backend-<name>==<version>`, so without pip EVERY backend
+        # install fails:
+        #
+        #     .../sigma-cli/bin/python: No module named pip
+        #     subprocess.CalledProcessError: ... returned non-zero exit status 1
+        #
+        # The message names pip, not sigma, and `sigma plugin install` reports
+        # only a traceback — so this reads as "all backends are incompatible"
+        # rather than "the environment cannot install anything".
+        #
+        # Letting sigma install its own backends (rather than pre-seeding them
+        # with more --with flags) matters: sigma pins an exact version per
+        # backend that matches the installed pySigma. Resolving them
+        # independently would drift.
         log_info "Installing sigma-cli via managed uv..."
-        if "$_managed_uv" tool install sigma-cli; then
+        if "$_managed_uv" tool install sigma-cli --with pip; then
             log_success "sigma-cli installed"
             _sigma_ensure_path
             _sigma_backend_hint
@@ -3432,6 +3472,7 @@ install_sigma_cli() {
     fi
 
     if command -v pipx &>/dev/null; then
+        # pipx venvs include pip, so sigma plugin install works unaided here.
         log_info "Installing sigma-cli via pipx..."
         if pipx install sigma-cli; then
             log_success "sigma-cli installed"
@@ -3526,8 +3567,20 @@ _sigma_backend_hint() {
         # has not yet been updated for the installed pySigma — the maintainer's
         # timeline, not a local fault.
         log_warn "Not installed: ${failed[*]}"
-        log_info "  Usually means the backend lags the installed pySigma."
-        log_info "  Check state with: sigma plugin list --plugin-type backend"
+        if [ ${#failed[@]} -eq ${#backends[@]} ]; then
+            # ALL failing is a different fault from SOME failing. Eleven
+            # simultaneous incompatibilities do not happen; an environment that
+            # cannot install anything does — almost always a uv tool venv with
+            # no pip. Saying "the backend lags pySigma" here sends the reader
+            # down the wrong path, which is exactly what happened in testing.
+            log_warn "  ALL backends failed — that is an environment fault, not compatibility."
+            log_info "  Run 'sigma plugin install splunk' bare to see the real error."
+            log_info "  If it says 'No module named pip':"
+            log_info "    uv tool install --force sigma-cli --with pip"
+        else
+            log_info "  Usually means the backend lags the installed pySigma."
+            log_info "  Check state with: sigma plugin list --plugin-type backend"
+        fi
     fi
     log_info "Confirm what is available: sigma list targets"
 }
