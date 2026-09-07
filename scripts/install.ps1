@@ -5151,9 +5151,17 @@ function Write-SigmaBackendHint {
         "secops",          # Google SecOps (Chronicle) UDM + YARA-L
         "sentinelone",
         "sentinelone-pq",
-        "cortexxdr",
         "carbonblack"
     )
+    # cortexxdr is DELIBERATELY ABSENT. It installs cleanly then breaks the
+    # sigma CLI outright: its pipeline imports ConditionTransformation from
+    # sigma.processing.transformations, which pySigma 3.1.0 removed. Because
+    # autodiscover imports every backend at startup, that one bad import
+    # disables sigma for ALL backends. `sigma plugin list` reports it
+    # Compatible? yes, so the metadata does not catch it. The rollback below
+    # would recover, but there is no reason to install a known-broken backend
+    # on every machine. Re-add once upstream updates it:
+    #   https://github.com/SigmaHQ/pySigma-backend-cortexxdr
 
     if (-not (Get-Command sigma -ErrorAction SilentlyContinue)) {
         Write-Warn "sigma not on PATH - skipping backend install."
