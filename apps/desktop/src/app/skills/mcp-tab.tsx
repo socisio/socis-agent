@@ -1640,12 +1640,22 @@ function McpCatalog({
                         </span>
                         <Input
                           className="h-7 text-xs"
-                          onChange={event =>
+                          onChange={event => {
+                            // Read the value BEFORE the updater callback.
+                            // React nulls event.currentTarget once the handler
+                            // returns, and a functional setState updater runs
+                            // afterwards — so reading it inside the callback
+                            // throws "Cannot read properties of null (reading
+                            // 'value')" and takes down the whole workspace via
+                            // the error boundary. Typing an API key here was
+                            // enough to trigger it.
+                            const value = event.currentTarget.value
+
                             setEnvDrafts(prev => ({
                               ...prev,
-                              [entry.name]: { ...prev[entry.name], [env.name]: event.currentTarget.value }
+                              [entry.name]: { ...prev[entry.name], [env.name]: value }
                             }))
-                          }
+                          }}
                           type="password"
                           value={draft[env.name] ?? ''}
                         />

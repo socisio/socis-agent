@@ -10,8 +10,15 @@ description: >-
 #
 # Canonical path; BurtTheCoder/mcp-dnstwist redirects here (account rename).
 #
-# MAINTENANCE STATUS: last pushed 2025-03-03 — roughly 18 months before this
-# entry was written. It clears the >=2 week age rule trivially, but the more
+# TWO REASONS THIS ENTRY IS ON HOLD.
+#
+# 1. It requires Docker. The server runs `docker pull elceef/dnstwist` and
+#    shells out to the container rather than calling a local binary — so it
+#    fails outright on any host without a running daemon. Confirmed in
+#    testing: every lookup returned "failed to connect to the docker API".
+#
+# 2. MAINTENANCE STATUS: last pushed 2025-03-03 — roughly 18 months before this
+#    entry was written. It clears the >=2 week age rule trivially, but the more
 # useful reading is the opposite one: this project is effectively unmaintained,
 # so no security or dependency fixes are coming from upstream. That is
 # acceptable here because the server is a thin read-only wrapper around a local
@@ -49,12 +56,24 @@ suggest:
     - phishing domain
 
 post_install: |
-  No credential required — dnstwist works from public DNS and WHOIS.
+  REQUIRES DOCKER — not a pip install.
 
-  PREREQUISITE: this server wraps the dnstwist tool, which must be available
-  on the host. Install it with `pip install dnstwist` or via Docker, then
-  confirm `dnstwist --help` runs before using the tools. If lookups return
-  nothing, check this first.
+  This server does not use a local `dnstwist` binary. It shells out to Docker
+  and runs the `elceef/dnstwist` image, pulling it on first use:
+
+      docker pull elceef/dnstwist
+
+  So Docker must be installed AND the daemon running. Without it, every lookup
+  fails with:
+
+      failed to connect to the docker API at unix:///.../docker.sock
+      check if the path is correct and if the daemon is running
+
+  Start Docker Desktop (or `dockerd` on Linux) before using these tools, and
+  pre-pull the image if you want the first lookup to be fast rather than a
+  silent several-hundred-megabyte download.
+
+  No API credential is needed — dnstwist queries public DNS and WHOIS.
 
   Permutation results are candidates, not findings. Most generated domains are
   unregistered, and many registered ones are defensive registrations by the

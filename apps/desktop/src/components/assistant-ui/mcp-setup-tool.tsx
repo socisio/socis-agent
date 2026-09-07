@@ -481,7 +481,16 @@ function McpSetupPending({ args }: ToolCallMessagePartProps) {
               </span>
               <Input
                 className="h-7 text-xs"
-                onChange={event => setEnvDraft(prev => ({ ...prev, [env.name]: event.currentTarget.value }))}
+                onChange={event => {
+                  // Read before the updater runs: React nulls
+                  // event.currentTarget once the handler returns, and a
+                  // functional setState callback runs afterwards. See the
+                  // same fix in app/skills/mcp-tab.tsx — this is the identical
+                  // MCP credential input, reached from the chat setup card.
+                  const value = event.currentTarget.value
+
+                  setEnvDraft(prev => ({ ...prev, [env.name]: value }))
+                }}
                 type="password"
                 value={envDraft[env.name] ?? ''}
               />
