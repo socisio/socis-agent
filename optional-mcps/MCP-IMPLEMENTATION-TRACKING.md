@@ -59,7 +59,7 @@ is where a reviewer or auditor looks and a user does not.
 
 ## Status
 
-**10 of 13 built and parsing. 8 recommended, 1 replaced by a native tool.**
+**10 of 13 built and parsing. 9 recommended, 1 replaced by a native tool.**
 
 The other 3 are decided, not outstanding — MISP has no licence, Elastic has no
 published endpoint, and `domain-permutation` is held pending a connection test.
@@ -70,7 +70,7 @@ clean. See Handover at the end for the test order and what carries forward.
 
 | # | Entry | Tier | Status | Next |
 |---|---|---|---|---|
-| 1 | Anomali ThreatStream | vendor | **WRITTEN** — parses; config verified against vendor docs | 406 unresolved — confirm transport/entitlement with Anomali |
+| 1 | Anomali ThreatStream | vendor | **DONE** — connects; 406 root-caused and fixed | — |
 | 2 | Splunk | vendor | **DONE** — parses; URL is per-stack, placeholder documented | customer supplies endpoint at install |
 | 3 | Elastic | vendor | **WILL NOT SHIP** | no published endpoint — see final position below |
 | 4 | PagerDuty | vendor | **DONE** — hosted, fixed URL, parses | — |
@@ -141,7 +141,51 @@ Two things recorded in `post_install` that are easy to miss:
 defaults to OAuth 2.1, removing the long-lived token entirely. The manifest
 notes how to switch.
 
-### `threatstream` — written, but do not trust it yet
+### `threatstream` — RESOLVED. The 406 was ours, not Anomali's
+
+This entry was held all day pending "confirm the transport with Anomali". That
+was the wrong diagnosis. Two separate faults, neither on the vendor's side.
+
+**Fault 1 — the credential was missing its auth scheme.** The env var held
+`user:key` rather than `Api-Key user:key`. With no scheme the server returns
+401, and mcp-remote responds by attempting OAuth Dynamic Client Registration,
+which fails with:
+
+    ServerError: Invalid OAuth error response:
+    Unexpected token 'o', "[object Response]" is not valid JSON
+
+Nothing in that message mentions credentials, which is why it misdirected for
+so long. Verified with curl that both `Api-Key` and `ApiKey` return **200** —
+so the endpoint, the credential and the scheme were all fine once the prefix
+was present.
+
+**Fault 2 — mcp-remote's default transport.** `http-first` POSTs to the
+endpoint AND separately opens a GET SSE stream. The POST works; the SSE GET
+returns 406 because Anomali does not serve it. mcp-remote treats that as fatal
+even though the connection it needs already succeeded:
+
+    StreamableHTTPError: Failed to open SSE stream: Not Acceptable
+      at StreamableHTTPClientTransport._startOrAuthSse
+      code: 406
+
+`--transport http-only` skips the SSE attempt and the proxy establishes
+normally. That flag is now in the manifest with a comment explaining why it
+must not be removed.
+
+**What this cost, and the lesson.** The entry sat blocked for a day on a
+vendor question that was never a vendor question. Both faults were reachable
+from the local machine: one `curl` against the endpoint would have shown 401
+vs 200 and settled fault 1 immediately; running `mcp-remote` by hand would have
+shown fault 2. The manifest was checked against the vendor's documentation and
+declared "verified", which is exactly the kind of confidence that stops
+someone testing. **Documentation matching is not a test.**
+
+Also worth keeping: the `auth.env` route puts this credential in
+`~/.socis-agent/.env`, prompted and masked. During earlier testing this exact
+key was leaked in a screenshot of a hand-written `mcp.json` — a config file is
+somewhere people paste and screenshot, and `.env` is not.
+
+### `threatstream` — the original assessment (superseded)
 
 Endpoint `https://optic.threatstream.com/mcp`, auth
 `Authorization: Api-Key <user>:<key>`, via the `mcp-remote` bridge (the

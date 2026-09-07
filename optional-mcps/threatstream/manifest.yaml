@@ -23,6 +23,23 @@ transport:
     - "-y"
     - "mcp-remote"
     - "https://optic.threatstream.com/mcp"
+    # http-only is REQUIRED, and its absence is what produced the 406 this
+    # entry was blocked on for a day.
+    #
+    # mcp-remote defaults to `http-first`: it POSTs to the endpoint, and then
+    # separately opens a GET SSE stream for server-to-client messages. The POST
+    # works against ThreatStream. The SSE GET returns 406 Not Acceptable —
+    # Anomali's endpoint does not serve that stream — and mcp-remote treats
+    # that as fatal even though the connection it needs already succeeded:
+    #
+    #     StreamableHTTPError: Failed to open SSE stream: Not Acceptable
+    #       at StreamableHTTPClientTransport._startOrAuthSse
+    #       code: 406
+    #
+    # `--transport http-only` skips the SSE attempt entirely and the proxy
+    # establishes normally. Do not remove it to "simplify" the args.
+    - "--transport"
+    - "http-only"
     - "--header"
     - "Authorization:${THREATSTREAM_AUTH_HEADER}"
 
@@ -44,35 +61,16 @@ suggest:
     - anomali.com
 
 post_install: |
-  KNOWN ISSUE — verify before relying on this entry.
+  Set THREATSTREAM_AUTH_HEADER to the COMPLETE header value — the scheme, a
+  space, then username and key separated by a colon:
 
-  The transport above matches Anomali's published installation guide exactly:
-  same command, same endpoint, same `Authorization: Api-Key <user>:<key>`
-  header format. (The one addition is `-y` before `mcp-remote`, which
-  auto-confirms the npx package install — SOCIS spawns this non-interactively,
-  and without it npx can hang waiting for a prompt nobody sees.)
+      Api-Key you@company.com:your-api-key
 
-  Despite that, a test connection returned:
-
-      StreamableHTTPError: Failed to open SSE stream: Not Acceptable
-      code: 406
-
-  Because the configuration is confirmed correct against vendor documentation,
-  the cause is upstream rather than local — do not spend time re-checking the
-  config. A 406 means the server rejected the client's Accept header, so the
-  likely explanations are that the endpoint does not speak Streamable HTTP the
-  way mcp-remote negotiates it, or that MCP access is gated on the account's
-  ThreatStream tier.
-
-  Ask Anomali directly:
-
-      "Connecting to https://optic.threatstream.com/mcp with mcp-remote and
-       Authorization: Api-Key <user>:<key> returns HTTP 406 on the SSE stream.
-       Is this the correct endpoint and transport, and does MCP access require
-       a specific entitlement on our account?"
-
-  If they supply a different URL or required headers, edit
-  mcp_servers.threatstream in ~/.socis-agent/config.yaml.
+  Not just the credential. Without the `Api-Key ` prefix the server sees no
+  auth scheme, returns 401, and mcp-remote falls back to OAuth discovery —
+  which fails with a confusing "Invalid OAuth error response" rather than
+  anything mentioning credentials. The username is normally your account
+  email.
 
   Credentials: ThreatStream credentials are issued by Anomali, not
   self-service. Contact your Anomali representative if you do not have them.
