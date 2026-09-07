@@ -53,17 +53,27 @@ install:
   # The waiver is specific to first-party repositories. It must not be
   # extended to community servers, where the rule is doing real work — see
   # MCP-IMPLEMENTATION-TRACKING.md for the axios case that proves the point.
-  # v1.2.0 — search_cves now takes a last-modified date window (default 120
-  # days, NVD's maximum span) and sorts newest-first.
+  # v1.3.0 — search_cves takes a date window (default 120 days, NVD's maximum
+  # span) and sorts newest-first.
   #
-  # Before this, a keyword search returned NVD's own ordering, which is
-  # roughly CVE-ID ascending: searching "FortiOS" returned CVE-2005-1837
-  # through CVE-2014-2216 and nothing from this decade. The tool could not
-  # answer the most common question an analyst asks — "what has come out
-  # recently for X?" — so the agent correctly reached for web_search instead.
-  # Worth remembering before assuming a model is ignoring a tool: check the
-  # tool can answer the question being asked.
-  ref: 9d847c331f7d12592f920af7826efe495075b39b
+  # Two bugs fixed here, and the second was a correction to the first.
+  #
+  # 1. No date filter at all. NVD returns keyword results in its own ordering,
+  #    roughly CVE-ID ascending, so searching "FortiOS" returned CVE-2005-1837
+  #    through CVE-2014-2216 and nothing from this decade. The tool could not
+  #    answer the most common question an analyst asks.
+  #
+  # 2. The first fix used lastModStartDate, reasoning that a re-scored CVE
+  #    matters even if published years ago. True in principle, wrong in
+  #    practice: NVD is bulk re-enriching its backlog, so a last-modified
+  #    window floods with 2005-2016 CVEs whose metadata was touched by
+  #    housekeeping. v1.3.0 defaults to pubStartDate — newly PUBLISHED
+  #    vulnerabilities — and keeps the re-scored view behind `by_modified`.
+  #
+  # Both were found by running the tool and reading what came back, not by
+  # reading the code. Worth remembering before assuming a model is ignoring a
+  # tool: check the tool can answer the question being asked.
+  ref: 61164f606daab42d3cc9326ccbd5fc82c9a6f0df
   bootstrap:
     - "npm install"
     # Clear transitive advisories before the build.
@@ -114,9 +124,15 @@ post_install: |
   All requests go to nvd.nist.gov only. No customer data leaves your
   environment; CVE IDs are public identifiers.
 
-  Searching: `search_cves` returns CVEs MODIFIED in the last 120 days by
+  Searching: `search_cves` returns CVEs PUBLISHED in the last 120 days by
   default, newest first — so "recent vulnerabilities in X" works as asked.
-  Pass recent_days: 0 for an all-time search, but expect NVD's own ordering,
-  which surfaces the OLDEST matches first.
+
+  Two options worth knowing:
+    recent_days: 0     all-time search. NVD's own ordering applies, which
+                       surfaces the OLDEST matches first.
+    by_modified: true  filter by last-modified instead. Catches CVEs whose
+                       CVSS was re-scored — but NVD is re-enriching its
+                       backlog, so this also returns many 2005-2016 entries
+                       whose metadata changed for housekeeping reasons.
 
   Restart the session so the tools load.
