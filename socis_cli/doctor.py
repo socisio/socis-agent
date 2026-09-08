@@ -1381,15 +1381,38 @@ def run_doctor(args):
             # --header argument, so an absent env block is correct there.
             if "mcp-remote" in args or "--header" in args:
                 continue
-            if not entry.get("env"):
-                quiet_problems += 1
-                check_warn(
-                    f"MCP server '{name}' has no env block",
-                    "declared credentials may never reach the process",
-                )
-                check_info(
-                    f"Re-run: socis mcp install official/{name}"
-                )
+            if entry.get("env"):
+                continue
+
+            # An absent env block is only a problem when the manifest declares
+            # a REQUIRED credential. Optional-and-unset vars are deliberately
+            # omitted from the config — emitting a placeholder for one would
+            # interpolate to the literal "${VAR}", which a server reads as a
+            # configured-but-garbage value. `nvd` is exactly this case: its
+            # NVD_API_KEY is optional, so no env block is correct and warning
+            # about it teaches the reader to ignore this section.
+            try:
+                from socis_cli.mcp_catalog import get_entry as _cat_entry
+
+                _m = _cat_entry(name)
+            except Exception:
+                _m = None
+            if _m is None:
+                continue  # hand-written entry; no manifest to judge against
+            _required = [
+                spec.name
+                for spec in (_m.auth.env or [])
+                if getattr(spec, "required", False)
+            ]
+            if not _required:
+                continue
+
+            quiet_problems += 1
+            check_warn(
+                f"MCP server '{name}' has no env block",
+                f"required credential(s) {', '.join(_required)} cannot reach the process",
+            )
+            check_info(f"Re-run: socis mcp install official/{name}")
 
         # 2. A ${VAR} placeholder with nothing to resolve to.
         #
