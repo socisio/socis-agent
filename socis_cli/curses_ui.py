@@ -1064,7 +1064,12 @@ def curses_radiolist(
         return cancel_returns  # NAV_CANCEL
 
     return _run_curses_menu(
-        initial_cursor=selected,
+        # An INT row index, not the selection set. This passed `selected`
+        # (a Set[int]) where a cursor index is expected; _reconcile_cursor
+        # then silently normalised it to filtered[0] because a set is never
+        # `in` a list of ints. Harmless by accident, but it meant the cursor
+        # always opened on row 0 instead of the first enabled item.
+        initial_cursor=(min(selected) if selected else 0),
         item_count=len(items),
         draw_header=_draw_header,
         draw_row=_draw_row,

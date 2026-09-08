@@ -1070,6 +1070,39 @@ def cmd_mcp_configure(args):
         _info("No changes made.")
         return
 
+    # WIDENING GUARD.
+    #
+    # Narrowing a filter is safe: fewer tools reach the model. WIDENING is
+    # not, and the worst case is silent — a run of this command replaced a
+    # 12-tool allowlist on an Anomali ThreatStream server with all 35,
+    # which meant create_pir / update_pir / import_observables_auto_approve
+    # (writes against a customer's threat-intel platform) went from
+    # unreachable to callable, reported only as "Updated config: 35/35".
+    #
+    # The mechanism was never established, so this guards the OUTCOME
+    # rather than any particular cause: confirm before handing the model
+    # tools it previously could not call. Declining leaves config untouched.
+    added = sorted(tool_names[i] for i in (chosen - pre_selected))
+    if added:
+        print()
+        _warning(
+            f"This ENABLES {len(added)} tool(s) that are currently disabled "
+            f"for '{name}':"
+        )
+        for tn in added[:12]:
+            _info(f"    + {tn}")
+        if len(added) > 12:
+            _info(f"    ... and {len(added) - 12} more")
+        if len(chosen) == total:
+            _warning(
+                "All tools selected — the tools filter will be REMOVED, so "
+                "future vendor additions are enabled automatically too."
+            )
+        print()
+        if not _confirm(f"Enable {len(added)} additional tool(s)?", default=False):
+            _info("No changes made.")
+            return
+
     # Update config
     config = load_config()
     server_entry = cfg_get(config, "mcp_servers", name, default={})
