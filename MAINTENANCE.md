@@ -78,18 +78,36 @@ git remote add upstream https://github.com/NousResearch/hermes-agent.git
 git fetch upstream --tags
 ```
 
-Record the fork point in this file so future maintainers know the baseline:
+**Recorded fork point** — `.github/workflows/upstream-watch.yml` reads this,
+so keep them in step:
 
 ```
-Forked from: NousResearch/hermes-agent @ v0.21.0 (Python) / 0.17.0 (desktop)
-Fork date:   2026-09
+Forked from: NousResearch/hermes-agent @ main (no matching tag exists)
+Inherited:   0.21.0 (Python) / 0.17.0 (desktop)
+Fork date:   2026-09-01        <- FORK_DATE in upstream-watch.yml
 ```
 
 Verified at the time of the rebrand: the inherited `pyproject.toml` read
 `0.21.0` and `apps/desktop/package.json` read `0.17.0`. Upstream's published
 releases at that point topped out at v0.19.0 (2026-07-20) plus dated patch
-tags, so this fork was taken from `main` ahead of every tagged release —
-expect `HEAD..upstream/main` to list a large number of commits.
+tags, so **this fork was taken from `main` ahead of every tagged release** and
+no upstream tag corresponds to it.
+
+### Why upstream-watch uses a date, not a commit range
+
+`git log HEAD..upstream/main` looks like the obvious query and is wrong here.
+It means "reachable from upstream, not from us" — and because this repository
+was created fresh rather than forked with `git`, it shares **no commits** with
+upstream at all. So that range is every commit upstream has ever made.
+
+The first upstream-watch run proved it: **32,737 commits, 4,342 matching
+security keywords**, including commits from 2026-05 that were already in this
+codebase before the fork. A report that size is not a report.
+
+The workflow now filters by `--since=$FORK_DATE` instead. If you ever need a
+different window, `workflow_dispatch` accepts either a date (`2026-08-15`) or
+a ref, and an unresolvable input falls back to FORK_DATE rather than to all of
+history.
 
 Two of the three CVEs flagged in upstream's own security assessment
 (issue #40889) were already fixed before this fork point:

@@ -46,12 +46,64 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch upstream
+        shell: bash
         run: |
+          set -uo pipefail
           git remote add upstream https://github.com/NousResearch/hermes-agent.git 2>/dev/null || true
           # --filter=blob:none keeps this fast: we only ever read commit
-          # metadata, never file contents.
+          # metadata, never file contents. Tags are needed to resolve the fork
+          # point below.
           git fetch --quiet --filter=blob:none upstream main
+          git fetch --quiet --filter=blob:none --tags upstream || true
           echo "upstream_head=$(git rev-parse upstream/main)" >> "$GITHUB_ENV"
+
+          # RESOLVE A BASELINE. This is the difference between a usable report
+          # and an unusable one.
+          #
+          # The first version used `HEAD..upstream/main` on the assumption that
+          # it meant "everything upstream did since the fork". It does not.
+          # This repository was created fresh rather than forked, so it shares
+          # NO commits with upstream — and `HEAD..upstream/main` therefore
+          # means every upstream commit that has ever existed. The first run
+          # reported 32,737 commits and 4,342 "security-relevant" ones, which
+          # nobody will ever read.
+          #
+          # A TAG IS UNLIKELY TO WORK HERE. MAINTENANCE.md records that this
+          # fork was taken from upstream `main` ahead of every tagged release:
+          # the inherited pyproject.toml read 0.21.0 while upstream's published
+          # tags topped out at v0.19.0. So there is probably no tag matching
+          # the fork point, and a date is the only reliable baseline.
+          #
+          # FORK_DATE is that baseline. It must not be earlier than the fork,
+          # or the report lists commits already present in this repository —
+          # the first run did exactly that, surfacing 2026-05-25 commits as
+          # outstanding.
+          #
+          # Order of preference:
+          #   1. the `since` input — accepts a ref OR a YYYY-MM-DD date
+          #   2. a tag, if one happens to resolve
+          #   3. FORK_DATE from MAINTENANCE.md
+          FORK_DATE="2026-09-01"
+          SINCE_INPUT="${{ inputs.since }}"
+          base=""; datecut=""
+          if [ -n "$SINCE_INPUT" ]; then
+            if printf '%s' "$SINCE_INPUT" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+              datecut="$SINCE_INPUT"; how="date from workflow input"
+            elif git rev-parse --verify --quiet "$SINCE_INPUT" >/dev/null; then
+              base="$SINCE_INPUT"; how="ref from workflow input"
+            else
+              datecut="$FORK_DATE"; how="fork date — input '$SINCE_INPUT' did not resolve"
+            fi
+          elif git rev-parse --verify --quiet "v0.21.0" >/dev/null; then
+            base="v0.21.0"; how="upstream tag v0.21.0"
+          else
+            datecut="$FORK_DATE"
+            how="fork date from MAINTENANCE.md (no matching upstream tag exists)"
+          fi
+          echo "base_ref=$base" >> "$GITHUB_ENV"
+          echo "base_date=$datecut" >> "$GITHUB_ENV"
+          echo "base_how=$how" >> "$GITHUB_ENV"
+          echo "Baseline: ${base:-$datecut} — $how"
 
       - name: Find security-relevant commits we don't have
         id: scan
@@ -59,10 +111,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          # `git log HEAD..upstream/main` lists commits reachable from upstream
-          # but not from us. Because the rebrand rewrote nearly every file, our
-          # history shares no commits with upstream's — so this is "everything
-          # upstream has done since the fork", which is exactly what we want.
+          # Range comes from the baseline resolved in the previous step, NOT
+          # from `HEAD..upstream/main`. See that step for why: with no shared
+          # ancestor, HEAD.. means all of upstream history.
+          if [ -n "${base_ref:-}" ]; then
+            RANGE="$base_ref..upstream/main"
+            DATEFILTER=""
+          else
+            RANGE="upstream/main"
+            DATEFILTER="--since=${base_date:-2026-09-01}"
+          fi
           # Tuned against real upstream subjects. Terms like 'hardening',
           # 'bypass' and 'leak' catch fixes that never say "security" — e.g.
           # "body-size cap on aiohttp webhook servers" is DoS hardening. This
@@ -70,12 +128,14 @@ jobs:
           # points at the full log.
           SEC_GREP='security|CVE|GHSA|vulnerab|exploit|injection|sanitiz|escape|auth|credential|secret|token|traversal|RCE|XSS|SSRF|redact|harden|bypass|spoof|CSRF|overflow|denial|DoS|leak|privile|unsafe'
 
-          git log --no-merges --date=short \
+          # shellcheck disable=SC2086  # DATEFILTER is intentionally unquoted
+          git log --no-merges --date=short $DATEFILTER \
                   --pretty=format:'%h|%ad|%s' \
-                  HEAD..upstream/main \
+                  "$RANGE" \
             | grep -iE "\|[^|]*($SEC_GREP)" > /tmp/sec.txt || true
 
-          total=$(git rev-list --count HEAD..upstream/main || echo 0)
+          # shellcheck disable=SC2086
+          total=$(git rev-list --count $DATEFILTER "$RANGE" 2>/dev/null || echo 0)
           sec=$(wc -l < /tmp/sec.txt | tr -d ' ')
 
           echo "total=$total"   >> "$GITHUB_OUTPUT"
@@ -85,7 +145,9 @@ jobs:
           # Cap the body — an issue with 800 rows is unreadable and GitHub
           # rejects bodies over 65536 chars.
           {
-            echo "Upstream \`NousResearch/hermes-agent\` has **$total** commits not in this fork."
+            echo "Upstream \`NousResearch/hermes-agent\` has **$total** commits since the baseline."
+            echo ""
+            echo "Baseline: \`${base_ref:-${base_date:-2026-09-01}}\` (${base_how:-unknown})."
             echo "**$sec** match security keywords."
             echo ""
             echo "Scanned \`upstream/main\` @ \`${upstream_head:0:12}\` on $(date -u +%Y-%m-%d)."
