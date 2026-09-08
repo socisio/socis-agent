@@ -1440,6 +1440,32 @@ def run_doctor(args):
         except Exception:
             pass
 
+        # 2b. `tools:` written as a LIST instead of {include: [...]}.
+        #
+        # The runtime reads mcp_servers.<name>.tools.include (a dict) in
+        # tools/mcp_tool.py, and `socis mcp list` reports the count only for
+        # the dict form. A flat list is accepted by the YAML parser, ignored
+        # by both, and produces NO warning: the operator believes they have
+        # restricted the server to a handful of tools while every tool stays
+        # registered. For a server whose excluded tools include writes
+        # against a threat-intel platform, that gap matters more than the
+        # context cost.
+        for name, entry in sorted(servers.items()):
+            if not isinstance(entry, dict):
+                continue
+            tools_cfg = entry.get("tools")
+            if isinstance(tools_cfg, list):
+                quiet_problems += 1
+                check_warn(
+                    f"MCP server '{name}': tools is a list, not a filter",
+                    f"{len(tools_cfg)} name(s) listed but NO filter is applied "
+                    "— every tool stays enabled",
+                )
+                check_info(
+                    "Use `tools: {include: [...]}` (or tools.exclude); "
+                    "a bare list is silently ignored"
+                )
+
         # 3. .gitignore missing from the checkout.
         #
         # Without it, `git ls-files --others --exclude-standard` returns every

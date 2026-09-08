@@ -1072,7 +1072,11 @@ def curses_radiolist(
         reserve_bottom=1,
         # Dim gray (pair 3) for unselected "was …" sale chrome.
         extra_color_pairs=True,
-        fallback=lambda: _radio_numbered_fallback(title, items, selected, cancel_returns),
+        # Multi-select needs the multi-select fallback: the radio one is
+        # typed for ints and raises TypeError on these sets.
+        fallback=lambda: _checklist_numbered_fallback(
+            title, items, selected, cancel_returns
+        ),
         cancel_value=cancel_returns,
         searchable=searchable,
         search_labels=(
@@ -1096,6 +1100,65 @@ def format_radio_item_ansi(item: RadioItem) -> str:
         else:
             parts.append(text)
     return "".join(parts)
+
+
+def _checklist_numbered_fallback(
+    title: str,
+    items: List[RadioItem],
+    selected: Set[int],
+    cancel_returns: Set[int],
+) -> Set[int]:
+    """Text-based numbered fallback for MULTI-select (checklist) menus.
+
+    curses_checklist previously passed ``_radio_numbered_fallback`` here.
+    That function is typed ``selected: int, cancel_returns: int -> int`` and
+    does ``selected + 1`` to render its default, so handing it the
+    checklist's *sets* raised TypeError — which ``except ValueError`` does
+    not catch. The practical effect was that on any real TTY where curses
+    failed to start, `socis mcp configure` could not change a tool
+    selection at all.
+
+    Accepts space/comma-separated numbers to TOGGLE items, blank to keep the
+    current selection, `all` / `none` for bulk moves.
+    """
+    current = set(selected)
+    print(color(f"\n  {title}", Colors.YELLOW))
+    print(color(
+        "  Toggle by number (e.g. `1 4 7`), `all`, `none`, "
+        "Enter to confirm.\n", Colors.DIM))
+
+    for i, label in enumerate(items):
+        marker = color("[x]", Colors.GREEN) if i in current else "[ ]"
+        print(f"  {marker} {i + 1:>2}. {format_radio_item_ansi(label)}")
+    print()
+    try:
+        raw = _read_numbered_input(
+            color(f"  Toggle [{len(current)}/{len(items)} selected]: ", Colors.DIM)
+        )
+        if raw is _NumberedNavigation.BACK:
+            _back_scoped_navigation()
+            return set(cancel_returns)
+        if raw is _NumberedNavigation.CANCEL:
+            _cancel_scoped_navigation()
+            return set(cancel_returns)
+        raw = raw.strip().lower()
+        if not raw:
+            return current
+        if raw == "all":
+            return set(range(len(items)))
+        if raw == "none":
+            return set()
+        for tok in raw.replace(",", " ").split():
+            try:
+                idx = int(tok) - 1
+            except ValueError:
+                continue
+            if 0 <= idx < len(items):
+                current.symmetric_difference_update({idx})
+        return current
+    except (KeyboardInterrupt, EOFError):
+        _cancel_scoped_navigation()
+        return set(cancel_returns)
 
 
 def _radio_numbered_fallback(
