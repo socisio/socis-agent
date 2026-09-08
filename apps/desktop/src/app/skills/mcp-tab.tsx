@@ -457,14 +457,40 @@ export function McpTab({ gateway, profile }: { gateway: SOCISGateway | null; pro
   const descriptionFor = (serverName: string, server: Record<string, unknown>): null | string => {
     const lower = serverName.toLowerCase()
 
-    const match = catalog.find(
-      entry =>
-        entry.name.toLowerCase() === lower ||
-        (entry.url && entry.url === server.url) ||
-        (entry.command && entry.command === server.command)
-    )
+    // Ordered passes, strongest key first. This used to be a single
+    // `find` with an OR of the three conditions, which is wrong because
+    // `find` returns the first ENTRY that satisfies ANY branch — so a
+    // weak-key match on an earlier catalog entry beats an exact name
+    // match on a later one.
+    //
+    // `command` in particular is not a unique key: `npx` is shared by
+    // every stdio entry that runs a published package. With pagerduty at
+    // catalog index 49 and threatstream at 64 — both `command: npx` —
+    // the ThreatStream panel rendered PagerDuty's description.
 
-    return match?.description ?? null
+    // 1. Name is authoritative: it is the config key, unique by construction.
+    const byName = catalog.find(entry => entry.name.toLowerCase() === lower)
+    if (byName) return byName.description ?? null
+
+    // 2. URL is unique per remote endpoint.
+    if (typeof server.url === 'string' && server.url) {
+      const byUrl = catalog.find(entry => entry.url && entry.url === server.url)
+      if (byUrl) return byUrl.description ?? null
+    }
+
+    // 3. command ONLY together with args. Bare `command` is ambiguous;
+    //    command+args identifies the actual package being run.
+    if (typeof server.command === 'string' && server.command) {
+      const serverArgs = JSON.stringify(Array.isArray(server.args) ? server.args : [])
+      const byCommand = catalog.find(
+        entry =>
+          entry.command === server.command &&
+          JSON.stringify(entry.args ?? []) === serverArgs
+      )
+      if (byCommand) return byCommand.description ?? null
+    }
+
+    return null
   }
 
   const resetDraft = (entries: McpServers) => {
