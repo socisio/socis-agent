@@ -154,7 +154,17 @@ def _handle_sigma_list(args: dict, **_kw) -> str:
     if what not in ("targets", "pipelines"):
         return "❌ `what` must be one of: targets, pipelines, plugins, formats."
 
-    res = _run(["sigma", "list", what])
+    argv = ["sigma", "list", what]
+    # Scope pipelines to a backend when one is given. `sigma list pipelines`
+    # unscoped omits backend-specific pipelines — splunk_windows, splunk_cim
+    # and splunk_sysmon_acceleration only appear under
+    # `sigma list pipelines splunk`. Reading the unscoped output and concluding
+    # a pipeline does not exist is exactly the mistake this argument prevents.
+    backend = (args.get("backend") or "").strip()
+    if what == "pipelines" and backend:
+        argv.append(backend)
+
+    res = _run(argv)
     out = _fmt(res, on_success="(no output)")
     if res.get("ok") and what == "targets" and not res["stdout"]:
         out += ("\n\n⚠ No targets installed. sigma-cli ships with no backends — each "
@@ -175,12 +185,16 @@ def _handle_sigma_convert(args: dict, **_kw) -> str:
     # Pipelines map Sigma's generic field names onto the target's real schema.
     # Several can apply at once, and sigma-cli applies -p in order.
     #
-    # DO NOT hardcode pipeline names in guidance. They move between pySigma
-    # releases: `splunk_windows` was widely documented and no longer exists —
-    # the splunk backend now ships `windows` and `sysmon`. Naming a pipeline
-    # that is not installed fails the conversion outright, and naming the wrong
-    # one produces a query that runs and matches nothing. Call sigma_list with
-    # what=pipelines to see what this machine actually has.
+    # PIPELINES ARE BACKEND-SCOPED. `sigma list pipelines` with no argument
+    # shows a different set from `sigma list pipelines splunk` — the latter is
+    # the one that matters, and it is where splunk_windows, splunk_cim and
+    # splunk_sysmon_acceleration appear. Reading the unscoped list and
+    # concluding a pipeline is missing is an easy and costly mistake.
+    #
+    # Still: do not type a name from memory. Call sigma_list (what=pipelines,
+    # backend=<target>) first. A name that is not installed fails the
+    # conversion outright, which is the safe failure; naming a wrong but
+    # installed pipeline produces a query that runs and matches nothing.
     pipelines = args.get("pipelines") or ([args["pipeline"]] if args.get("pipeline") else [])
     if isinstance(pipelines, str):
         pipelines = [pipelines]
@@ -382,7 +396,14 @@ registry.register(
                         "plugins = everything installable; formats = output formats for one backend."
                     ),
                 },
-                "backend": {"type": "string", "description": "Required when what=formats."},
+                "backend": {
+                    "type": "string",
+                    "description": (
+                        "Required when what=formats. STRONGLY RECOMMENDED when "
+                        "what=pipelines — unscoped output omits backend-specific "
+                        "pipelines such as splunk_windows."
+                    ),
+                },
             },
             "required": ["what"],
         },
@@ -419,12 +440,12 @@ registry.register(
                     "type": "array",
                     "items": {"type": "string"},
                     "description": (
-                        "Field-mapping pipelines, applied in order. Several commonly combine — "
-                        "a product pipeline plus a log-source one, e.g. [\"windows\", \"sysmon\"]. "
-                        "Pipeline names differ per backend and change between pySigma releases, "
-                        "so call sigma_list with what=pipelines FIRST rather than guessing. "
-                        "A name that is not installed fails the conversion; the wrong one "
-                        "produces a query that runs and matches nothing."
+                        "Field-mapping pipelines, applied in order — e.g. [\"splunk_windows\"] "
+                        "for the splunk backend. Pipelines are BACKEND-SCOPED: check with "
+                        "sigma_list (what=pipelines, backend=splunk) rather than the unscoped "
+                        "list, which shows a different set. A name that is not installed fails "
+                        "the conversion; a wrong but installed one produces a query that runs "
+                        "and matches nothing."
                     ),
                 },
                 "format": {

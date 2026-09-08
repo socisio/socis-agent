@@ -166,32 +166,53 @@ that looks comprehensive and catches nothing.
 # Validate first — always
 sigma check rules/
 
-# LIST BEFORE YOU CONVERT. Target and pipeline names differ per backend and
-# change between pySigma releases, so never type one from memory.
+# LIST BEFORE YOU CONVERT — and scope pipelines to the backend.
 sigma list targets
-sigma list pipelines
+sigma list pipelines splunk        # NOT `sigma list pipelines`
 
 # Then convert with names taken from that output
-sigma convert -t splunk -p windows -p sysmon   rules/psexec.yml
-sigma convert -t lucene -p ecs_windows          rules/psexec.yml
-sigma convert -t kusto                          rules/psexec.yml   # no pipeline needed
+sigma convert -t splunk -p splunk_windows              rules/psexec.yml
+sigma convert -t splunk -p splunk_cim                  rules/psexec.yml
+sigma convert -t kusto                                 rules/psexec.yml  # no pipeline needed
 
 # Deployable artifact rather than a bare query
-sigma convert -t splunk -p windows -f savedsearches rules/psexec.yml
+sigma convert -t splunk -p splunk_windows -f savedsearches rules/psexec.yml
 ```
 
-**Do not type a pipeline name from memory.** `splunk_windows` was widely
-documented and no longer exists — the splunk backend now ships `windows` and
-`sysmon`. A name that is not installed fails the conversion outright, which is
-the good case. The bad case is naming a *wrong but installed* pipeline: the
-query converts, runs, and matches nothing, and looks like "no malicious
-activity" rather than "wrong fields".
+**Pipelines are backend-scoped, and this matters.** `sigma list pipelines`
+with no argument shows a *different set* from `sigma list pipelines splunk`.
+The splunk pipelines — `splunk_windows`, `splunk_cim`,
+`splunk_sysmon_acceleration` — appear only in the scoped list. Reading the
+unscoped output and concluding a pipeline does not exist wastes an afternoon;
+it happened during this skill's own development.
+
+**Do not type a pipeline name from memory either.** A name that is not
+installed fails the conversion outright, which is the safe failure. The unsafe
+one is a *wrong but installed* pipeline: the query converts, runs, and matches
+nothing — indistinguishable from "no malicious activity".
 
 The `-p` pipeline is not optional for most backends. Without it you get
 Sigma's generic field names, which match almost no real deployment. Some
 backends ship built-in mappings and report `Processing Pipeline Required: No`
 in `sigma list targets` — kusto, loki, carbon_black and sentinel_one among
 them.
+
+### Never hand-write a query the converter can produce
+
+If `sigma convert` can generate it, run `sigma convert`. Do not write SPL,
+KQL or Lucene by hand and present it as the conversion, and do not restate a
+tool's output from memory.
+
+This is not pedantry about process. A hand conversion of this rule guessed the
+field name as `File_Name`; the real pipeline emits `FileName`. Worse, a
+restated-from-memory conversion corrupted one path filter from
+`C:\Program Files (x86)\*` to `C:\Program Files (x86)\C:\*` — and produced
+a *different* corruption on a second run. The surrounding query was correct
+both times, so nothing looked wrong. That single mangled path stops the filter
+excluding legitimate software, and the rule then fires on it forever.
+
+**Paste raw tool output verbatim.** If you did not run the command in this
+turn, say so rather than reproducing what you believe it would print.
 
 When a customer's schema is bespoke, write a **custom pipeline** rather than
 editing rules per customer — that keeps one rule serving every tenant.
