@@ -1,0 +1,138 @@
+name: Deploy Site
+
+# Publishes the Docusaurus docs site to GitHub Pages.
+#
+# This is not only about documentation. `tools/mcp_oauth.py` hardcodes
+#
+#     https://socisio.github.io/socis-agent/docs/oauth/client-metadata.json
+#
+# as SOCIS' OAuth **client_id**. Under Client ID Metadata Document (CIMD) —
+# which replaced the per-install RFC 7591 registration the MCP spec deprecated
+# on 2026-07-28 — the authorization server FETCHES that URL to learn the app's
+# name, logo and permitted redirect URIs. While it 404s, OAuth fails for the
+# 54 catalog entries that use it, which is the majority of the catalog.
+#
+# The github.io origin is deliberate and must not be swapped for the custom
+# domain: an authorization server MUST NOT follow HTTP redirects when fetching
+# the document (draft-ietf-oauth-client-id-metadata-document section 5), and
+# agent.socis.io/docs/* 301s to github.io.
+
+on:
+  push:
+    branches: [main]
+    # Only rebuild when something that affects the site changes. The CIMD
+    # document is in website/static/, so it is covered.
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-site.yml'   # this file
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race: a half-published site means a 404 on the
+# client-metadata document, which breaks OAuth mid-flow for users.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install
+        working-directory: website
+        # `npm ci` not `npm install`: the lockfile is the point of a
+        # reproducible docs build, and install would silently update it.
+        run: npm ci
+
+      - name: Build
+        working-directory: website
+        run: npm run build
+
+      # STAGE UNDER docs/ — this is the step that makes the URL resolve.
+      #
+      # docusaurus.config.js sets `baseUrl: '/docs/'`, but a GitHub Pages
+      # PROJECT site serves the artifact root at
+      # https://socisio.github.io/socis-agent/ — with no /docs/ segment.
+      # Uploading website/build directly would publish the metadata document
+      # at .../socis-agent/oauth/client-metadata.json, one path segment short
+      # of what mcp_oauth.py sends to every authorization server.
+      #
+      # Nesting the build inside docs/ makes the served path match baseUrl, so
+      # both the OAuth document and every internal asset link resolve.
+      - name: Stage deployment
+        run: |
+          set -euo pipefail
+          mkdir -p _site/docs
+          cp -R website/build/. _site/docs/
+          # Fail the build rather than publish a site that 404s the one file
+          # OAuth depends on. A missing docs page is cosmetic; a missing
+          # client-metadata.json breaks 54 catalog entries silently.
+          if [ ! -f _site/docs/oauth/client-metadata.json ]; then
+            echo "::error::client-metadata.json is not in the staged site."
+            echo "  Expected: _site/docs/oauth/client-metadata.json"
+            echo "  Source:   website/static/oauth/client-metadata.json"
+            echo "  Without it, MCP OAuth fails for every entry using CIMD."
+            exit 1
+          fi
+          echo "Staged $(find _site -type f | wc -l) files."
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      # Verify the published document is actually reachable.
+      #
+      # A green deploy does not prove the URL resolves — the path staging
+      # above is easy to get wrong, and the failure mode is an OAuth error
+      # in a user's terminal days later with no connection to this workflow.
+      - name: Verify the OAuth client metadata is served
+        run: |
+          set -uo pipefail
+          url="https://socisio.github.io/socis-agent/docs/oauth/client-metadata.json"
+          # A green deploy does not prove the URL resolves. The path staging in
+          # the build job is easy to get wrong, and the failure mode is an OAuth
+          # error in a user's terminal days later with no visible link back to
+          # this workflow. Check it here, while someone is watching.
+          code=000
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /tmp/cimd.json -w '%{http_code}' "$url" || echo 000)
+            if [ "$code" = "200" ]; then break; fi
+            echo "attempt $i: HTTP $code - waiting for Pages to propagate"
+            sleep 10
+          done
+          if [ "$code" != "200" ]; then
+            echo "::error::$url did not return 200 (last: HTTP $code)."
+            echo "  Check Settings > Pages > Source is set to 'GitHub Actions',"
+            echo "  NOT 'Deploy from a branch'. With a branch source GitHub"
+            echo "  ignores this workflow's artifact and serves the raw repo tree."
+            exit 1
+          fi
+          echo "OK: $url"
+          # The document must be valid JSON and its client_id must equal its
+          # own URL. That self-reference is the core CIMD requirement: the URL
+          # IS the client_id, so a mismatch means every authorization server
+          # rejects the document.
+          python3 -c 'import json,sys; d=json.load(open("/tmp/cimd.json")); w=sys.argv[1]; g=d.get("client_id"); sys.exit(0) if g==w else (print(f"::error::client_id is {g!r} but served at {w!r} - CIMD requires them identical") or sys.exit(1))' "$url"
+          python3 -c 'import json; d=json.load(open("/tmp/cimd.json")); print("redirect_uris:", len(d.get("redirect_uris") or []))'
