@@ -1476,6 +1476,69 @@ def run_doctor(args):
             except (OSError, subprocess.SubprocessError):
                 pass
 
+        # 5. Wake word enabled, but its model file is not on disk.
+        #
+        # tools/wake_word.py builds the bundled model path from a constant:
+        #
+        #     _BUNDLED_MODEL_NAME = "hey_socis"
+        #     .../wakewords/{_BUNDLED_MODEL_NAME}.{onnx|tflite}
+        #
+        # After the rebrand that constant said "hey_socis" while the shipped
+        # files were still named hey_hermes.*, so the default detector for a
+        # default-ON feature resolved to a path that did not exist. Nothing
+        # reported it: the wake word simply never fired, which is
+        # indistinguishable from "nobody said the phrase".
+        try:
+            wake_cfg = cfg.get("wake_word") or {}
+            if isinstance(wake_cfg, dict) and wake_cfg.get("enabled"):
+                provider = str(wake_cfg.get("provider") or "openwakeword").lower()
+                if provider == "openwakeword":
+                    from tools.wake_word import (  # type: ignore
+                        _BUNDLED_MODEL_ALIASES,
+                        _bundled_wakeword_path,
+                        default_inference_framework,
+                    )
+
+                    oww = wake_cfg.get("openwakeword") or {}
+                    configured = str(oww.get("model") or "").strip()
+
+                    if configured.lower() in _BUNDLED_MODEL_ALIASES:
+                        # Resolves to the bundled model — check both frameworks,
+                        # because the choice is platform-dependent and a missing
+                        # tflite on macOS arm64 fails just as silently.
+                        missing = [
+                            fw for fw in ("onnx", "tflite")
+                            if not Path(_bundled_wakeword_path(fw)).is_file()
+                        ]
+                        if missing:
+                            active = default_inference_framework()
+                            quiet_problems += 1
+                            if active in missing:
+                                check_warn(
+                                    f"Wake word is enabled but its {active} model is missing",
+                                    Path(_bundled_wakeword_path(active)).name,
+                                )
+                                check_info("The wake word will never fire. Reinstall or retrain the model.")
+                            else:
+                                check_warn(
+                                    "Wake word model missing for a non-active framework: "
+                                    + ", ".join(missing),
+                                    f"this platform uses {active}, so it still works here",
+                                )
+                    elif configured and ("/" in configured or configured.endswith((".onnx", ".tflite"))):
+                        # An explicit path, not a built-in openWakeWord name.
+                        if not Path(configured).expanduser().is_file():
+                            quiet_problems += 1
+                            check_warn(
+                                "Wake word model path does not exist",
+                                configured,
+                            )
+                            check_info("Fix wake_word.openwakeword.model in config.yaml")
+        except Exception:
+            # A wake-word import failure is not itself a silent-failure
+            # condition — the feature is optional and its deps may be absent.
+            pass
+
         if quiet_problems == 0:
             check_ok("No silent-failure conditions detected")
     except Exception as e:
