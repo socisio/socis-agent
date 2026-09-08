@@ -17,6 +17,8 @@ toolsets:
   - terminal
   - web
   - file
+  - domain-intel
+  - cve-intel
 metadata:
   socis:
     tags: [Security, SOC, ThreatIntel, Enrichment, MCP]
@@ -66,7 +68,9 @@ it and continue.
 | Commercial intel | ThreatStream / Anomali | Actor attribution, campaign, confidence |
 | Reputation | VirusTotal | Detection ratio, first seen, relationships |
 | Infrastructure | Shodan | Open ports, certs, what else lives there |
-| Vulnerability | NVD | CVSS, CWE, affected versions |
+| Vulnerability | NVD (`nvd`) | CVSS, CWE, affected versions |
+| Exploitation | **built-in** `cve-intel` | Is a CVE actually being exploited, and how likely |
+| Lookalike domains | **built-in** `domain-intel` | Is this domain a typosquat of a brand we protect |
 | Own telemetry | Splunk, Wazuh, Elastic | **Has this appeared in our environment?** |
 
 The last row is the one analysts forget and the one that changes the answer.
@@ -75,6 +79,19 @@ telemetry says whether it is *your* problem.
 
 Start with `tools_list` (or the Tools tab) to see what is actually connected
 before planning the fan-out.
+
+**Two of these need no MCP server and no API key.** `cve-intel` and
+`domain-intel` are built in, so they are always available even when a customer
+has nothing connected:
+
+- **Any CVE in the indicator set** → `exploitation_triage`. CVSS says how bad
+  it could be; KEV says whether it is being exploited; EPSS says how likely
+  that is next month. A CVSS 9.8 with no KEV entry and 0.02% EPSS is
+  theoretically severe and practically ignorable this week, and reporting it as
+  urgent costs credibility.
+- **Any domain that resembles a brand you protect** → `domain_permutations`.
+  A lookalike that resolves to infrastructure the brand does not own is a
+  finding; one on a registrar parking range usually is not.
 
 ---
 

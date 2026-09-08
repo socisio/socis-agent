@@ -240,13 +240,48 @@ only fix was 42.x, a major upgrade against a pinned 40.x with no upstream
 precedent. npm now reports the fix as **40.10.6** — a patch bump inside the
 same minor line.
 
-**Corrected after installing 40.10.6.** The bump fixed one of the two, not
-both:
+**Corrected twice. Final position: electron 41.10.4.**
 
-| Advisory | 40.10.6 | Fix available in |
-|---|---|---|
-| GHSA-r4w5-6pfg-jxp5 (session cache reuse) | **fixed** | 40.10.6 |
-| GHSA-9f4c-93c8-jc8g (iframe allow-popups bypass) | still present | **44.2.0** |
+| Advisory | Fixed in |
+|---|---|
+| GHSA-r4w5-6pfg-jxp5 (session cache reuse) | 40.10.6 |
+| GHSA-9f4c-93c8-jc8g (iframe allow-popups bypass) | **41.10.3** |
+
+The second correction matters. `npm audit` reported the iframe fix as
+`electron@44.2.0, which is a breaking change`, and that was read as "the only
+fix is four majors up". It is not — npm offers the LATEST version, not the
+minimum. The advisory itself states:
+
+    Affected: >= 40.0.0-alpha.1, < 41.10.3
+    Fixed in: 39.8.10 | 41.10.3 | 42.0.1
+
+There is **no fixed 40.x release** — the entire 40 line is affected, which is
+why npm had nothing in-range to offer. But 41.10.3 fixes it, so the real cost
+is one major bump (Chromium 144 → 146, Node 24.11 → 24.14), not four.
+
+**Read the advisory's own fixed-versions list, not npm's suggestion.** They
+answer different questions.
+
+### The 40.10.6 bump never shipped
+
+Worse, and only visible in a build log: `apps/desktop/package.json` carried
+**two** Electron versions.
+
+    devDependencies.electron   40.10.6   ← read by scripts/rebuild-native.mjs
+    build.electronVersion      40.10.2   ← read by electron-builder
+
+Only the first was bumped. electron-builder packages against the second, so
+the DMG built after that "fix" still shipped 40.10.2 with both advisories
+present. The single clue was one line in the build output:
+
+    packaging platform=darwin arch=arm64 electron=40.10.2
+
+The more dangerous version of this drift is an ABI mismatch: native modules
+rebuilt for one Electron and packaged with another produce an app that
+installs cleanly and crashes on first use of node-pty.
+
+`scripts/run-electron-builder.mjs` now refuses to build when the two disagree,
+printing which consumer reads which field. Both are set to 41.10.4.
 
 `electron` in `apps/desktop/package.json` is now `40.10.6`, which was worth
 doing on its own — it closed one HIGH advisory and resolved `extract-zip`

@@ -18,6 +18,7 @@ toolsets:
   - terminal
   - web
   - file
+  - cve-intel
 metadata:
   socis:
     tags: [Security, SOC, Triage, DetectionResponse]
@@ -110,7 +111,22 @@ IP/Domain   → passive DNS, WHOIS/RDAP age, ASN, threat intel feeds, GeoIP
 Account     → directory role, MFA status, normal login geography/hours
 Asset       → CMDB owner, criticality, patch level, exposure (internet-facing?)
 Command line→ decode any encoding (base64/hex), LOLBAS lookup
+CVE         → exploitation_triage (built-in: CISA KEV + EPSS)
 ```
+
+**If the alert names a CVE, run `exploitation_triage` before deciding
+severity.** It needs no MCP server and no API key, so it works on any
+engagement. CVSS scores how bad a vulnerability could be; KEV records whether
+anyone is exploiting it; EPSS predicts whether they will. Those answer
+different questions and the alert's own severity usually reflects only the
+first:
+
+    in KEV                 escalate regardless of CVSS — it is being used now
+    high EPSS, not in KEV  likely to be exploited before you hear about it
+    low EPSS, not in KEV   schedule; a 9.8 nobody exploits is not this week's problem
+
+`exploitation_triage` also accepts pasted scanner output, so a Trivy or
+Nessus block from the ticket can go in directly.
 
 **Enrichment caveats that cause bad verdicts:**
 
