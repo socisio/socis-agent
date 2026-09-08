@@ -359,7 +359,48 @@ def start_flow(
     }
 
 
-def poll_flow(session_id: str, server_name: str) -> Dict[str, Any]:
+def _lookup(
+    session_id: str,
+    server_name: str,
+    socis_agent_home: Optional[str] = None,
+) -> "tuple[Optional[Dict[str, Any]], Optional[str]]":
+    """Find a session belonging to the CALLER'S resolved profile.
+
+    Session ids are the only thing standing between one profile and another's
+    in-flight OAuth authorisation, and an id alone is not an authorisation:
+    `poll_flow` previously matched on ``session_id`` + ``server_name`` only, so
+    any caller holding an id could read another profile's flow status, its
+    authorization URL and, once approved, its tool list. `start_flow` already
+    records the owning ``socis_agent_home`` on the record — this compares
+    against it.
+
+    Compared through ``socis_agent_home_key`` rather than by string equality so
+    that ``~/.socis-agent``, a symlinked path and a trailing-slash variant all
+    resolve to the same profile instead of reading as three different ones.
+
+    Passing ``socis_agent_home=None`` skips the ownership check; only internal
+    callers that have already established scope should do that.
+    """
+    from socis_agent_constants import socis_agent_home_key
+
+    with _sessions_lock:
+        rec = _sessions.get(session_id)
+    if rec is None:
+        return None, "OAuth session not found or expired"
+    if rec["server_name"] != server_name:
+        return None, "server name mismatch for session"
+    if socis_agent_home is not None and socis_agent_home_key(
+        rec["socis_agent_home"]
+    ) != socis_agent_home_key(socis_agent_home):
+        return None, "profile mismatch for session"
+    return rec, None
+
+
+def poll_flow(
+    session_id: str,
+    server_name: str,
+    socis_agent_home: Optional[str] = None,
+) -> Dict[str, Any]:
     """Poll a session's status → ``{status, error_message?, auth_url?, tools?}``.
 
     ``status`` is one of ``pending`` | ``approved`` | ``error`` — the same
@@ -367,12 +408,9 @@ def poll_flow(session_id: str, server_name: str) -> Dict[str, Any]:
     the underlying bridge maps to ``pending`` since the client only needs to
     know whether to keep waiting).
     """
-    with _sessions_lock:
-        rec = _sessions.get(session_id)
+    rec, err = _lookup(session_id, server_name, socis_agent_home)
     if rec is None:
-        return {"status": "error", "error_message": "OAuth session not found or expired"}
-    if rec["server_name"] != server_name:
-        return {"status": "error", "error_message": "server name mismatch for session"}
+        return {"status": "error", "error_message": err}
 
     flow = rec["flow"]
     snap = flow.snapshot()
@@ -401,6 +439,7 @@ def deliver_callback_flow(
     code: Optional[str],
     state: Optional[str],
     error: Optional[str] = None,
+    socis_agent_home: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Relay a client-captured OAuth redirect into a session's flow.
 
@@ -414,12 +453,9 @@ def deliver_callback_flow(
 
     Returns ``{ok: true}`` on acceptance or ``{ok: false, error_message}``.
     """
-    with _sessions_lock:
-        rec = _sessions.get(session_id)
+    rec, err = _lookup(session_id, server_name, socis_agent_home)
     if rec is None:
-        return {"ok": False, "error_message": "OAuth session not found or expired"}
-    if rec["server_name"] != server_name:
-        return {"ok": False, "error_message": "server name mismatch for session"}
+        return {"ok": False, "error_message": err}
 
     flow = rec["flow"]
     try:

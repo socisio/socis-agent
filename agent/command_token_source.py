@@ -63,6 +63,25 @@ class CommandTokenError(RuntimeError):
     """A ``key_cmd`` failed to produce a usable token."""
 
 
+def materialize_probe_api_key(api_key: object) -> str:
+    """Best-effort probe credential; never send a callable's repr, never raise.
+
+    A configured ``key_cmd`` resolves to a CALLABLE token source, not a string.
+    Passing one through ``str()`` yields ``<function ... at 0x...>`` — which is
+    what then travels as the Bearer token, so the probe 403s and an object
+    address ends up in the provider's request logs.
+
+    Returns "" when the mint fails rather than raising or logging: the caller
+    decides what an unauthenticated probe means, and mint errors can carry the
+    command line that produced them.
+    """
+    try:
+        token = api_key() if callable(api_key) else api_key
+    except Exception:
+        return ""
+    return token.strip() if isinstance(token, str) else ""
+
+
 def _mint(command: str, label: str) -> tuple[str, Optional[float]]:
     """Run *command*, returning ``(token, ttl_seconds_or_None)``."""
     try:

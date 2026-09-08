@@ -348,8 +348,19 @@ def _resolve_inference_api_key(
     """
     try:
         from agent.auxiliary_client import _runtime_main_value
+        from agent.command_token_source import materialize_probe_api_key
 
-        runtime_key = str(_runtime_main_value("api_key") or "").strip()
+        runtime_value = _runtime_main_value("api_key")
+        # A DECLARED runtime source owns authentication for this probe even
+        # when minting fails. Previously a callable (key_cmd) source was
+        # str()'d — sending its repr as the Bearer token — and an empty or
+        # failed mint fell through to model.api_key and then the providers
+        # blocks, so the probe authenticated as a DIFFERENT credential than
+        # the one configured. Silently using another tenant's key is worse
+        # than an unauthenticated 401 you can see.
+        if callable(runtime_value):
+            return materialize_probe_api_key(runtime_value)
+        runtime_key = materialize_probe_api_key(runtime_value)
         if runtime_key:
             return runtime_key
     except Exception:

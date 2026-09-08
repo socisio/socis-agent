@@ -2436,9 +2436,14 @@ def _(rid, params: dict) -> dict:
     if err:
         return err
     try:
+        from socis_agent_constants import get_socis_agent_home
         from tui_gateway import mcp_oauth_sessions
 
-        result = mcp_oauth_sessions.poll_flow(session_id, name)
+        result = mcp_oauth_sessions.poll_flow(
+            session_id,
+            name,
+            str(get_socis_agent_home().expanduser().resolve(strict=False)),
+        )
         return _ok(rid, {"ok": True, **result})
     except Exception as e:
         return _err(rid, 5024, str(e))
@@ -2468,6 +2473,7 @@ def _(rid, params: dict) -> dict:
     if err:
         return err
     try:
+        from socis_agent_constants import get_socis_agent_home
         from tui_gateway import mcp_oauth_sessions
 
         result = mcp_oauth_sessions.deliver_callback_flow(
@@ -2476,6 +2482,9 @@ def _(rid, params: dict) -> dict:
             code=str(params.get("code") or "") or None,
             state=str(params.get("state") or "") or None,
             error=str(params.get("error") or "") or None,
+            socis_agent_home=str(
+                get_socis_agent_home().expanduser().resolve(strict=False)
+            ),
         )
         return _ok(rid, result)
     except Exception as e:
