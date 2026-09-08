@@ -2409,6 +2409,79 @@ def _iter_shell_command_word_spans(command: str):
             break
 
 
+_ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+# GNU env options that take a separate argument; the operand after them is NOT
+# the program to run. `-a NAME` is the argv0 override — the program is the
+# token AFTER the name, which is why a naive "first non-flag token" scan lands
+# on the wrong word and misses the real command.
+_ENV_OPTS_WITH_ARG = {"-u", "--unset", "-C", "--chdir", "-a", "--argv0",
+                      "--block-signal", "--default-signal", "--ignore-signal"}
+
+
+def _strip_env_prefix(command: str) -> str | None:
+    """Return *command* with a leading GNU ``env`` / assignment prefix removed.
+
+    ``rm -rf /`` is a hardline block, but ``env -i rm -rf /`` was not: the
+    hardline patterns are anchored at a command position, and the wrapper puts
+    a different word there. Because hardline is the floor that "is NEVER
+    bypassable, even in YOLO mode", losing it downgrades an absolute block to
+    an ordinary approval prompt — which YOLO does bypass.
+
+    Handles the shapes that hide the real program:
+      * ``FOO=bar rm -rf /``            leading variable assignments
+      * ``env rm -rf /`` / ``env -i …`` the wrapper and its flags
+      * ``env -u PATH rm -rf /``        options that consume an argument
+      * ``env -a innocent rm -rf /``    argv0 override — program is the NEXT token
+      * ``env -S 'rm -rf /'``           --split-string packs the whole command
+                                        into one operand
+
+    Returns ``None`` when nothing was stripped, so callers can skip the
+    duplicate variant.
+    """
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    if not parts:
+        return None
+
+    i = 0
+    stripped = False
+    while i < len(parts) and _ENV_ASSIGNMENT_RE.match(parts[i]):
+        i += 1
+        stripped = True
+
+    while i < len(parts) and os.path.basename(parts[i]) == "env":
+        i += 1
+        stripped = True
+        while i < len(parts):
+            tok = parts[i]
+            # -S/--split-string carries the entire command in one operand.
+            if tok in ("-S", "--split-string"):
+                i += 1
+                if i < len(parts):
+                    return parts[i]
+                return None
+            if tok.startswith("-S") and len(tok) > 2:
+                return tok[2:]
+            if tok.startswith("--split-string="):
+                return tok.split("=", 1)[1]
+            if tok in _ENV_OPTS_WITH_ARG:
+                i += 2          # flag plus its operand (argv0 name, dir, var)
+                continue
+            if tok.startswith("-") and tok != "-":
+                i += 1          # bundled/standalone flag such as -i, -0, -v
+                continue
+            if _ENV_ASSIGNMENT_RE.match(tok):
+                i += 1
+                continue
+            break
+
+    if not stripped or i >= len(parts) or i == 0:
+        return None
+    return " ".join(parts[i:])
+
+
 def _command_detection_variants(command: str):
     # Mask quoted newlines BEFORE normalization: normalization strips
     # backslash-escapes (\" -> ") and empty-string pairs (""), which would
@@ -2467,6 +2540,20 @@ def _command_detection_variants(command: str):
     # untouched, while `(reboot)` / `{ shutdown -h now; }` now anchor. This
     # covers every `_CMDPOS` rule (shutdown/reboot/init/systemctl/telinit and
     # the rm root/home/system floor) in one place.
+    # An `env` / assignment prefix moves the real program out of the command
+    # position the hardline patterns anchor on. Surface the unwrapped form so
+    # the floor sees `rm -rf /` in `env -i rm -rf /` (GHSA-class approval
+    # bypass; upstream 6178e9f4e).
+    unwrapped = _strip_env_prefix(command)
+    if unwrapped:
+        unwrapped_norm = _normalize_command_for_detection(
+            _mask_quoted_newlines(unwrapped)
+        )
+        for cand in (unwrapped_norm, _mark_command_starts(unwrapped_norm)):
+            if cand and cand not in seen:
+                seen.add(cand)
+                yield cand
+
     marked = _mark_command_starts(grep_safe)
     if marked != grep_safe and marked not in seen:
         seen.add(marked)
