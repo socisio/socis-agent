@@ -152,8 +152,40 @@ _PREFIX_PATTERNS = [
 _SECRET_ENV_NAMES = r"(?:API_?KEY|KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASS|PW|CREDENTIAL|AUTH)"
 # Uppercase keys keep the legacy embedded match (``MYTOKEN=…``, ``FOO_SECRET``)
 # — an all-caps key is almost never prose.
+# `(?:SCHEME\s+)?` before the value is load-bearing, not cosmetic.
+#
+# `\S+` alone stops at the first space, so a credential that CONTAINS a space
+# was only half-redacted — and the result looked sanitised, which is worse than
+# no redaction at all:
+#
+#     THREATSTREAM_AUTH_HEADER=Api-Key user@example.com:a1b2c3d4
+#  -> THREATSTREAM_AUTH_HEADER=*** user@example.com:a1b2c3d4
+#
+# The scheme word matched, got replaced, and the actual key stayed in plain
+# text. Anomali ThreatStream and PagerDuty both require this shape ("Api-Key
+# <user>:<key>", "Token <key>") because the env var carries a COMPLETE HTTP
+# Authorization header value, not a bare token.
+# Scoped `(?i:...)`, NOT re.IGNORECASE on the whole pattern.
+#
+# _ENV_ASSIGN_RE intentionally has no IGNORECASE flag — see the comment above:
+# an ALL-CAPS key is almost never prose, which is what lets this pattern match
+# an embedded name like `MYTOKEN=`. Adding a global IGNORECASE makes it match
+# lowercase prose too, so `pass=through mode is enabled` starts being redacted.
+# That is the false-positive class _ENV_ASSIGN_LOWER_RE was split out to avoid
+# (upstream #77484), and a global flag here silently undoes that split.
+#
+# Only the scheme words need case-insensitivity, so scope the flag to them.
+#
+# KNOWN LIMIT, deliberately not widened: _ENV_ASSIGN_LOWER_RE matches only when
+# a lowercase key ENDS with the secret word, so `threatstream_auth_header=...`
+# (word in the middle) is not caught in lowercase. Loosening it would
+# reintroduce #77484. Verified acceptable: all 15 credential names the MCP
+# catalog declares are UPPERCASE, which is also the .env convention, and every
+# one of them redacts correctly in that form.
+_AUTH_SCHEMES = r"(?i:Api-?Key|Bearer|Token|Basic|Digest)"
 _ENV_ASSIGN_RE = re.compile(
-    rf"([A-Z0-9_]{{0,50}}{_SECRET_ENV_NAMES}[A-Z0-9_]{{0,50}})\s*=\s*(['\"]?)(\S+)\2",
+    rf"([A-Z0-9_]{{0,50}}{_SECRET_ENV_NAMES}[A-Z0-9_]{{0,50}})\s*=\s*"
+    rf"(['\"]?)((?:{_AUTH_SCHEMES}\s+)?\S+)\2",
 )
 # Lowercase env names: only underscore-boundary forms (``openai_key=…``,
 # ``FAL_KEY=…``, ``db_pw=…``) — NOT bare ``password=``/``token=``/``secret=``,
@@ -163,7 +195,8 @@ _ENV_ASSIGN_RE = re.compile(
 # of a long non-matching opaque payload, making strict compaction redaction
 # quadratic while holding the GIL (#99255).
 _ENV_ASSIGN_LOWER_RE = re.compile(
-    rf"(?<![a-z0-9_])([a-z0-9_]+(?:_|^)(?:key|pass|pw|token|secret|password|passwd|credential|auth)(?=[^a-z0-9_]|$))\s*=\s*(['\"]?)(\S+)\2",
+    rf"(?<![a-z0-9_])([a-z0-9_]+(?:_|^)(?:key|pass|pw|token|secret|password|passwd|credential|auth)(?=[^a-z0-9_]|$))\s*=\s*"
+    rf"(['\"]?)((?:{_AUTH_SCHEMES}\s+)?\S+)\2",
     re.IGNORECASE,
 )
 

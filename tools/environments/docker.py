@@ -53,14 +53,23 @@ def _normalize_forward_env_names(forward_env: list[str] | None) -> list[str]:
 
     for item in forward_env or []:
         if not isinstance(item, str):
-            logger.warning("Ignoring non-string docker_forward_env entry: %r", item)
+            # Describe the type, not the object. docker_forward_env holds
+            # variable NAMES, so a string entry is safe to echo — but a
+            # non-string could be any object, and %r would render whatever it
+            # contains. Same reasoning as _normalize_env_dict below.
+            logger.warning(
+                "Ignoring docker_forward_env entry of type %s (expected a string)",
+                type(item).__name__,
+            )
             continue
 
         key = item.strip()
         if not key:
             continue
         if not _ENV_VAR_NAME_RE.match(key):
-            logger.warning("Ignoring invalid docker_forward_env entry: %r", item)
+            # Safe to echo: this is a variable name that failed the name
+            # pattern, and the warning is unactionable without it.
+            logger.warning("Ignoring docker_forward_env entry with invalid name: %s", item)
             continue
         if key in seen:
             continue
@@ -76,16 +85,38 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
 
     Filters out entries with invalid variable names or non-string values.
     """
+    # NEVER log a docker_env VALUE, only its type.
+    #
+    # docker_env is where users put API keys — that is its purpose. The
+    # previous version logged the rejected value with %r, and logged the whole
+    # dict with %r when it was not a dict at all, so a malformed config wrote
+    # every credential in it to ~/.socis-agent/logs/. Log files are the thing
+    # people paste into support threads and screenshots.
+    #
+    # Upstream fixed the same class of bug in hermes-agent aa0beef68
+    # (#102308), where a pydantic ValidationError's str() echoed a failing
+    # mcp-tokens field and put an OAuth access token in a warning. The rule
+    # that generalises: a diagnostic may name the field and describe the type,
+    # never render the value.
     if not env:
         return {}
     if not isinstance(env, dict):
-        logger.warning("docker_env is not a dict: %r", env)
+        logger.warning("docker_env must be a dict, got %s — ignoring", type(env).__name__)
         return {}
 
     normalized: dict[str, str] = {}
     for key, value in env.items():
         if not isinstance(key, str) or not _ENV_VAR_NAME_RE.match(key.strip()):
-            logger.warning("Ignoring invalid docker_env key: %r", key)
+            # The KEY is safe to log: it is a variable name, not a secret, and
+            # without it the warning is unactionable. A non-string key is
+            # described by type only, since it could be any object.
+            if isinstance(key, str):
+                logger.warning("Ignoring docker_env key with invalid name: %s", key)
+            else:
+                logger.warning(
+                    "Ignoring docker_env key of type %s (keys must be strings)",
+                    type(key).__name__,
+                )
             continue
         key = key.strip()
         if not isinstance(value, str):
@@ -94,7 +125,11 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
             if isinstance(value, (int, float, bool)):
                 value = str(value)
             else:
-                logger.warning("Ignoring non-string docker_env value for %r: %r", key, value)
+                logger.warning(
+                    "Ignoring docker_env value for %s: expected a string, got %s",
+                    key,
+                    type(value).__name__,
+                )
                 continue
         normalized[key] = value
 
@@ -944,7 +979,10 @@ class DockerEnvironment(BaseEnvironment):
         logger.info("DockerEnvironment volumes: %s", volumes)
         # Ensure volumes is a list (config.yaml could be malformed)
         if volumes is not None and not isinstance(volumes, list):
-            logger.warning("docker_volumes config is not a list: %r", volumes)
+            logger.warning(
+                    "docker_volumes must be a list, got %s — ignoring",
+                    type(volumes).__name__,
+                )
             volumes = []
 
         # Fail fast if Docker is not available.
@@ -988,7 +1026,10 @@ class DockerEnvironment(BaseEnvironment):
         workspace_explicitly_mounted = False
         for vol in (volumes or []):
             if not isinstance(vol, str):
-                logger.warning("Docker volume entry is not a string: %r", vol)
+                logger.warning(
+                    "Ignoring docker_volumes entry of type %s (expected a string)",
+                    type(vol).__name__,
+                )
                 continue
             vol = vol.strip()
             if not vol:
@@ -1368,7 +1409,13 @@ class DockerEnvironment(BaseEnvironment):
         validated_extra = []
         for arg in (extra_args or []):
             if not isinstance(arg, str):
-                logger.warning("Ignoring non-string docker_extra_args entry: %r", arg)
+                # docker_extra_args commonly carries flags like
+                # `--env KEY=value`, so a rendered non-string entry could
+                # expose a credential. Type only.
+                logger.warning(
+                    "Ignoring docker_extra_args entry of type %s (expected a string)",
+                    type(arg).__name__,
+                )
                 continue
             validated_extra.append(arg)
         if egress_env_overrides:
