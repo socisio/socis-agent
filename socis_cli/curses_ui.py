@@ -743,6 +743,24 @@ def _run_curses_menu(
                     curses.init_pair(
                         3, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1
                     )
+            # Discard anything already queued on stdin BEFORE the first
+            # draw.
+            #
+            # A menu launched from a pasted command block inherits the
+            # remaining bytes of that paste in the tty input buffer, and
+            # curses reads them as keypresses: spaces become SPACE (toggle),
+            # other bytes become j/k navigation, a newline becomes ENTER
+            # (confirm). The menu then resolves against a selection the user
+            # never made and never saw — observed as `socis mcp configure`
+            # returning all 35 tools selected on a server that had 12, with
+            # no checklist appearing long enough to read.
+            #
+            # flushinp() exists for precisely this. It must run inside the
+            # wrapper (after cbreak/noecho are set) and before the loop, so
+            # every keypress the menu acts on is one the user made while
+            # looking at the menu.
+            curses.flushinp()
+
             cursor = initial_cursor
             scroll_offset = 0
             search = _SearchState()
