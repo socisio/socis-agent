@@ -51,11 +51,13 @@ List the files in /home/user/projects and summarize the repo structure.
 
 SOCIS will discover the MCP server's tools and use them like any other tool.
 
-## Catalog: one-click install for Nous-approved MCPs
+## Catalog: one-click install for reviewed MCPs
 
-SOCIS ships a curated catalog of MCP servers that Nous staff has reviewed
-and merged. They're disabled by default — install only what you actually
-want.
+SOCIS ships a curated catalog of MCP servers that have been reviewed and
+merged. They're disabled by default — install only what you actually
+want. The catalog currently holds **74 entries**: 66 HTTP and 8 stdio, of
+which 54 authenticate by OAuth, 10 by API key, and 10 need no credential
+at all.
 
 ```bash
 socis mcp                # interactive picker (default)
@@ -74,8 +76,8 @@ github       installed (disabled)   GitHub repo + PR tools
 Hit `Enter` on a row to install (and walk through any required credentials),
 enable, disable, or uninstall. Catalog entries are stored under
 `optional-mcps/` in the socis-agent repo — presence in that directory means
-Nous approval. There is no community submission tier; entries are added by
-merging a PR.
+the entry has been reviewed. There is no community submission tier; entries
+are added by merging a PR.
 
 Catalog entries can require:
 
@@ -130,7 +132,7 @@ reachable to refine.
 Installing a catalog entry runs whatever the manifest specifies — `git clone`,
 the entry's `bootstrap` commands (`pip install`, `npm install`, etc.), and
 ultimately the MCP server's own code. Manifests are gated by PR review into
-the socis-agent repo, so Nous has reviewed each entry before it shipped —
+the socis-agent repo, so each entry is reviewed before it ships —
 **but you should still read the manifest before installing**, especially the
 `source:` field's repository, the `install.bootstrap:` commands, and any
 `transport.command:` invocation.
@@ -171,6 +173,66 @@ Note this is distinct from `${INSTALL_DIR}` in catalog manifests, which is
 substituted at install-time with the path the catalog cloned the entry's
 repo into.
 
+#### Header credentials hold the WHOLE header value
+
+When an entry authenticates by header, the variable holds the complete
+header value — scheme included — not just the key. The manifest supplies
+the header name; you supply everything after the colon:
+
+```yaml
+args: [--header, "Authorization:${THREATSTREAM_AUTH_HEADER}"]
+```
+
+```bash
+# ~/.socis-agent/.env
+THREATSTREAM_AUTH_HEADER=Api-Key you@company.com:your-api-key
+#                        ^^^^^^^ scheme is part of the value
+```
+
+Storing only the key produces a 401, and most remote MCP clients respond to
+a 401 by falling back to OAuth discovery — so the error you see is
+`Invalid OAuth error response` or a redirect failure, which never mentions
+credentials. Check the variable holds the scheme before debugging OAuth.
+
+An **unset** `${VAR}` is worse than an absent one: it interpolates to the
+literal string `${VAR}`, which the server receives as a malformed
+credential. `socis doctor` reports unset placeholders for this reason.
+
+### The `tools:` filter shape
+
+The filter is a **mapping** with `include:` or `exclude:` — not a bare list:
+
+```yaml
+mcp_servers:
+  threatstream:
+    tools:
+      include:            # correct
+        - get_actors
+        - get_intelligence
+```
+
+```yaml
+mcp_servers:
+  threatstream:
+    tools:                # WRONG — silently ignored
+      - get_actors
+      - get_intelligence
+```
+
+A bare list is valid YAML, so nothing rejects it, but neither the runtime
+nor `socis mcp list` reads it: every tool stays enabled while the config
+looks restricted. `socis doctor` now flags this shape explicitly.
+
+Verify a filter actually took, rather than assuming:
+
+```bash
+socis mcp list | grep threatstream
+#   threatstream   npx -y mcp-remote   12 selected   ✓ enabled
+```
+
+`12 selected` means the filter is live. **`all` means no filter is applied**,
+whatever config.yaml appears to say.
+
 ### Updating tool selection later
 
 ```bash
@@ -180,6 +242,34 @@ socis mcp configure linear
 Reopens the same checklist with your current selection pre-checked. Use this
 when you want more tools enabled, or when the server has added new tools that
 you want to opt into.
+
+Enabling tools you previously excluded requires confirmation:
+
+```
+⚠ This ENABLES 23 tool(s) that are currently disabled for 'threatstream':
+    + create_pir
+    + import_observables_auto_approve
+    ...
+⚠ All tools selected — the tools filter will be REMOVED, so future vendor
+  additions are enabled automatically too.
+
+  Enable 23 additional tool(s)? [y/N]
+```
+
+Narrowing a selection applies without prompting; widening does not. The
+prompt defaults to **No**, so an accidental confirm leaves config untouched.
+This matters most where the excluded tools write to the upstream service —
+creating records or importing observables into a threat-intel platform is
+not something to re-enable by pressing a key you didn't mean to press.
+
+:::caution Launching a checklist from a pasted command
+Paste a multi-line block into your terminal and the shell queues the
+remaining bytes on stdin. A checklist opening immediately afterwards used to
+read those bytes as keypresses — spaces became SPACE (toggle), a newline
+became ENTER (confirm) — resolving against a selection you never made and
+never saw. SOCIS now flushes queued input before drawing any menu. If you
+are on an older build, run `socis mcp configure` as its own typed command.
+:::
 
 ### Updating the catalog manifest
 
@@ -225,6 +315,41 @@ Use stdio servers when:
 - the server is installed locally
 - you want low-latency access to local resources
 - you are following MCP server docs that show `command`, `args`, and `env`
+
+#### Bridging a remote server over stdio (`mcp-remote`)
+
+Some remote MCP servers need a header SOCIS's HTTP transport can't supply,
+or speak a dialect it doesn't negotiate. Those entries run as stdio and
+bridge outward with `mcp-remote`:
+
+```yaml
+mcp_servers:
+  threatstream:
+    command: npx
+    args:
+      - "-y"
+      - "mcp-remote"
+      - "https://optic.threatstream.com/mcp"
+      - "--transport"
+      - "http-only"
+      - "--header"
+      - "Authorization:${THREATSTREAM_AUTH_HEADER}"
+```
+
+`--transport http-only` is not optional for servers that expose only a POST
+endpoint. Without it `mcp-remote` first attempts an SSE stream, receives
+`406 Not Acceptable`, and treats that as fatal even though the POST path
+would have worked.
+
+With `http-only` set, repeated log lines like:
+
+```
+StreamableHTTPError: Failed to open SSE stream: Not Acceptable code: 406
+```
+
+are **expected noise**, not failures. Judge the connection by
+`Proxy established successfully` and by matching request/response pairs —
+not by the absence of 406s.
 
 ### HTTP servers
 
