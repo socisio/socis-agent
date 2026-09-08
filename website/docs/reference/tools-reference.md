@@ -38,6 +38,12 @@ These two tools live in the `browser` toolset but only register when a Chrome De
 | `browser_cdp` | Send a raw Chrome DevTools Protocol command. Escape hatch for browser operations not covered by the higher-level `browser_*` tools. See https://chromedevtools.github.io/devtools-protocol/ | CDP endpoint |
 | `browser_dialog` | Respond to a native JavaScript dialog (alert / confirm / prompt / beforeunload). Call `browser_snapshot` first — pending dialogs appear in its `pending_dialogs` field. Then call `browser_dialog(action='accept'\|'dismiss')`. | CDP endpoint |
 
+## `browser-use` toolset
+
+| Tool | Description | Requires environment |
+|------|-------------|----------------------|
+| `browser_exec` | Drive the browser with a natural-language instruction executed by a browser-use agent, instead of composing individual click/type/scroll calls. Opt-in — not part of the default `browser` toolset. | browser-use backend |
+
 ## `clarify` toolset
 
 | Tool | Description | Requires environment |
@@ -66,13 +72,29 @@ If the prompt times out part-way, answers the user already locked are kept: the 
 
 | Tool | Description | Requires environment |
 |------|-------------|----------------------|
-| `cronjob` | Unified scheduled-task manager. Use `action="create"`, `"list"`, `"update"`, `"pause"`, `"resume"`, `"run"`, or `"remove"` to manage jobs. Supports skill-backed jobs with one or more attached skills, and `skills=[]` on update clears attached skills. Cron runs happen in fresh sessions with no current-chat context. | — |
+| `cronjob_manage` | Unified scheduled-task manager. Use `action="create"`, `"list"`, `"update"`, `"pause"`, `"resume"`, `"run"`, or `"remove"` to manage jobs. Supports skill-backed jobs with one or more attached skills, and `skills=[]` on update clears attached skills. Cron runs happen in fresh sessions with no current-chat context. | — |
+
+## `cve-intel` toolset
+
+| Tool | Description | Requires environment |
+|------|-------------|----------------------|
+| `kev_check` | Check whether a CVE is in CISA's Known Exploited Vulnerabilities catalogue. KEV membership means CISA has evidence of **active exploitation**, a stronger prioritisation signal than CVSS alone. Also reports ransomware association and the BOD 22-01 federal remediation deadline. | — |
+| `kev_search` | Search the KEV catalogue by vendor, product, recency, or ransomware association. | — |
+| `epss_score` | FIRST.org EPSS exploitation-probability scores for one or more CVEs. | — |
+| `exploitation_triage` | Rank a list of CVEs by exploitation risk, combining KEV membership (confirmed) with EPSS (predicted). In KEV → escalate now; high EPSS but not in KEV → likely soon; low EPSS and not in KEV → schedule normally. | — |
+| `kev_status` | Local KEV catalogue version, entry count, and cache age — check this before trusting a negative `kev_check`. | — |
 
 ## `delegation` toolset
 
 | Tool | Description | Requires environment |
 |------|-------------|----------------------|
 | `delegate_task` | Spawn subagents in isolated contexts; each gets its own conversation, terminal session, and toolset, and only its final summary returns to you. Provide 'goal' for a single task or 'tasks' for a parallel batch (limits and nesting rules… | — |
+
+## `domain-intel` toolset
+
+| Tool | Description | Requires environment |
+|------|-------------|----------------------|
+| `domain_permutations` | Generate typosquat and lookalike domains for a brand (character swaps, homoglyphs, TLD variants, insertions). Use to hunt phishing infrastructure and brand impersonation, and to seed watchlists before a lookalike is weaponised. | — |
 
 ## `feishu_doc` toolset
 
@@ -155,9 +177,7 @@ Tools for driving desktop [Projects](../user-guide/cli.md) — named, multi-fold
 
 | Tool | Description | Requires environment |
 |------|-------------|----------------------|
-| `project_create` | Create a desktop Project (a named workspace) and switch this chat into it. Pass `path` to anchor it to a repo/folder. | — |
-| `project_list` | List the desktop Projects and which one is active. | — |
-| `project_switch` | Switch this chat into an existing Project (by name, slug, or id); moves the session workspace to the project's primary folder. | — |
+| `desktop_project` | Create or switch desktop Projects (named, multi-folder workspaces). `action="create"` makes one and switches this chat into it (pass `path` to anchor it to a repo/folder); `"list"` shows the Projects and which is active; `"switch"` moves this chat into an existing Project by name, slug, or id, relocating the session workspace to its primary folder. | — |
 
 ## `memory` toolset
 
@@ -171,6 +191,14 @@ Tools for driving desktop [Projects](../user-guide/cli.md) — named, multi-fold
 |------|-------------|----------------------|
 | `session_search` | Search past sessions stored in the local session DB, or scroll inside one. FTS5-backed retrieval; returns actual messages from the DB (no LLM calls). Four shapes: discovery (pass `query`), scroll (pass `session_id` + `around_message_id`), read (pass `session_id` only), browse (no args). | — |
 
+## `sigma` toolset
+
+| Tool | Description | Requires environment |
+|------|-------------|----------------------|
+| `sigma_check` | Validate a Sigma rule with sigma-cli. Returns errors and warnings. | `sigma-cli` |
+| `sigma_convert` | Convert a Sigma rule to one or more SIEM query languages. Always pass an explicit target. | `sigma-cli` + a backend |
+| `sigma_list` | List what this installation can convert to. **sigma-cli ships with no backends** — call this before promising a conversion target. | `sigma-cli` |
+
 ## `skills` toolset
 
 | Tool | Description | Requires environment |
@@ -179,11 +207,18 @@ Tools for driving desktop [Projects](../user-guide/cli.md) — named, multi-fold
 | `skill_view` | Skills allow for loading information about specific tasks and workflows, as well as scripts and templates. Load a skill's full content or access its linked files (references, templates, scripts). First call returns SKILL.md content plus a… | — |
 | `skills_list` | List available skills (name + description). Use skill_view(name) to load full content. | — |
 
+## `suricata` toolset
+
+| Tool | Description | Requires environment |
+|------|-------------|----------------------|
+| `suricata_check` | Validate Suricata rule syntax. Parsing is not firing — a rule that compiles may still never match. | `suricata` binary |
+| `suricata_replay` | Replay a PCAP against the rules and report alerts. This is the step that proves a signature fires on the traffic you intend it to. | `suricata` binary |
+
 ## `terminal` toolset
 
 | Tool | Description | Requires environment |
 |------|-------------|----------------------|
-| `process` | Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (sen… | — |
+| `process_manage` | Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (sen… | — |
 | `terminal` | Execute shell commands on a Linux environment. Filesystem persists between calls. Set `background=true` for long-running servers. Set `notify_on_complete=true` (with `background=true`) to get an automatic notification when the process finishes — no polling needed. Do NOT use cat/head/tail — use read_file. Do NOT use grep/rg/find — use search_files. | — |
 
 ## `desktop_ui` toolset
@@ -196,16 +231,14 @@ messaging, and cron sessions.
 |------|-------------|----------------------|
 | `read_terminal` | Read what's currently shown in the in-app terminal pane of the SOCIS desktop GUI (the embedded shell beside this chat). | — |
 | `close_terminal` | Close the read-only terminal tab for a background process in the SOCIS desktop GUI. Does NOT kill the process — only drops the tab/view; use process(action='kill') to stop it. | — |
-| `open_preview` | Open a web URL, localhost dev-server URL, or file path in the preview pane beside the chat in the SOCIS desktop app. | — |
-| `close_preview` | Close the preview pane beside the chat, or one tab inside it. Omit `url` to close the whole pane; pass a URL or file path to close that tab. | — |
-| `read_preview` | Read what's currently shown in the preview pane of the SOCIS desktop GUI — the in-app Browser's page text (URL + title + rendered text, pageable with `start`/`count`), or a file/artifact tab's identity. | — |
+| `desktop_preview` | Drive the preview pane beside the chat in the SOCIS desktop app. Opens a web URL, localhost dev-server URL, or file path; reads back what is shown (the in-app Browser's URL + title + rendered text, pageable with `start`/`count`, or a file/artifact tab's identity); and closes the pane or a single tab within it. | — |
 | `drive_preview` | Interact with the page open in the in-app browser: `elements` inventories what's clickable and typable (each with a ref that names it, like `btn-sign-in` or `inp-email`, plus role, label, and value), then `click`, `hover`, `type`, `scroll`, and `press` act on a ref, and `back`/`forward`/`reload` drive the pane's history. The pointer and keyboard are real input, so hover menus open. A ref lasts until the page navigates, including across a re-render that rebuilds the element, so after the first inventory every action answers with just a delta — what was added, removed, changed, or rebound — instead of the whole page again. | — |
 | `annotate_preview` | Outline an element in the in-app browser and leave the mark up until it's removed — the deliberate counterpart to the transient cues `drive_preview` draws as it works. `add` marks a ref with an optional short label, `remove` takes one down, `clear` takes them all. Marks follow their element and vanish with it, so a navigation clears them. | — |
 | `read_window_below` | Identify the OS window directly underneath the SOCIS desktop window — app name, title, bounds (metadata only, never pixels). On macOS, other apps' titles appear only when Screen Recording is already granted; the tool never prompts for it. | — |
 | `focus_pane` | Reveal and focus a pane in the SOCIS desktop app (chat, files, terminal, review, sessions). | — |
 | `react_to_message` | React to a message with a single emoji, iMessage-tapback style. Opt-in via Settings → Appearance (`display.message_reactions`). | — |
-| `tour` | Give a live guided tour: dim the screen, highlight an element, and attach a narrated popover (driver.js). Works on the SOCIS app's own UI and on any page open in the preview pane; `targets` discovers what's on screen, `show` narrates step-by-step, `start` hands the user Next/Prev controls. | — |
-| `tip` | Point at one element with a small accent bubble and an arrow — the quiet sibling of `tour`, with no dimming, no spotlight, and no Next/Prev. Same `data-tour` handles and the same `tour(action='targets')` discovery call. | — |
+| `gui_tour` | Give a live guided tour: dim the screen, highlight an element, and attach a narrated popover (driver.js). Works on the SOCIS app's own UI and on any page open in the preview pane; `targets` discovers what's on screen, `show` narrates step-by-step, `start` hands the user Next/Prev controls. | — |
+| `show_tip` | Point at one element with a small accent bubble and an arrow — the quiet sibling of `gui_tour`, with no dimming, no spotlight, and no Next/Prev. Same `data-tour` handles and the same `gui_tour(action='targets')` discovery call. | — |
 
 ### Tours
 
@@ -278,12 +311,26 @@ the model's schema, so the agent is never told about a surface it isn't allowed
 to use. Like every schema change, that lands on the next session — a running
 conversation keeps the toolset it started with, and the app declines the call in
 the meantime.
+| `apply_layout` | Reveal or rearrange the desktop app's panes (chat, preview, terminal). | — |
+| `setup_mcp` | Walk the user through adding an MCP server from inside the desktop app. | — |
+
+## `yara` toolset
+
+| Tool | Description | Requires environment |
+|------|-------------|----------------------|
+| `yara_compile` | Compile a YARA rule to confirm it is syntactically valid. | `yara` |
+| `yara_scan` | Scan a path with a rule. Run against a known sample set to confirm the rule matches what you think it matches. | `yara` |
+| `yara_extract` | Extract and score candidate strings from a sample, filtered against the local goodware index. | `yara` |
+| `yargen_generate` | Extract candidate strings with yarGen, filtered against goodware. | `yarGen` |
+| `yara_goodware_index` | Index a directory of known-good binaries into the local goodware string index. Strings common to benign software are the main source of false positives in generated rules — index before generating. | — |
+| `yara_goodware_status` | Report the size of the goodware index and which paths built it. | — |
+| `yara_goodware_forget` | Remove an indexed source's contribution, e.g. when a directory turned out to contain malware. | — |
 
 ## `todo` toolset
 
 | Tool | Description | Requires environment |
 |------|-------------|----------------------|
-| `todo` | Manage your task list for the current session. Use for complex tasks with 3+ steps or when the user provides multiple tasks. Call with no parameters to read the current list. Items may nest: an item's optional `parent` field points at another item's id, making it a subtask — surfaces render the tree indented. | — |
+| `todo_list` | Manage your task list for the current session. Use for complex tasks with 3+ steps or when the user provides multiple tasks. Call with no parameters to read the current list. Items may nest: an item's optional `parent` field points at another item's id, making it a subtask — surfaces render the tree indented. | — |
 
 ## `vision` toolset
 
