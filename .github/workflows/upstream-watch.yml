@@ -187,6 +187,13 @@ jobs:
         id: scan
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # GitHub Actions runs `bash -e`, so ANY non-zero command aborts the
+        # step. That matters here because most manifests are remote/npx
+        # entries with no `url:` line at all — only 6 of 74 are git-pinned.
+        # An `[ -n "$url" ] && ...` guard returns 1 on those and killed the
+        # whole run on the first one. Every conditional below is written so a
+        # legitimate "no match" is never an error.
+        shell: bash
         run: |
           set -uo pipefail
 
@@ -195,15 +202,22 @@ jobs:
           entries=""
           for d in optional-mcps/*/; do
             m="$d/manifest.yaml"
-            [ -f "$m" ] || continue
+            if [ ! -f "$m" ]; then
+              continue
+            fi
             # POSIX classes, not \s. GNU grep accepts \s as an extension but it
             # is not portable and it does not survive shell quoting reliably —
             # during development this silently matched 1 manifest of 5, which
             # is exactly the kind of quiet miss this whole job exists to catch.
-            url=$(grep -E '^[[:space:]]+url: https://github.com/' "$m" | head -1 \
-                  | sed -E 's#.*github\.com/##; s#\.git[[:space:]]*$##; s#[[:space:]]*$##')
-            ref=$(grep -E '^[[:space:]]+ref: [0-9a-f]{40}' "$m" | head -1 | awk '{print $2}')
-            [ -n "$url" ] && [ -n "$ref" ] && entries="$entries$(basename "$d")|$url|$ref"$'\n'
+            #
+            # `|| true` on both greps: a manifest without a git install has
+            # neither line, and that is normal, not a failure.
+            url=$(grep -E '^[[:space:]]+url: https://github.com/' "$m" 2>/dev/null | head -1 \
+                  | sed -E 's#.*github\.com/##; s#\.git[[:space:]]*$##; s#[[:space:]]*$##' || true)
+            ref=$(grep -E '^[[:space:]]+ref: [0-9a-f]{40}' "$m" 2>/dev/null | head -1 | awk '{print $2}' || true)
+            if [ -n "$url" ] && [ -n "$ref" ]; then
+              entries="$entries$(basename "$d")|$url|$ref"$'\n'
+            fi
           done
 
           if [ -z "$entries" ]; then
@@ -222,7 +236,11 @@ jobs:
 
           while IFS='|' read -r name repo ref; do
             [ -n "${name:-}" ] || continue
-            head=$(git ls-remote "https://github.com/$repo" HEAD 2>/dev/null | awk '{print $1}')
+            # `|| true` is load-bearing: git ls-remote exits non-zero for a
+            # deleted or renamed repo, which is precisely the case this job
+            # most wants to report. Without it, the one condition worth an
+            # alert would instead abort the run silently.
+            head=$(git ls-remote "https://github.com/$repo" HEAD 2>/dev/null | awk '{print $1}' || true)
             if [ -z "$head" ]; then
               # A repo that has moved or been deleted matters more than one that
               # is merely behind — the pin still clones today only because a
