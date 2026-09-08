@@ -126,13 +126,33 @@ jobs:
           # "body-size cap on aiohttp webhook servers" is DoS hardening. This
           # is still a filter, not a classifier; the issue body says so and
           # points at the full log.
-          SEC_GREP='security|CVE|GHSA|vulnerab|exploit|injection|sanitiz|escape|auth|credential|secret|token|traversal|RCE|XSS|SSRF|redact|harden|bypass|spoof|CSRF|overflow|denial|DoS|leak|privile|unsafe'
+          # `auth` on its own is too greedy: it matches "author",
+          # "authoritative" and "authority", which produced rows like
+          # "publish authoritative live progress" in the first real report.
+          # Require the security senses explicitly.
+          SEC_GREP='security|CVE|GHSA|vulnerab|exploit|injection|sanitiz|escape|authoriz|authent|unauthoriz|credential|secret|token|traversal|RCE|XSS|SSRF|redact|harden|bypass|spoof|CSRF|overflow|denial|DoS|leak|privile|unsafe'
 
+          # Drop commit types that are never cherry-picked as fixes. In the
+          # first real report 31% of matches were docs/test/refactor — e.g.
+          # "docs: clarify fallback credential and cooldown behavior" and
+          # "test: isolate external auth stores in pool command fixtures".
+          # They match the keywords because they touch security code, not
+          # because they change behaviour, and they crowd out the rows that do.
+          NOISE_PREFIX='^[0-9a-f]+\|[0-9-]+\|(docs|test|chore|refactor|style|ci|build)(\(|:)'
+
+          # %cd (COMMITTER date), not %ad (author date).
+          #
+          # --since filters on committer date, so displaying author date shows
+          # commits that look older than the window. The first report listed
+          # 2026-05-25 commits under a 2026-09-01 baseline — authored in May,
+          # rebased into main in September. The filter was right; the column
+          # lied about it.
           # shellcheck disable=SC2086  # DATEFILTER is intentionally unquoted
           git log --no-merges --date=short $DATEFILTER \
-                  --pretty=format:'%h|%ad|%s' \
+                  --pretty=format:'%h|%cd|%s' \
                   "$RANGE" \
-            | grep -iE "\|[^|]*($SEC_GREP)" > /tmp/sec.txt || true
+            | grep -iE "\|[^|]*($SEC_GREP)" \
+            | grep -ivE "$NOISE_PREFIX" > /tmp/sec.txt || true
 
           # shellcheck disable=SC2086
           total=$(git rev-list --count $DATEFILTER "$RANGE" 2>/dev/null || echo 0)
@@ -148,7 +168,7 @@ jobs:
             echo "Upstream \`NousResearch/hermes-agent\` has **$total** commits since the baseline."
             echo ""
             echo "Baseline: \`${base_ref:-${base_date:-2026-09-01}}\` (${base_how:-unknown})."
-            echo "**$sec** match security keywords."
+            echo "**$sec** are security-relevant behaviour changes (docs/test/refactor excluded)."
             echo ""
             echo "Scanned \`upstream/main\` @ \`${upstream_head:0:12}\` on $(date -u +%Y-%m-%d)."
             echo ""
@@ -178,11 +198,14 @@ jobs:
             echo "- Conflicts are almost always branding. Take upstream's *logic*, then rename separately so the two stay reviewable."
             echo '- Never let a patch overwrite: `DEFAULT_NOUS_CLIENT_ID = "hermes-cli"`, the `com.nousresearch.hermes` bundle ID, `@nous-research/*` packages, `hermes-estree`/`hermes-parser`, Nous infrastructure URLs, or the `nous`/`nous-alt` theme keys.'
             echo ""
-            echo "Keyword matching is a filter, not a judgement — a commit may be irrelevant to us, and a real fix may not mention any keyword. Skim the full list with:"
+            echo "Keyword matching is a filter, not a judgement. \`docs:\`, \`test:\`, \`refactor:\` and \`chore:\` commits are excluded because they do not change behaviour — a refactor that quietly fixes a bug would be missed. Skim the unfiltered list with:"
             echo ""
             echo '```bash'
             echo 'git fetch upstream main'
-            echo 'git log --oneline HEAD..upstream/main'
+            # NOT `HEAD..upstream/main` — this repo shares no history with
+            # upstream, so that lists all 32,000+ upstream commits. Give the
+            # same windowed query the job itself uses.
+            echo "git log --oneline --since=${base_date:-2026-09-01} upstream/main"
             echo '```'
           } > /tmp/body.md
 
@@ -282,7 +305,43 @@ jobs:
             fi
           done
 
+          # Log what was scanned BEFORE deciding anything. The first version
+          # exited here writing only to a file, so a run that found nothing
+          # produced a completely empty step log — indistinguishable from a
+          # crash, and giving no clue whether the directory was missing, the
+          # manifests were uncommitted, or the greps had stopped matching.
+          # Guard the directory test EXPLICITLY rather than relying on `|| true`.
+          #
+          # This step runs under `-e -o pipefail`. `find missing-dir | wc -l`
+          # fails, pipefail propagates the failure through the pipeline, and an
+          # assignment from a failed command substitution aborts the step. The
+          # first version of this check therefore died silently at the exact
+          # moment it was supposed to report a missing directory — the third
+          # errexit bug in this job, all the same shape: a command that
+          # legitimately returns non-zero, in a shell that treats that as
+          # fatal. `|| true` on the substitution does not help, because the
+          # failure is inside the pipeline, not at its end.
+          manifest_count=0
+          if [ -d optional-mcps ]; then
+            manifest_count=$(find optional-mcps -maxdepth 2 -name manifest.yaml | wc -l | tr -d ' ')
+          fi
+          pinned_count=0
+          if [ -n "$entries" ]; then
+            pinned_count=$(printf '%s' "$entries" | grep -c '|')
+          fi
+          echo "Scanned optional-mcps/: $manifest_count manifest(s), $pinned_count git-pinned."
+
           if [ -z "$entries" ]; then
+            if [ "$manifest_count" -eq 0 ]; then
+              # Not "nothing to do" — the directory is absent from the
+              # checkout. Fail loudly: silently reporting all-clear when the
+              # input is missing is the worst outcome for a watch job.
+              echo "::error::optional-mcps/ contains no manifest.yaml files."
+              echo "  Either the directory is not committed, or .gitignore excludes it."
+              echo "  Check with: git ls-files optional-mcps | grep -c manifest.yaml"
+              exit 1
+            fi
+            echo "::notice::$manifest_count manifests present but none are git-pinned — nothing to watch."
             echo "No pinned MCP entries found." > /tmp/mcp-body.md
             echo "behind=0" >> "$GITHUB_OUTPUT"
             exit 0
@@ -343,6 +402,8 @@ jobs:
             fi
           } > /tmp/mcp-body.md
 
+          echo "behind=$behind of $pinned_count pinned server(s)."
+          cat /tmp/mcp-table.md
           echo "behind=$behind" >> "$GITHUB_OUTPUT"
 
       - name: Open or update the tracking issue
