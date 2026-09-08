@@ -1350,6 +1350,114 @@ def run_doctor(args):
         # Never let a bug in the advisory check block the rest of doctor.
         check_warn(f"Security advisory check failed: {e}")
 
+    # Each check here exists because the failure it catches was SILENT — it
+    # produced a working-looking system and was only found by installing
+    # something, running it, and reading the output. Doctor runs on every
+    # update, so this is where they belong.
+    _section("Silent-Failure Checks")
+    try:
+        from socis_cli.config import load_config
+
+        cfg = load_config()
+        servers = cfg.get("mcp_servers") or {}
+        quiet_problems = 0
+
+        # 1. An api_key MCP server with no env block.
+        #
+        # _build_server_config once wrote only transport.env, never auth.env,
+        # so a stdio server's declared credentials sat unused in .env while the
+        # server exited on startup complaining the variable was unset. It
+        # crash-looped, and threat-intel masked it entirely by falling back to
+        # its keyless sources.
+        for name, entry in sorted(servers.items()):
+            if not isinstance(entry, dict):
+                continue
+            if not entry.get("command"):
+                continue  # remote/http entries carry headers, not env
+            if entry.get("enabled") is False:
+                continue
+            args = " ".join(str(a) for a in (entry.get("args") or []))
+            # A server invoked through mcp-remote passes credentials as a
+            # --header argument, so an absent env block is correct there.
+            if "mcp-remote" in args or "--header" in args:
+                continue
+            if not entry.get("env"):
+                quiet_problems += 1
+                check_warn(
+                    f"MCP server '{name}' has no env block",
+                    "declared credentials may never reach the process",
+                )
+                check_info(
+                    f"Re-run: socis mcp install official/{name}"
+                )
+
+        # 2. A ${VAR} placeholder with nothing to resolve to.
+        #
+        # Unset placeholders interpolate to the LITERAL string "${VAR}", which
+        # is non-empty — so a server checking `if (process.env.X)` believes it
+        # is configured and authenticates with garbage. Quieter and worse than
+        # a missing variable.
+        try:
+            from socis_cli.config import get_env_value
+
+            for name, entry in sorted(servers.items()):
+                if not isinstance(entry, dict):
+                    continue
+                for key, val in (entry.get("env") or {}).items():
+                    if not (isinstance(val, str) and val.startswith("${")):
+                        continue
+                    var = val[2:-1] if val.endswith("}") else val[2:]
+                    if not get_env_value(var):
+                        quiet_problems += 1
+                        check_warn(
+                            f"MCP server '{name}': ${{{var}}} is unset",
+                            "resolves to the literal placeholder, not an empty value",
+                        )
+                        check_info(f"Set it in ~/.socis-agent/.env, or remove the entry")
+        except Exception:
+            pass
+
+        # 3. .gitignore missing from the checkout.
+        #
+        # Without it, `git ls-files --others --exclude-standard` returns every
+        # file under node_modules, so the updater's health check treats
+        # third-party bytecode as local changes and refuses to restore.
+        _home = os.environ.get("SOCIS_AGENT_HOME")
+        _repo = (Path(_home) if _home else Path.home() / ".socis-agent") / "socis-agent"
+        if (_repo / ".git").exists() and not (_repo / ".gitignore").is_file():
+            quiet_problems += 1
+            check_warn(
+                ".gitignore is missing from the checkout",
+                "the updater will treat node_modules as local changes",
+            )
+            check_info("Restore with: git checkout -- .gitignore")
+
+        # 4. sigma-cli in an environment without pip.
+        #
+        # uv tool venvs ship without pip, and sigma installs its own backends
+        # by shelling out to `python -m pip`. Every backend install then fails
+        # with "No module named pip" — which reads as eleven simultaneous
+        # incompatibilities rather than one missing package manager.
+        _sig = Path.home() / ".local/share/uv/tools/sigma-cli/bin/python"
+        if _sig.is_file():
+            try:
+                _r = subprocess.run([str(_sig), "-c", "import pip"],
+                                    capture_output=True, timeout=15)
+                if _r.returncode != 0:
+                    quiet_problems += 1
+                    check_warn(
+                        "sigma-cli's environment has no pip",
+                        "backend installs will all fail",
+                    )
+                    check_info("Fix: uv tool install --force sigma-cli --with pip")
+            except (OSError, subprocess.SubprocessError):
+                pass
+
+        if quiet_problems == 0:
+            check_ok("No silent-failure conditions detected")
+    except Exception as e:
+        check_warn(f"Silent-failure checks could not run: {e}")
+
     _section("MCP Server Security")
     try:
         from socis_cli.config import load_config
