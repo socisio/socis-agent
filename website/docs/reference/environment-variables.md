@@ -550,7 +550,7 @@ These are set automatically by the Docker terminal backend when `proxy.enabled: 
 
 ### Web Dashboard & SOCIS Agent Desktop
 
-Auth for the [web dashboard](/user-guide/features/web-dashboard) and for connecting [SOCIS Agent Desktop to a remote backend](/user-guide/features/web-dashboard#connecting-socis-desktop-to-a-remote-backend). Per the secrets-only convention, credentials belong in `~/.socis-agent/.env`; the OAuth `client_id` is better set under `dashboard.oauth` in `config.yaml` (env wins when set).
+Auth for the [web dashboard](/user-guide/features/web-dashboard) and for connecting [SOCIS Agent Desktop to a remote backend](/user-guide/features/web-dashboard#connecting-socis-agent-desktop-to-a-remote-backend). Per the secrets-only convention, credentials belong in `~/.socis-agent/.env`; the OAuth `client_id` is better set under `dashboard.oauth` in `config.yaml` (env wins when set).
 
 Three dashboard-auth providers ship in the box. For a remote SOCIS Agent Desktop connection or any internet-facing dashboard, the recommended provider is **OAuth (Nous Portal)** — set `SOCIS_AGENT_DASHBOARD_OAUTH_CLIENT_ID` (provision it with `socis dashboard register`). The bundled **username/password** provider (`SOCIS_AGENT_DASHBOARD_BASIC_AUTH_*`) is the quickest option for a backend on a trusted LAN or behind a VPN, but is not suitable for direct public-internet exposure. To authenticate against your own identity provider, use the **self-hosted OIDC** provider (`SOCIS_AGENT_DASHBOARD_OIDC_*`). Either way, a non-loopback bind (`socis dashboard --host 0.0.0.0`) engages the auth gate. See [Web Dashboard → Authentication](/user-guide/features/web-dashboard#authentication-gated-mode) for the full picture.
 

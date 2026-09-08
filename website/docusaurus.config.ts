@@ -27,7 +27,17 @@ const config: Config = {
   organizationName: 'socisio',
   projectName: 'socis-agent',
 
-  onBrokenLinks: 'warn',
+  onBrokenLinks: 'throw',
+
+  // Anchors are slugs GENERATED from heading text, so rewording a heading
+  // silently breaks every link pointing at it — the page still loads, it
+  // just doesn't scroll, which is invisible in CI and easy to miss in
+  // review. The rebrand did exactly this ("SOCIS Desktop" -> "SOCIS Agent
+  // Desktop", "Nous Research" -> "SOCIS") and left 5 dead anchors.
+  //
+  // Both are 'throw' rather than 'warn': a warning in a 5-minute build that
+  // already prints thousands of lines is not a signal anyone acts on.
+  onBrokenAnchors: 'throw',
 
   markdown: {
     mermaid: true,
