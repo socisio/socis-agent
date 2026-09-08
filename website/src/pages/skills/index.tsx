@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import Layout from "@theme/Layout";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./styles.module.css";
 
 interface Skill {
@@ -475,12 +476,19 @@ function StatCard({ value, label, color }: { value: number; label: string; color
 
 const PAGE_SIZE = 60;
 
-// Routes Docusaurus serves the static API JSON from. `baseUrl` is `/docs/`,
-// `static/api/` ends up at `/docs/api/`. Hardcoding here is fine because the
-// same `baseUrl` is enforced repo-wide; if it ever changes, this is the only
-// place that needs to follow.
-const SKILLS_URL = "/docs/api/skills.json";
-const META_URL = "/docs/api/skills-meta.json";
+// Paths RELATIVE TO baseUrl, resolved with useBaseUrl() at render time.
+//
+// These were hardcoded as "/docs/api/skills.json" with a comment asserting
+// baseUrl was enforced repo-wide and this was "the only place that needs to
+// follow". Both halves were wrong: baseUrl legitimately differs per deploy
+// target (agent.socis.io serves /docs/, a GitHub Pages PROJECT site serves
+// /socis-agent/docs/), and there were four such hardcoded paths, not one.
+// The visible result was "failed to load catalog (skills.json HTTP 404)"
+// with the file sitting one path segment away.
+//
+// useBaseUrl() cannot drift: it reads the same baseUrl the build used.
+const SKILLS_PATH = "api/skills.json";
+const META_PATH = "api/skills-meta.json";
 
 function buildSearchHaystack(s: Skill): string {
   // Pre-compute the lowercase blob the search filter scans. Done once at
@@ -550,16 +558,19 @@ export default function SkillsDashboard() {
   const searchRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
+  const skillsUrl = useBaseUrl(SKILLS_PATH);
+  const metaUrl = useBaseUrl(META_PATH);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const [sk, mt] = await Promise.all([
-          fetch(SKILLS_URL).then((r) => {
+          fetch(skillsUrl).then((r) => {
             if (!r.ok) throw new Error(`skills.json HTTP ${r.status}`);
             return r.json();
           }),
-          fetch(META_URL).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+          fetch(metaUrl).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
         ]);
         if (cancelled) return;
         const skillsArr = Array.isArray(sk) ? (sk as Skill[]) : [];
@@ -574,7 +585,9 @@ export default function SkillsDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // skillsUrl/metaUrl are stable for a given baseUrl, so listing them does
+    // not cause refetches — it just keeps the effect honest about its inputs.
+  }, [skillsUrl, metaUrl]);
 
   // Debounce the search input — 150ms feels instant while preventing the
   // filter from running on every individual keystroke.

@@ -217,7 +217,7 @@ export default function Download(): JSX.Element {
           </p>
           <p>
             Prefer the terminal? See the{" "}
-            <a href="/docs/getting-started/quickstart">CLI quickstart</a>. All
+            <a href="/getting-started/quickstart">CLI quickstart</a>. All
             releases are listed on{" "}
             <a href={RELEASES_URL} target="_blank" rel="noreferrer">
               GitHub
