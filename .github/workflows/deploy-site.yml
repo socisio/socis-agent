@@ -58,6 +58,14 @@ jobs:
 
       - name: Build
         working-directory: website
+        # GitHub Pages serves a PROJECT site under /<repo>/, so the site lives
+        # at /socis-agent/docs/ — not /docs/. baseUrl is baked into every
+        # emitted asset URL, so building with the default /docs/ produced a
+        # site whose HTML loaded but whose CSS and JS all 404'd: correct
+        # content, no styling. docusaurus.config.ts reads these.
+        env:
+          DOCUSAURUS_URL: https://socisio.github.io
+          DOCUSAURUS_BASE_URL: /socis-agent/docs/
         run: npm run build
 
       # STAGE UNDER docs/ — this is the step that makes the URL resolve.
@@ -86,6 +94,19 @@ jobs:
             echo "  Without it, MCP OAuth fails for every entry using CIMD."
             exit 1
           fi
+          # Guard the baseUrl itself. A wrong baseUrl does not fail the
+          # build — it ships a site that renders unstyled, which is easy to
+          # miss in CI and obvious only to visitors. Assert that the emitted
+          # asset URLs carry the /socis-agent/docs/ prefix.
+          if ! grep -q '/socis-agent/docs/assets/' _site/docs/index.html; then
+            echo "::error::index.html does not reference /socis-agent/docs/assets/."
+            echo "  baseUrl is wrong for a GitHub Pages project site."
+            echo "  Expected DOCUSAURUS_BASE_URL=/socis-agent/docs/ at build time."
+            echo "  Symptom if shipped: pages load but all CSS/JS 404 (no styling)."
+            grep -o 'href="[^"]*assets/css[^"]*"' _site/docs/index.html | head -3
+            exit 1
+          fi
+
           echo "Staged $(find _site -type f | wc -l) files."
 
       - uses: actions/upload-pages-artifact@v3

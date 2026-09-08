@@ -7,8 +7,22 @@ const config: Config = {
   tagline: 'The self-improving AI agent',
   favicon: 'img/favicon.ico',
 
-  url: 'https://agent.socis.io',
-  baseUrl: '/docs/',
+  url: process.env.DOCUSAURUS_URL || 'https://agent.socis.io',
+
+  // baseUrl is baked into every emitted asset path, so it MUST match the
+  // path the site is actually served from — otherwise the HTML loads and
+  // every stylesheet and script 404s, rendering the site unstyled.
+  //
+  // Two deploy targets, two values:
+  //   agent.socis.io           -> /docs/              (default, below)
+  //   socisio.github.io        -> /socis-agent/docs/  (project sites are
+  //                               served under /<repo>/, and the Pages
+  //                               workflow sets DOCUSAURUS_BASE_URL)
+  //
+  // The github.io copy exists so the CIMD OAuth client-metadata document has
+  // a redirect-free origin; an authorization server MUST NOT follow redirects
+  // when fetching it.
+  baseUrl: process.env.DOCUSAURUS_BASE_URL || '/docs/',
 
   organizationName: 'socisio',
   projectName: 'socis-agent',
