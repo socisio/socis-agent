@@ -173,9 +173,14 @@ def _handle_sigma_convert(args: dict, **_kw) -> str:
     argv = ["sigma", "convert", "-t", target]
 
     # Pipelines map Sigma's generic field names onto the target's real schema.
-    # Several can apply at once — a product pipeline plus a log-source one is
-    # the common case (e.g. splunk_windows + sysmon). sigma-cli accepts -p
-    # repeatedly and applies them in order.
+    # Several can apply at once, and sigma-cli applies -p in order.
+    #
+    # DO NOT hardcode pipeline names in guidance. They move between pySigma
+    # releases: `splunk_windows` was widely documented and no longer exists —
+    # the splunk backend now ships `windows` and `sysmon`. Naming a pipeline
+    # that is not installed fails the conversion outright, and naming the wrong
+    # one produces a query that runs and matches nothing. Call sigma_list with
+    # what=pipelines to see what this machine actually has.
     pipelines = args.get("pipelines") or ([args["pipeline"]] if args.get("pipeline") else [])
     if isinstance(pipelines, str):
         pipelines = [pipelines]
@@ -414,9 +419,12 @@ registry.register(
                     "type": "array",
                     "items": {"type": "string"},
                     "description": (
-                        "Field-mapping pipelines, applied in order. Several commonly combine: "
-                        "a product pipeline plus a log-source one, e.g. "
-                        "[\"splunk_windows\", \"sysmon\"]."
+                        "Field-mapping pipelines, applied in order. Several commonly combine — "
+                        "a product pipeline plus a log-source one, e.g. [\"windows\", \"sysmon\"]. "
+                        "Pipeline names differ per backend and change between pySigma releases, "
+                        "so call sigma_list with what=pipelines FIRST rather than guessing. "
+                        "A name that is not installed fails the conversion; the wrong one "
+                        "produces a query that runs and matches nothing."
                     ),
                 },
                 "format": {

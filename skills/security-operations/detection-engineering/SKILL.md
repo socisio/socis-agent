@@ -166,18 +166,32 @@ that looks comprehensive and catches nothing.
 # Validate first — always
 sigma check rules/
 
-# Convert with the pipeline that matches the customer's onboarding
-sigma convert -t splunk    -p splunk_windows          rules/psexec.yml
-sigma convert -t microsoft365defender                 rules/psexec.yml
-sigma convert -t elasticsearch -p ecs_windows         rules/psexec.yml
-sigma convert -t qradar_aql -p qradar_fields          rules/psexec.yml
+# LIST BEFORE YOU CONVERT. Target and pipeline names differ per backend and
+# change between pySigma releases, so never type one from memory.
+sigma list targets
+sigma list pipelines
+
+# Then convert with names taken from that output
+sigma convert -t splunk -p windows -p sysmon   rules/psexec.yml
+sigma convert -t lucene -p ecs_windows          rules/psexec.yml
+sigma convert -t kusto                          rules/psexec.yml   # no pipeline needed
 
 # Deployable artifact rather than a bare query
-sigma convert -t splunk -p splunk_windows -f savedsearches rules/psexec.yml
+sigma convert -t splunk -p windows -f savedsearches rules/psexec.yml
 ```
 
-The `-p` pipeline is not optional in practice. Without it you get Sigma's
-generic field names, which match almost no real deployment.
+**Do not type a pipeline name from memory.** `splunk_windows` was widely
+documented and no longer exists — the splunk backend now ships `windows` and
+`sysmon`. A name that is not installed fails the conversion outright, which is
+the good case. The bad case is naming a *wrong but installed* pipeline: the
+query converts, runs, and matches nothing, and looks like "no malicious
+activity" rather than "wrong fields".
+
+The `-p` pipeline is not optional for most backends. Without it you get
+Sigma's generic field names, which match almost no real deployment. Some
+backends ship built-in mappings and report `Processing Pipeline Required: No`
+in `sigma list targets` — kusto, loki, carbon_black and sentinel_one among
+them.
 
 When a customer's schema is bespoke, write a **custom pipeline** rather than
 editing rules per customer — that keeps one rule serving every tenant.
