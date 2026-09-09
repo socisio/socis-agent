@@ -269,7 +269,26 @@ def _resolve_rule_text(args: dict) -> tuple[str, str]:
         return body, ""
 
     if not text:
-        return "", "❌ Provide `rule` (rule text) or `rule_file` (path to a .yar file)."
+        # Name the key the caller actually sent. `yara_scan` takes `path` and
+        # `yara_compile` does not, so `path` is the near-miss to expect — and
+        # an error that lists only the valid names reads as "this tool is
+        # broken": one agent abandoned the tool entirely and spent six turns
+        # shelling out to raw `yara` rather than retrying with `rule_file`.
+        known = {"rule", "rule_file", "path"}
+        sent = [k for k in args if k not in ("rule", "rule_file") and args.get(k)]
+        hint = ""
+        for k in sent:
+            v = args.get(k)
+            if isinstance(v, str) and (v.endswith(".yar") or v.endswith(".yara")):
+                hint = (f" You passed `{k}=\"{v}\"` — for a rule already on "
+                        f"disk use `rule_file=\"{v}\"`.")
+                break
+        else:
+            if sent:
+                hint = (" Received: " + ", ".join(f"`{k}`" for k in sent)
+                        + ". Unknown keys are ignored.")
+        return "", ("❌ Provide `rule` (rule text) or `rule_file` (path to a "
+                    ".yar file)." + hint)
     return text, ""
 
 
