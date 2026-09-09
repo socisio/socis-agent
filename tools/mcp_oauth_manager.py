@@ -232,6 +232,32 @@ def _make_socis_provider_class() -> Optional[type]:
             try:
                 content = await response.aread()
                 token_response = OAuthToken.model_validate_json(content)
+                # RFC 6749 §6: the refresh grant MAY omit refresh_token, which
+                # means "keep using the one you have" — it does NOT mean the
+                # grant is gone. Authorization servers that do not rotate
+                # refresh tokens (Asana, Google, Zoho, Futu, TinyFish) answer
+                # this way every time.
+                #
+                # This override replaces the SDK's handler to accept any 2xx
+                # and keep token bodies out of the log, but in doing so it lost
+                # the SDK's carry-forward: storing the response verbatim wrote
+                # refresh_token=None over the only refresh token we had, so the
+                # NEXT expiry had nothing to refresh with and fell through to a
+                # full browser re-auth roughly one TTL after every login. The
+                # symptom looks like the server revoking access, not like a
+                # client bug.
+                #
+                # §5.1 gives scope the same treatment: omitted means unchanged.
+                # Only None fields are filled, so a rotating server still wins.
+                prior = self.context.current_tokens
+                carry = {}
+                if prior is not None:
+                    if not token_response.refresh_token and prior.refresh_token:
+                        carry["refresh_token"] = prior.refresh_token
+                    if not token_response.scope and prior.scope:
+                        carry["scope"] = prior.scope
+                if carry:
+                    token_response = token_response.model_copy(update=carry)
                 self.context.current_tokens = token_response
                 self.context.update_token_expiry(token_response)
                 await self.context.storage.set_tokens(token_response)
