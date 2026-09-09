@@ -188,13 +188,17 @@ def test_layer_is_valid_json_with_the_versions_block():
     assert len(layer["techniques"]) == 2
 
 
-def test_layer_stamps_the_attack_version():
+def test_layer_records_the_attack_version_in_both_places():
     """A deliverable that does not record its matrix version cannot be
-    reproduced or defended later."""
+    reproduced or defended later — but `versions.attack` must be MAJOR ONLY
+    or Navigator cannot match it, so the exact version lives in metadata.
+    """
     from tools.mitre_attack import _handle_layer
     out = _handle_layer({"techniques": ["T1059"]})
     layer = json.loads(out.split("```json")[1].split("```")[0])
-    assert layer["versions"]["attack"] == "17.1"
+    assert layer["versions"]["attack"] == "17"
+    vals = {m["name"]: m.get("value") for m in layer["metadata"] if "name" in m}
+    assert vals["ATT&CK version"] == "17.1"
 
 
 def test_layer_carries_scores_and_comments():
@@ -301,9 +305,10 @@ def test_layer_accepts_navigators_own_techniqueID_key():
         {"techniqueID": "T1053.005", "score": 40},
     ]})
     layer = json.loads(out.split("```json")[1].split("```")[0])
-    assert len(layer["techniques"]) == 2
-    assert layer["techniques"][0]["score"] == 100
-    assert layer["techniques"][1]["score"] == 40
+    scored = {t["techniqueID"]: t.get("score") for t in layer["techniques"]}
+    assert scored["T1059.001"] == 100
+    assert scored["T1053.005"] == 40
+    assert "2 annotated technique" in out
 
 
 def test_layer_refuses_an_object_with_no_recognised_id_key():
@@ -334,3 +339,63 @@ def test_layer_rejects_a_stix_id_rather_than_silently_dropping_it():
         {"id": "attack-pattern--970a3432-3237-47ad-bcca-7d8cbb217736", "score": 1}]})
     assert "NOT generated" in out
     assert "ATTACK-PATTERN" in out.upper()
+
+
+# ── the two bugs that made a correct-looking layer render empty ─────────────
+
+
+def test_versions_attack_is_the_major_version_only():
+    """Navigator matches `versions.attack` against ATT&CK releases it can load.
+
+    The layer spec's own example shows `"attack": "18"`. Emitting the full
+    "19.2" matches nothing, so the layer opens with no data behind it — it
+    loads without error and shows an empty matrix.
+    """
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": ["T1059"]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    assert layer["versions"]["attack"] == "17", "must be major only, not 17.1"
+
+
+def test_the_exact_version_is_preserved_in_layer_metadata():
+    """Major-only in versions.attack loses precision the deliverable needs, so
+    the full version is recorded in layer metadata instead."""
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": ["T1059"]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    vals = {m["name"]: m.get("value") for m in layer["metadata"] if "name" in m}
+    assert vals.get("ATT&CK version") == "17.1"
+
+
+def test_subtechnique_annotations_are_made_visible():
+    """`showSubtechniques` defaults to FALSE per the layer spec.
+
+    A coverage layer scoring only sub-techniques — the normal case, since
+    detections map to T1059.001 rather than T1059 — loaded correctly and
+    rendered an apparently empty matrix, because every annotated cell was
+    collapsed under its parent.
+    """
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": [{"id": "T1059.001", "score": 100}]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    assert layer["layout"]["expandedSubtechniques"] == "annotated"
+    parent = [t for t in layer["techniques"] if t["techniqueID"] == "T1059"]
+    assert parent and parent[0]["showSubtechniques"] is True
+
+
+def test_parent_rows_do_not_inflate_the_reported_count():
+    """The auto-added parent is scaffolding, not coverage."""
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": [{"id": "T1059.001", "score": 100}]})
+    assert "1 annotated technique" in out
+    assert "parent row" in out
+
+
+def test_an_annotated_parent_is_not_duplicated():
+    """If the caller already annotated T1059, do not append a second row."""
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": [
+        {"id": "T1059", "score": 50}, {"id": "T1059.001", "score": 100}]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    ids = [t["techniqueID"] for t in layer["techniques"]]
+    assert ids.count("T1059") == 1
