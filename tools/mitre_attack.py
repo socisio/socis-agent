@@ -322,19 +322,39 @@ def _handle_layer(args: dict, **_kw) -> str:
         return f"❌ {warning}"
 
     name = (args.get("name") or "SOCIS coverage").strip()
-    entries, unknown = [], []
+    entries, unknown, unusable = [], [], []
 
     for item in techniques:
         if isinstance(item, str):
             tid, score, comment, colour = item.strip().upper(), None, "", ""
         elif isinstance(item, dict):
-            tid = str(item.get("id") or item.get("technique_id") or "").strip().upper()
+            # `techniqueID` is what Navigator itself calls this field in layer
+            # JSON, so it is the first thing a caller reaches for — accept it
+            # alongside the shorter forms rather than dropping the entry.
+            tid = str(
+                item.get("id")
+                or item.get("technique_id")
+                or item.get("techniqueID")
+                or item.get("techniqueId")
+                or ""
+            ).strip().upper()
             score = item.get("score")
             comment = str(item.get("comment") or "")
             colour = str(item.get("color") or item.get("colour") or "")
         else:
+            unusable.append(repr(item)[:60])
             continue
         if not tid:
+            # An entry whose ID key we do not recognise USED TO be skipped
+            # silently, and the layer was emitted anyway — a ✅ over
+            # `"techniques": []`, which is the precise failure this tool
+            # exists to prevent. Name the keys we got so the caller can fix
+            # the call instead of guessing at the shape.
+            unusable.append(
+                "object with no recognised ID key (got: "
+                + ", ".join(sorted(item.keys())) + ")"
+                if isinstance(item, dict) else repr(item)[:60]
+            )
             continue
 
         # Validate against the real matrix. A layer built from an unverified
@@ -355,12 +375,31 @@ def _handle_layer(args: dict, **_kw) -> str:
             e["color"] = colour
         entries.append(e)
 
+    if unusable:
+        return ("❌ Could not read a technique ID from "
+                f"{len(unusable)} entr(y/ies), so the layer was NOT generated:\n"
+                + "\n".join(f"    • {u}" for u in unusable)
+                + "\n\nAccepted shapes:\n"
+                + '    "T1059.001"                                  (plain ID)\n'
+                + '    {"id": "T1059.001", "score": 100}            (with a score)\n'
+                + '    {"techniqueID": "T1059.001", "score": 100}   (Navigator own key)\n')
+
     if unknown:
         return ("❌ These are not current Enterprise techniques, so the layer was "
                 f"NOT generated: {', '.join(sorted(unknown))}\n\n"
                 "A layer built from an unverified ID renders in Navigator as a "
                 "cell the customer reads as covered. Check each with "
                 "attack_technique or attack_search first.\n"
+                f"{_version_line(idx, warning)}")
+
+    if not entries:
+        # Non-empty input that yields nothing is always an error. An empty
+        # layer loads in Navigator and shows a blank matrix, which reads as
+        # "no coverage" rather than "the call was wrong".
+        return ("❌ No techniques resolved from the input, so the layer was NOT "
+                "generated — an empty layer loads in Navigator and shows a "
+                "blank matrix, which reads as 'no coverage' rather than 'the "
+                "call was wrong'.\n"
                 f"{_version_line(idx, warning)}")
 
     layer = {

@@ -282,3 +282,55 @@ def test_every_registered_tool_is_in_the_mitre_toolset():
     pairs = re.findall(r'registry\.register\(\s*name="(\w+)",\s*toolset="([\w-]+)"', src)
     assert len(pairs) == 5, f"expected 5 registrations, found {len(pairs)}"
     assert all(ts == "mitre" for _, ts in pairs)
+
+
+# ── the shapes a caller actually reaches for ────────────────────────────────
+
+
+def test_layer_accepts_navigators_own_techniqueID_key():
+    """`techniqueID` is what Navigator calls this field in layer JSON, so it is
+    the first thing a caller tries.
+
+    It used to be unrecognised and the entry was dropped SILENTLY — the tool
+    returned a ✅ over `"techniques": []`. Ten turns of an agent guessing at
+    the shape, against a tool whose entire purpose is catching bad layers.
+    """
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": [
+        {"techniqueID": "T1059.001", "score": 100},
+        {"techniqueID": "T1053.005", "score": 40},
+    ]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    assert len(layer["techniques"]) == 2
+    assert layer["techniques"][0]["score"] == 100
+    assert layer["techniques"][1]["score"] == 40
+
+
+def test_layer_refuses_an_object_with_no_recognised_id_key():
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": [{"foo": "bar", "score": 1}]})
+    assert "NOT generated" in out
+    assert "no recognised ID key" in out
+    assert "foo" in out, "must name the keys it actually received"
+    assert "Accepted shapes" in out
+    assert "```json" not in out
+
+
+def test_layer_never_emits_an_empty_techniques_list():
+    """An empty layer LOADS in Navigator and shows a blank matrix, which reads
+    as 'no coverage' rather than 'the call was wrong'."""
+    from tools.mitre_attack import _handle_layer
+    for bad in ([{"nope": 1}], [None], [{}]):
+        out = _handle_layer({"techniques": bad})
+        assert "NOT generated" in out, f"{bad} produced a layer"
+        assert '"techniques": []' not in out
+
+
+def test_layer_rejects_a_stix_id_rather_than_silently_dropping_it():
+    """STIX `attack-pattern--…` ids are a plausible confusion; they are not
+    technique IDs and must be named as unknown."""
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": [
+        {"id": "attack-pattern--970a3432-3237-47ad-bcca-7d8cbb217736", "score": 1}]})
+    assert "NOT generated" in out
+    assert "ATTACK-PATTERN" in out.upper()
