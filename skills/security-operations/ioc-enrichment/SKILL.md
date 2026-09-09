@@ -54,6 +54,23 @@ and that needs several sources agreeing or disagreeing.
    tell unless you say so.
 5. **One tenant at a time.** Never carry an observable from one customer's
    investigation into another's.
+6. **The headline verdict must answer the question that was asked.** "Is it
+   safe to allow through the firewall?" wants an allow/block call, not a
+   reputation score. The analyst acts on the first line; a correct analysis
+   underneath a wrong headline is a wrong answer. If the honest verdict is
+   "insufficient evidence", lead with that.
+7. **Reserved, bogon and documentation ranges are BLOCK-and-investigate, never
+   allow.** RFC 1918, RFC 5737 (`192.0.2.0/24`, `198.51.100.0/24`,
+   `203.0.113.0/24`), RFC 6598, loopback, link-local and multicast have no
+   business as a source on a perimeter link. Every reputation service will
+   report them as clean and whitelisted, because there is nothing to report —
+   and that is not a reason to permit them. Seeing one in live traffic means
+   spoofing, a misconfigured device, or a sensor writing the wrong field, and
+   that is the finding worth escalating.
+
+   Any abuse report against such an address is itself evidence of
+   misattribution: a non-routable IP cannot have attacked anything. Say so
+   rather than repeating the report.
 
 ---
 
