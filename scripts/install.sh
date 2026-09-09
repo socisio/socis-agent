@@ -3708,9 +3708,15 @@ install_yargen_info() {
     log_info "it the goodware filtering does nothing and every generated rule matches"
     log_info "every Windows binary on the system."
     log_info ""
-    log_info "  git clone https://github.com/Neo23x0/yarGen.git"
-    log_info "  cd yarGen && pip install -r requirements.txt"
-    log_info "  python yarGen.py --update      # 913 MB goodware databases"
+    log_info "  bash scripts/install.sh --ensure yargen   # does all of the below"
+    log_info ""
+    log_info "  or by hand — note the database must live where SOCIS looks for it:"
+    log_info "  git clone https://github.com/Neo23x0/yarGen.git \\"
+    log_info "      ~/.socis-agent/tools/yargen/src"
+    log_info "  pip install -r ~/.socis-agent/tools/yargen/src/requirements.txt"
+    log_info "  cd ~/.socis-agent/tools/yargen && \\"
+    log_info "      python ~/.socis-agent/tools/yargen/src/yarGen.py --update"
+    log_info "  # yarGen writes dbs/ into the CWD, so the cd matters"
     log_info ""
     log_info "Or the Go rewrite, which upstream now recommends over the Python one:"
     log_info "  go install github.com/Neo23x0/yarGen-Go/cmd/yargen@latest"
@@ -3723,11 +3729,17 @@ install_yargen_info() {
 # ~913 MB goodware corpus lands under the agent home rather than in a cloned
 # repo someone might delete — yarGen resolves its dbs/ relative to yarGen.py,
 # so placement alone does it; no symlink.
-YARGEN_ROOT="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/tools/yarGen"
 # yarGen reads dbs/ from the CWD, not from beside yarGen.py, so the corpus
 # belongs to a pinned directory we always run from — matching
 # tools/detection_tools.py:_yargen_db_home() and the doctor check.
+#
+# ALL-LOWERCASE, and the checkout nests INSIDE the db home. An earlier revision
+# used `tools/yarGen` for the checkout and `tools/yargen` for the database:
+# distinct directories on Linux, the SAME directory on macOS and Windows, whose
+# filesystems are case-insensitive by default. That difference would not show
+# up on the machine it was written on.
 YARGEN_DB_HOME="${SOCIS_YARGEN_HOME:-${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/tools/yargen}"
+YARGEN_ROOT="$YARGEN_DB_HOME/src"
 
 install_yargen() {
     if command -v yarGen &>/dev/null || command -v yargen &>/dev/null; then
@@ -3790,7 +3802,18 @@ _yargen_ensure_db() {
     log_info "Downloading the yarGen goodware database (~913 MB) — this is slow."
     log_info "Skip with SOCIS_YARGEN_DB=0; yarGen is not usable without it."
     mkdir -p "$YARGEN_DB_HOME"
-    if (cd "$YARGEN_DB_HOME" && yarGen --update); then
+    # Resolve the binary explicitly: the wrapper was written to ~/.local/bin
+    # moments ago and that may not be on PATH in the current shell, so a bare
+    # `yarGen` here would fail on a first-time install — the exact case this
+    # function exists to serve.
+    local yg
+    if [ -x "$HOME/.local/bin/yarGen" ]; then
+        yg="$HOME/.local/bin/yarGen"
+    else
+        yg="$(command -v yarGen || command -v yargen)"
+    fi
+    [ -n "$yg" ] || { log_error "yarGen binary not found; cannot fetch the database"; return 1; }
+    if (cd "$YARGEN_DB_HOME" && "$yg" --update); then
         log_success "Goodware database ready ($dbdir)"
     else
         log_error "yarGen --update failed. Re-run it by hand: yarGen --update"

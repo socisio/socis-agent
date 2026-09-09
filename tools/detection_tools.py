@@ -324,11 +324,14 @@ def _handle_yargen(args: dict, **_kw) -> str:
     # directory that owns dbs/, and refuse rather than guess if it is absent.
     db_home = _yargen_db_home()
     if not (db_home / "dbs").is_dir():
-        return ("❌ yarGen goodware database not found at "
-                f"{db_home / 'dbs'}.\n\n"
+        try:
+            shown = "~/" + str(db_home.relative_to(Path.home()))
+        except ValueError:
+            shown = str(db_home)
+        return (f"❌ yarGen goodware database not found at {shown}/dbs.\n\n"
                 "Without it yarGen filters nothing and every rule it writes "
                 "matches every Windows binary. Build it with:\n"
-                f"  mkdir -p {db_home} && cd {db_home} && yarGen --update\n"
+                f"  mkdir -p {shown} && cd {shown} && yarGen --update\n"
                 "(~913 MB) — or `bash scripts/install.sh --ensure yargen`.")
 
     argv = [binary, "-m", str(p.resolve()), "-a", args.get("author") or "SOCIS Agent",

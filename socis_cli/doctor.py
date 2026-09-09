@@ -3488,8 +3488,17 @@ def run_doctor(args):
                     "(installed, but NO goodware database — every rule it "
                     "generates will match every Windows binary)",
                 )
-                check_info(f"    expected at: {_yg_dbs}")
-                check_info(f"    fix: mkdir -p {_yg_dbs.parent} && cd {_yg_dbs.parent} && yarGen --update")
+                # Show ~ rather than the expanded home: the absolute form
+                # reads as a hardcoded path and invites "why YOUR username?".
+                def _tilde(q: _P) -> str:
+                    try:
+                        return "~/" + str(q.relative_to(_P.home()))
+                    except ValueError:
+                        return str(q)
+
+                check_info(f"    expected at: {_tilde(_yg_dbs)}")
+                check_info(f"    fix: mkdir -p {_tilde(_yg_dbs.parent)} && "
+                           f"cd {_tilde(_yg_dbs.parent)} && yarGen --update")
                 check_info("    (~913 MB. Already downloaded elsewhere? Move that dbs/ here,")
                 check_info("     or set SOCIS_YARGEN_HOME to the directory that contains it.)")
             else:
