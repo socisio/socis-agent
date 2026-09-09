@@ -1,0 +1,500 @@
+name: Upstream Watch
+
+# Automates MAINTENANCE.md §B "Recurring: check for upstream fixes".
+#
+# Nous Research ships security and bug fixes to hermes-agent continuously.
+# Nothing reaches this fork automatically, and nobody remembers to check by
+# hand. This job does the checking and opens/updates ONE issue with what it
+# found.
+#
+# It deliberately does NOT cherry-pick. MAINTENANCE.md §B is explicit that
+# merging upstream wholesale reverts the rebrand, and that conflicts need a
+# human to separate "upstream's logic" from "our branding". An automated
+# cherry-pick would either fail on every conflict or silently reintroduce
+# Hermes naming. Reporting is the level of automation that is actually safe.
+
+on:
+  schedule:
+    # 07:00 UTC Mondays. Weekly is enough: upstream tags roughly monthly, and
+    # a daily run would just re-open the same issue with more noise.
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Only report commits after this upstream ref (default: the fork point in MAINTENANCE.md)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history: `git log HEAD..upstream/main` needs our side too, and
+          # a shallow clone would report every upstream commit as missing.
+          fetch-depth: 0
+
+      - name: Fetch upstream
+        shell: bash
+        run: |
+          set -uo pipefail
+          git remote add upstream https://github.com/NousResearch/hermes-agent.git 2>/dev/null || true
+          # --filter=blob:none keeps this fast: we only ever read commit
+          # metadata, never file contents. Tags are needed to resolve the fork
+          # point below.
+          git fetch --quiet --filter=blob:none upstream main
+          git fetch --quiet --filter=blob:none --tags upstream || true
+          echo "upstream_head=$(git rev-parse upstream/main)" >> "$GITHUB_ENV"
+
+          # RESOLVE A BASELINE. This is the difference between a usable report
+          # and an unusable one.
+          #
+          # The first version used `HEAD..upstream/main` on the assumption that
+          # it meant "everything upstream did since the fork". It does not.
+          # This repository was created fresh rather than forked, so it shares
+          # NO commits with upstream — and `HEAD..upstream/main` therefore
+          # means every upstream commit that has ever existed. The first run
+          # reported 32,737 commits and 4,342 "security-relevant" ones, which
+          # nobody will ever read.
+          #
+          # A TAG IS UNLIKELY TO WORK HERE. MAINTENANCE.md records that this
+          # fork was taken from upstream `main` ahead of every tagged release:
+          # the inherited pyproject.toml read 0.21.0 while upstream's published
+          # tags topped out at v0.19.0. So there is probably no tag matching
+          # the fork point, and a date is the only reliable baseline.
+          #
+          # FORK_DATE is that baseline. It must not be earlier than the fork,
+          # or the report lists commits already present in this repository —
+          # the first run did exactly that, surfacing 2026-05-25 commits as
+          # outstanding.
+          #
+          # Order of preference:
+          #   1. the `since` input — accepts a ref OR a YYYY-MM-DD date
+          #   2. a tag, if one happens to resolve
+          #   3. FORK_DATE from MAINTENANCE.md
+          FORK_DATE="2026-09-01"
+          SINCE_INPUT="${{ inputs.since }}"
+          base=""; datecut=""
+          if [ -n "$SINCE_INPUT" ]; then
+            if printf '%s' "$SINCE_INPUT" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+              datecut="$SINCE_INPUT"; how="date from workflow input"
+            elif git rev-parse --verify --quiet "$SINCE_INPUT" >/dev/null; then
+              base="$SINCE_INPUT"; how="ref from workflow input"
+            else
+              datecut="$FORK_DATE"; how="fork date — input '$SINCE_INPUT' did not resolve"
+            fi
+          elif git rev-parse --verify --quiet "v0.21.0" >/dev/null; then
+            base="v0.21.0"; how="upstream tag v0.21.0"
+          else
+            datecut="$FORK_DATE"
+            how="fork date from MAINTENANCE.md (no matching upstream tag exists)"
+          fi
+          echo "base_ref=$base" >> "$GITHUB_ENV"
+          echo "base_date=$datecut" >> "$GITHUB_ENV"
+          echo "base_how=$how" >> "$GITHUB_ENV"
+          echo "Baseline: ${base:-$datecut} — $how"
+
+      - name: Find security-relevant commits we don't have
+        id: scan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Range comes from the baseline resolved in the previous step, NOT
+          # from `HEAD..upstream/main`. See that step for why: with no shared
+          # ancestor, HEAD.. means all of upstream history.
+          if [ -n "${base_ref:-}" ]; then
+            RANGE="$base_ref..upstream/main"
+            DATEFILTER=""
+          else
+            RANGE="upstream/main"
+            DATEFILTER="--since=${base_date:-2026-09-01}"
+          fi
+          # Tuned against real upstream subjects. Terms like 'hardening',
+          # 'bypass' and 'leak' catch fixes that never say "security" — e.g.
+          # "body-size cap on aiohttp webhook servers" is DoS hardening. This
+          # is still a filter, not a classifier; the issue body says so and
+          # points at the full log.
+          # `auth` on its own is too greedy: it matches "author",
+          # "authoritative" and "authority", which produced rows like
+          # "publish authoritative live progress" in the first real report.
+          # Require the security senses explicitly.
+          SEC_GREP='security|CVE|GHSA|vulnerab|exploit|injection|sanitiz|escape|authoriz|authent|unauthoriz|credential|secret|token|traversal|RCE|XSS|SSRF|redact|harden|bypass|spoof|CSRF|overflow|denial|DoS|leak|privile|unsafe'
+
+          # Drop commit types that are never cherry-picked as fixes. In the
+          # first real report 31% of matches were docs/test/refactor — e.g.
+          # "docs: clarify fallback credential and cooldown behavior" and
+          # "test: isolate external auth stores in pool command fixtures".
+          # They match the keywords because they touch security code, not
+          # because they change behaviour, and they crowd out the rows that do.
+          NOISE_PREFIX='^[0-9a-f]+\|[0-9-]+\|(docs|test|chore|refactor|style|ci|build)(\(|:)'
+
+          # %cd (COMMITTER date), not %ad (author date).
+          #
+          # --since filters on committer date, so displaying author date shows
+          # commits that look older than the window. The first report listed
+          # 2026-05-25 commits under a 2026-09-01 baseline — authored in May,
+          # rebased into main in September. The filter was right; the column
+          # lied about it.
+          # shellcheck disable=SC2086  # DATEFILTER is intentionally unquoted
+          git log --no-merges --date=short $DATEFILTER \
+                  --pretty=format:'%h|%cd|%s' \
+                  "$RANGE" \
+            | grep -iE "\|[^|]*($SEC_GREP)" \
+            | grep -ivE "$NOISE_PREFIX" > /tmp/sec.txt || true
+          # Rank by subsystem, do NOT filter by it.
+          #
+          # A Sept 2026 audit of 27 of these commits produced 4 real fixes, and
+          # every one was in a subsystem this fork actually runs. The rest were
+          # already applied, absent from this tree, or aimed at relay / cron /
+          # kanban-notifier / gateway busy-injection code we do not deploy. So
+          # the list is worth ORDERING — but not truncating: dropping a
+          # subsystem here would silently stop surfacing its fixes the day
+          # someone enables it, which is the failure mode this whole file
+          # exists to avoid. The full list still prints below the priority one.
+          #
+          # PATHS ARE UPSTREAM'S, NOT OURS. `git log <range> -- <pathspec>`
+          # resolves against hermes-agent's tree, so these must say
+          # `hermes_cli/`, never the rebranded `socis_cli/`. A pathspec that
+          # matches nothing yields an empty section, not an error — which reads
+          # exactly like "upstream was quiet this week".
+          WATCH_PATHS="
+            tools/approval tools/approval_detection.py
+            agent/credential_pool.py agent/auxiliary_client.py
+            agent/anthropic_credentials.py agent/client_lifecycle.py
+            agent/command_token_source.py agent/image_routing.py
+            agent/model_metadata.py agent/context_references.py
+            tui_gateway/mcp_oauth_sessions.py tui_gateway/methods_tools.py
+            hermes_cli/mcp_config.py hermes_cli/mcp_catalog.py
+            hermes_cli/_subprocess_compat.py hermes_cli/curses_ui.py
+            hermes_cli/doctor.py hermes_cli/auth_commands.py
+            tools/mcp_tool.py tools/mcp_oauth.py tools/skills_hub_install.py
+            tools/file_operations.py tools/process_registry.py
+            apps/desktop/electron apps/desktop/src
+            gateway/platforms optional-mcps
+          "
+          # shellcheck disable=SC2086
+          git log --no-merges $DATEFILTER --pretty=format:'%h' "$RANGE" \
+                  -- $WATCH_PATHS 2>/dev/null | sort -u > /tmp/watched.txt || true
+          # Keep sec.txt's order (newest first) while selecting watched hashes.
+          awk -F'|' 'NR==FNR{w[$1];next} ($1 in w)' /tmp/watched.txt /tmp/sec.txt \
+            > /tmp/sec_priority.txt || true
+          prio=$(wc -l < /tmp/sec_priority.txt | tr -d ' ')
+          echo "prio=$prio" >> "$GITHUB_OUTPUT"
+          echo "$prio of them touch subsystems this fork runs."
+
+          # shellcheck disable=SC2086
+          total=$(git rev-list --count $DATEFILTER "$RANGE" 2>/dev/null || echo 0)
+          sec=$(wc -l < /tmp/sec.txt | tr -d ' ')
+
+          echo "total=$total"   >> "$GITHUB_OUTPUT"
+          echo "sec=$sec"       >> "$GITHUB_OUTPUT"
+          echo "Upstream has $total commits we don't; $sec look security-relevant."
+
+          # Cap the body — an issue with 800 rows is unreadable and GitHub
+          # rejects bodies over 65536 chars.
+          {
+            echo "Upstream \`NousResearch/hermes-agent\` has **$total** commits since the baseline."
+            echo ""
+            echo "Baseline: \`${base_ref:-${base_date:-2026-09-01}}\` (${base_how:-unknown})."
+            echo "**$sec** are security-relevant behaviour changes (docs/test/refactor excluded)."
+            echo ""
+            echo "Scanned \`upstream/main\` @ \`${upstream_head:0:12}\` on $(date -u +%Y-%m-%d)."
+            echo ""
+            if [ "$prio" -gt 0 ]; then
+              echo "### Review these first — subsystems this fork runs ($prio)"
+              echo ""
+              echo "Ranked, not filtered: the full list follows. Ordering is by"
+              echo "path, so a commit here still needs reading — and one below"
+              echo "still matters if you enable that subsystem."
+              echo ""
+              echo "| commit | date | subject |"
+              echo "|---|---|---|"
+              head -40 /tmp/sec_priority.txt | while IFS='|' read -r h d s; do
+                printf '| [`%s`](https://github.com/NousResearch/hermes-agent/commit/%s) | %s | %s |\n' \
+                  "$h" "$h" "$d" "$(printf '%s' "$s" | sed 's/|/\\|/g')"
+              done
+              [ "$prio" -gt 40 ] && echo "" && echo "_…and $((prio - 40)) more in watched paths._"
+              echo ""
+            fi
+            if [ "$sec" -gt 0 ]; then
+              echo "### All security-relevant commits"
+              echo ""
+              echo "| commit | date | subject |"
+              echo "|---|---|---|"
+              head -60 /tmp/sec.txt | while IFS='|' read -r h d s; do
+                # Escape pipes so a subject containing '|' can't break the table
+                printf '| [`%s`](https://github.com/NousResearch/hermes-agent/commit/%s) | %s | %s |\n' \
+                  "$h" "$h" "$d" "$(printf '%s' "$s" | sed 's/|/\\|/g')"
+              done
+              [ "$sec" -gt 60 ] && echo "" && echo "_…and $((sec - 60)) more._"
+              echo ""
+            else
+              echo "No security-keyword matches this week."
+              echo ""
+            fi
+            echo "---"
+            echo ""
+            echo "### Before applying anything"
+            echo ""
+            echo "Read **MAINTENANCE.md §B**. In short:"
+            echo ""
+            echo '- Cherry-pick individual commits (`git cherry-pick -n <sha>`); do NOT merge `upstream/main` — it reverts the rebrand.'
+            echo "- Conflicts are almost always branding. Take upstream's *logic*, then rename separately so the two stay reviewable."
+            echo '- Never let a patch overwrite: `DEFAULT_NOUS_CLIENT_ID = "hermes-cli"`, the `com.nousresearch.hermes` bundle ID, `@nous-research/*` packages, `hermes-estree`/`hermes-parser`, Nous infrastructure URLs, or the `nous`/`nous-alt` theme keys.'
+            echo ""
+            echo "Keyword matching is a filter, not a judgement. \`docs:\`, \`test:\`, \`refactor:\` and \`chore:\` commits are excluded because they do not change behaviour — a refactor that quietly fixes a bug would be missed. Skim the unfiltered list with:"
+            echo ""
+            echo '```bash'
+            echo 'git fetch upstream main'
+            # NOT `HEAD..upstream/main` — this repo shares no history with
+            # upstream, so that lists all 32,000+ upstream commits. Give the
+            # same windowed query the job itself uses.
+            echo "git log --oneline --since=${base_date:-2026-09-01} upstream/main"
+            echo '```'
+          } > /tmp/body.md
+
+      - name: Open or update the tracking issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const body = fs.readFileSync('/tmp/body.md', 'utf8')
+            const title = 'Upstream watch: security fixes available from hermes-agent'
+
+            // One rolling issue, not a new one per run — otherwise the tracker
+            // fills with near-identical reports nobody reads.
+            const { data: found } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-watch',
+              per_page: 1,
+            })
+
+            if (found.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: found[0].number, body,
+              })
+              core.notice(`Updated #${found[0].number}`)
+            } else if (${{ steps.scan.outputs.sec }} > 0) {
+              // Only open a NEW issue when there is something to act on. An
+              // empty "nothing found" issue every week trains people to ignore
+              // the label.
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['upstream-watch', 'security'],
+              })
+              core.notice(`Opened #${issue.number}`)
+            } else {
+              core.notice('Nothing security-relevant upstream; no issue opened.')
+            }
+
+  # ── Pinned MCP servers ─────────────────────────────────────────────────────
+  #
+  # Five catalog entries install third-party code pinned to an exact commit.
+  # The pin is deliberate — it freezes what was reviewed — but it also means a
+  # security fix upstream never arrives on its own, and nothing would tell us
+  # it exists.
+  #
+  # That is not hypothetical. `ioc-reputation` and `attack-surface` both
+  # shipped a CVSS 9.9 axios prototype-pollution chain (CVE-2026-40175),
+  # because upstream capped axios below the fix during the March 2026 npm
+  # supply-chain incident. We found it by auditing, not by being told.
+  #
+  # Repos and pins are read from the manifests themselves rather than
+  # duplicated here, so bumping a pin cannot desync this job.
+  mcp-servers:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare each pinned commit against upstream HEAD
+        id: scan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # GitHub Actions runs `bash -e`, so ANY non-zero command aborts the
+        # step. That matters here because most manifests are remote/npx
+        # entries with no `url:` line at all — only 6 of 74 are git-pinned.
+        # An `[ -n "$url" ] && ...` guard returns 1 on those and killed the
+        # whole run on the first one. Every conditional below is written so a
+        # legitimate "no match" is never an error.
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          # Parse repo + ref straight out of the manifests. yq is not assumed;
+          # the fields are simple enough that grep is more portable here.
+          entries=""
+          for d in optional-mcps/*/; do
+            m="$d/manifest.yaml"
+            if [ ! -f "$m" ]; then
+              continue
+            fi
+            # POSIX classes, not \s. GNU grep accepts \s as an extension but it
+            # is not portable and it does not survive shell quoting reliably —
+            # during development this silently matched 1 manifest of 5, which
+            # is exactly the kind of quiet miss this whole job exists to catch.
+            #
+            # `|| true` on both greps: a manifest without a git install has
+            # neither line, and that is normal, not a failure.
+            url=$(grep -E '^[[:space:]]+url: https://github.com/' "$m" 2>/dev/null | head -1 \
+                  | sed -E 's#.*github\.com/##; s#\.git[[:space:]]*$##; s#[[:space:]]*$##' || true)
+            ref=$(grep -E '^[[:space:]]+ref: [0-9a-f]{40}' "$m" 2>/dev/null | head -1 | awk '{print $2}' || true)
+            if [ -n "$url" ] && [ -n "$ref" ]; then
+              entries="$entries$(basename "$d")|$url|$ref"$'\n'
+            fi
+          done
+
+          # Log what was scanned BEFORE deciding anything. The first version
+          # exited here writing only to a file, so a run that found nothing
+          # produced a completely empty step log — indistinguishable from a
+          # crash, and giving no clue whether the directory was missing, the
+          # manifests were uncommitted, or the greps had stopped matching.
+          # Guard the directory test EXPLICITLY rather than relying on `|| true`.
+          #
+          # This step runs under `-e -o pipefail`. `find missing-dir | wc -l`
+          # fails, pipefail propagates the failure through the pipeline, and an
+          # assignment from a failed command substitution aborts the step. The
+          # first version of this check therefore died silently at the exact
+          # moment it was supposed to report a missing directory — the third
+          # errexit bug in this job, all the same shape: a command that
+          # legitimately returns non-zero, in a shell that treats that as
+          # fatal. `|| true` on the substitution does not help, because the
+          # failure is inside the pipeline, not at its end.
+          manifest_count=0
+          if [ -d optional-mcps ]; then
+            manifest_count=$(find optional-mcps -maxdepth 2 -name manifest.yaml | wc -l | tr -d ' ')
+          fi
+          pinned_count=0
+          if [ -n "$entries" ]; then
+            pinned_count=$(printf '%s' "$entries" | grep -c '|')
+          fi
+          echo "Scanned optional-mcps/: $manifest_count manifest(s), $pinned_count git-pinned."
+
+          if [ -z "$entries" ]; then
+            if [ "$manifest_count" -eq 0 ]; then
+              # Not "nothing to do" — the directory is absent from the
+              # checkout. Fail loudly: silently reporting all-clear when the
+              # input is missing is the worst outcome for a watch job.
+              echo "::error::optional-mcps/ contains no manifest.yaml files."
+              echo "  Either the directory is not committed, or .gitignore excludes it."
+              echo "  Check with: git ls-files optional-mcps | grep -c manifest.yaml"
+              exit 1
+            fi
+            echo "::notice::$manifest_count manifests present but none are git-pinned — nothing to watch."
+            echo "No pinned MCP entries found." > /tmp/mcp-body.md
+            echo "behind=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          behind=0
+          {
+            echo "## Pinned MCP servers"
+            echo ""
+            echo "| Entry | Repo | Pinned | Upstream HEAD | Behind |"
+            echo "|---|---|---|---|---|"
+          } > /tmp/mcp-table.md
+
+          while IFS='|' read -r name repo ref; do
+            [ -n "${name:-}" ] || continue
+            # `|| true` is load-bearing: git ls-remote exits non-zero for a
+            # deleted or renamed repo, which is precisely the case this job
+            # most wants to report. Without it, the one condition worth an
+            # alert would instead abort the run silently.
+            head=$(git ls-remote "https://github.com/$repo" HEAD 2>/dev/null | awk '{print $1}' || true)
+            if [ -z "$head" ]; then
+              # A repo that has moved or been deleted matters more than one that
+              # is merely behind — the pin still clones today only because a
+              # redirect happens to work, and whoever holds the old namespace
+              # controls that. Three of these five have already moved once.
+              printf '| `%s` | `%s` | `%s` | **UNREACHABLE** | ⚠ check the repo still exists |\n' \
+                "$name" "$repo" "${ref:0:12}" >> /tmp/mcp-table.md
+              behind=$((behind + 1))
+              continue
+            fi
+            if [ "$head" = "$ref" ]; then
+              printf '| `%s` | `%s` | `%s` | same | current |\n' \
+                "$name" "$repo" "${ref:0:12}" >> /tmp/mcp-table.md
+            else
+              printf '| `%s` | `%s` | `%s` | `%s` | [compare](https://github.com/%s/compare/%s...%s) |\n' \
+                "$name" "$repo" "${ref:0:12}" "${head:0:12}" "$repo" "$ref" "$head" >> /tmp/mcp-table.md
+              behind=$((behind + 1))
+            fi
+          done <<< "$entries"
+
+          {
+            cat /tmp/mcp-table.md
+            echo ""
+            if [ "$behind" -eq 0 ]; then
+              echo "All pinned MCP servers are at upstream HEAD."
+            else
+              echo "**$behind** pinned server(s) differ from upstream."
+              echo ""
+              echo "### Before bumping a pin"
+              echo ""
+              echo "- Read the compare link. A pin exists to freeze what was reviewed; moving it means reviewing again."
+              echo "- The new commit must be **at least 2 weeks old**. A freshly-pushed commit is what a compromised maintainer account produces, and two weeks is the window in which the community notices. The one exception is first-party code (\`nvd\`), where there is no upstream maintainer to compromise."
+              echo "- Re-check the **licence**. Two repositories in this catalog's research looked adoptable and had no LICENSE file at all."
+              echo "- Re-check the **canonical path**. Three of these five have already moved owners; \`git ls-remote\` follows redirects silently, and whoever holds the old namespace controls where it points."
+              echo "- After bumping, re-run \`npm audit\` in the install directory. The \`npm audit fix\` step in each manifest bootstrap handles transitive advisories, but a new upstream dependency cap can reintroduce one — that is how CVE-2026-40175 reached two of these servers."
+              echo ""
+              echo "See \`optional-mcps/MCP-IMPLEMENTATION-TRACKING.md\` for the full verification procedure."
+            fi
+          } > /tmp/mcp-body.md
+
+          echo "behind=$behind of $pinned_count pinned server(s)."
+          cat /tmp/mcp-table.md
+          echo "behind=$behind" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the tracking issue
+        if: steps.scan.outputs.behind != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const body = fs.readFileSync('/tmp/mcp-body.md', 'utf8')
+            const title = 'Upstream watch: pinned MCP servers have moved'
+
+            // One rolling issue, same as the hermes-agent job — a new issue per
+            // run would bury the signal.
+            const { data: found } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-watch',
+              per_page: 20,
+            })
+            const existing = found.find(i => i.title === title)
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              })
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['upstream-watch'],
+              })
+            }
