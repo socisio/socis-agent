@@ -794,9 +794,12 @@ registry.register(
     schema={
         "name": "sigma_convert",
         "description": (
-            "Convert a Sigma rule to one or more SIEM query languages. Always pass "
+            "Convert a Sigma rule to a SIEM query language. Always pass "
             "`pipelines` — without them field names stay generic and the query can be "
-            "valid yet never match. Check available backends with sigma_list first."
+            "valid yet never match. Check available backends with sigma_list first. "
+            "SIEM backends ONLY: there is no YARA target and cannot be — Sigma matches "
+            "log events, YARA matches file contents. A sample usually wants both rules, "
+            "authored separately, not one converted into the other."
         ),
         "input_schema": {
             "type": "object",

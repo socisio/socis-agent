@@ -560,3 +560,24 @@ def test_explicit_reference_wins(tmp_path, db_home, stub_yargen):
     _handle_yargen({"samples_dir": str(samples), "reference": "CASE-4471"})
     argv = _argv(stub_yargen)
     assert argv[argv.index("-r") + 1] == "CASE-4471"
+
+
+def test_sigma_convert_description_rules_out_a_yara_target():
+    """The description is in context whenever the tool is loaded.
+
+    Asked "can I convert Sigma to YARA?", the agent answered "yes, with
+    caveats" and offered to do it with sigma_convert — describing a capability
+    that does not exist. The skill covering this was never loaded, because a
+    conversational question does not trigger skill loading. The tool
+    description is the one place the fact is always present.
+    """
+    import ast as _ast
+    import re as _re
+    src = pathlib.Path("tools/detection_tools.py").read_text(encoding="utf-8")
+    m = _re.search(
+        r'registry\.register\(\s*name="sigma_convert".*?schema=(\{.*?\}),\s*\n\s*handler=',
+        src, _re.S,
+    )
+    desc = _ast.literal_eval(m.group(1))["description"].lower()
+    assert "no yara target" in desc
+    assert "log events" in desc and "file contents" in desc

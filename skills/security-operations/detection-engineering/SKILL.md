@@ -147,6 +147,31 @@ level: high
 
 ---
 
+## Sigma does not convert to YARA
+
+They are not two formats for the same thing, and there is no pipeline between
+them:
+
+|            | Sigma                                  | YARA                        |
+|------------|----------------------------------------|-----------------------------|
+| Matches on | **log events** — process creation, network connections, authentication | **file contents** — bytes, strings, PE structure |
+| Runs in    | a SIEM, against telemetry already collected | a scanner, against files on disk or in memory |
+| Converts to| SIEM query languages (SPL, KQL, Lucene, EQL…) | nothing — YARA *is* the target format |
+| Authored by| a human writing detection logic         | extracted from samples (yarGen) then pruned |
+
+`sigma_convert` targets SIEM backends. `sigma_list` (what=targets) is the
+complete set of what it can produce, and YARA is not among them and never will
+be.
+
+A single threat usually wants **both**, covering different evidence: a YARA
+rule for the dropper on disk, and a Sigma rule for the process behaviour it
+causes. That is two rules authored separately from the same investigation, not
+one converted into the other. Offering to "convert Sigma to YARA" describes a
+workflow that does not exist, and an analyst who does not already know that
+will waste time looking for it.
+
+---
+
 ## The conversion trap
 
 **This is the part that bites people.** A Sigma rule can be perfectly valid
