@@ -22,6 +22,7 @@ import pytest
 
 from tools.detection_tools import (
     _file_format,
+    _fence_for,
     _handle_sigma_check,
     _handle_sigma_convert,
     _handle_yara_scan,
@@ -484,3 +485,64 @@ def test_sigma_convert_schema_permits_string_or_array():
     schema = _ast.literal_eval(m.group(1))
     pl = schema["input_schema"]["properties"]["pipelines"]["type"]
     assert "string" in pl and "array" in pl, f"pipelines type is {pl!r}"
+
+
+# ── Output is Markdown, and the reference names provenance ─────────────────
+
+
+def test_converted_query_is_fenced_with_the_backend_language(stub_sigma, sigma_rule):
+    """A SIEM query is pasted into a search bar verbatim.
+
+    Unfenced, the desktop chat reflows it as prose and a collapsed line break
+    or lost indentation is not cosmetic.
+    """
+    script = stub_sigma / "sigma"
+    script.write_text(
+        "#!/usr/bin/env python3\nprint('Image=\"*powershell.exe\"')\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    out = _handle_sigma_convert({
+        "rule_file": str(sigma_rule), "target": "splunk",
+        "pipelines": ["splunk_windows"],
+    })
+    assert "```spl" in out and out.rstrip().endswith("```")
+    assert "splunk_windows" in out
+
+
+@pytest.mark.parametrize(
+    "target,expected",
+    [("splunk", "spl"), ("kusto", "kql"), ("loki", "logql"),
+     ("eql", "eql"), ("elastalert", "yaml"), ("no_such_backend", "text")],
+)
+def test_fence_language_per_backend(target, expected):
+    assert _fence_for(target) == expected
+
+
+def test_output_format_overrides_the_backend_language():
+    """Non-default formats emit config files, not a bare query."""
+    assert _fence_for("splunk", "savedsearches.conf") == "ini"
+    assert _fence_for("splunk", "") == "spl"
+
+
+def test_yargen_reference_defaults_to_the_socis_rules_repo(
+    tmp_path, db_home, stub_yargen
+):
+    """yarGen stamps its OWN repo when -r is absent, so every rule pointed at
+    the generator instead of its provenance."""
+    samples = tmp_path / "samples"
+    samples.mkdir()
+    _sample(samples, "a.exe", PE)
+    _handle_yargen({"samples_dir": str(samples)})
+    argv = _argv(stub_yargen)
+    ref = argv[argv.index("-r") + 1]
+    assert "socisio/socis-rules" in ref
+    assert "Neo23x0" not in ref
+
+
+def test_explicit_reference_wins(tmp_path, db_home, stub_yargen):
+    samples = tmp_path / "samples"
+    samples.mkdir()
+    _sample(samples, "a.exe", PE)
+    _handle_yargen({"samples_dir": str(samples), "reference": "CASE-4471"})
+    argv = _argv(stub_yargen)
+    assert argv[argv.index("-r") + 1] == "CASE-4471"

@@ -173,6 +173,39 @@ def _handle_sigma_list(args: dict, **_kw) -> str:
     return out
 
 
+# Markdown fence language per Sigma backend, so a converted query renders as
+# code in the desktop chat instead of reflowing as prose. Wrong indentation or
+# a collapsed line break in a SIEM query is not cosmetic: it is pasted straight
+# into a search bar.
+_BACKEND_FENCE = {
+    "splunk": "spl", "splunk_spl2": "spl",
+    "kusto": "kql", "sentinel": "kql", "microsoft365defender": "kql",
+    "lucene": "json", "opensearch_lucene": "json",
+    "eql": "eql", "esql": "esql",
+    "elastalert": "yaml", "sigma": "yaml",
+    "loki": "logql",
+    "secops": "sql", "carbon_black": "text",
+    "sentinel_one": "text", "sentinel_one_pq": "text",
+    "open_search_ppl": "text", "log_scale": "text",
+}
+
+
+def _fence_for(target: str, fmt: str = "") -> str:
+    """Fence tag for a backend, or a format that overrides it.
+
+    A backend's non-default formats emit config files rather than a bare query
+    — Splunk's savedsearches.conf, for instance — so the format wins when set.
+    """
+    f = (fmt or "").lower()
+    if "conf" in f:
+        return "ini"
+    if "yaml" in f or "yml" in f:
+        return "yaml"
+    if "json" in f:
+        return "json"
+    return _BACKEND_FENCE.get((target or "").lower(), "text")
+
+
 def _handle_sigma_convert(args: dict, **_kw) -> str:
     rule, err = _resolve_rule_text(args, (".yml", ".yaml"))
     if err:
@@ -214,7 +247,15 @@ def _handle_sigma_convert(args: dict, **_kw) -> str:
     argv.append(path)
     try:
         res = _run(argv)
-        out = _fmt(res, on_success="(no output)")
+        if res.get("ok") and (res.get("stdout") or "").strip():
+            lang = _fence_for(target, fmt or "")
+            out = (f"✅ Converted to `{target}`"
+                   + (f" via {', '.join(str(x) for x in pipelines)}" if pipelines else "")
+                   + f".\n\n```{lang}\n{res['stdout'].strip()}\n```")
+            if res.get("truncated"):
+                out += "\n\n[output truncated]"
+        else:
+            out = _fmt(res, on_success="(no output)")
         if res.get("ok") and not pipelines:
             out += ("\n\n⚠ No pipeline specified. Field names stay generic and may not "
                     "match your SIEM's schema — the query can be syntactically valid "
@@ -361,6 +402,15 @@ def _handle_yara_scan(args: dict, **_kw) -> str:
         return _fmt(res, on_success="(no output)")
     finally:
         Path(rule_path).unlink(missing_ok=True)
+
+
+# Where SOCIS-generated detections live. Used as the default rule `reference`
+# so a rule points at its provenance rather than at whichever tool emitted it.
+# Override per rule with the `reference` parameter (a case id or report URL is
+# more useful when there is one), or globally with SOCIS_RULES_REPO.
+SOCIS_RULES_REPO = os.environ.get(
+    "SOCIS_RULES_REPO", "https://github.com/socisio/socis-rules"
+)
 
 
 def _yargen_db_home() -> Path:
@@ -514,8 +564,11 @@ def _handle_yargen(args: dict, **_kw) -> str:
         argv += ["-z", str(int(args["min_score"]))]
     if args.get("max_strings") is not None:
         argv += ["-rc", str(int(args["max_strings"]))]
-    if args.get("reference"):
-        argv += ["-r", str(args["reference"])]
+    # yarGen stamps its OWN repo as the rule reference when -r is absent, so
+    # every rule SOCIS produced pointed at github.com/Neo23x0/yarGen — the
+    # generator, not the provenance. A reference is meant to say where the
+    # detection came from, which is the first thing another analyst follows.
+    argv += ["-r", str(args.get("reference") or SOCIS_RULES_REPO)]
     try:
         res = _run(argv, cwd=str(db_home), timeout=600)  # extraction is slow
         if res.get("error"):
@@ -852,7 +905,7 @@ registry.register(
                 "exclude_good": {"type": "boolean", "description": "Drop goodware strings outright instead of down-scoring them. Fewer false positives, but can empty a rule for a family that reuses common code."},
                 "min_score": {"type": "integer", "description": "Score floor for a string (yarGen default 0). Raise only after a first run shows low-value strings surviving — guessing a floor blind can empty the rule."},
                 "max_strings": {"type": "integer", "description": "Max strings per rule (yarGen default 20)."},
-                "reference": {"type": "string", "description": "Reference for rule metadata — a case id, report URL, or sample source."},
+                "reference": {"type": "string", "description": "Reference for rule metadata — a case id, report URL, or sample source. Defaults to the SOCIS rules repo; set this when the rule has a more specific provenance."},
             },
             "required": ["samples_dir"],
         },
