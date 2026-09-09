@@ -306,6 +306,7 @@ def _yargen_survey(root: Path) -> dict:
     advance either.
     """
     files, largest, biggest_name = 0, 0, ""
+    formats: dict[str, int] = {}
     for f in root.rglob("*"):
         try:
             if not f.is_file() or f.is_symlink():
@@ -316,8 +317,39 @@ def _yargen_survey(root: Path) -> dict:
         files += 1
         if size > largest:
             largest, biggest_name = size, f.name
+        fmt = _file_format(f)
+        formats[fmt] = formats.get(fmt, 0) + 1
     return {"files": files, "largest": largest, "largest_name": biggest_name,
-            "largest_mb": largest / (1024 * 1024)}
+            "largest_mb": largest / (1024 * 1024), "formats": formats}
+
+
+# yarGen's downloadable corpus is built from WINDOWS goodware. Feed it Mach-O
+# or ELF samples and its filtering finds nothing to remove, so platform
+# boilerplate survives into the rule: a macOS run produced a rule keyed on
+# `__mh_execute_header` and Apple OCSP URLs, which matches every signed binary
+# on the machine. The rule compiled, scanned, and hit both samples — it looked
+# like success at every step. Only the corpus knew better, and it had no way
+# to say so.
+_MAGIC = (
+    (b"MZ", "pe"),
+    (b"\x7fELF", "elf"),
+    (b"\xcf\xfa\xed\xfe", "macho"),   # 64-bit LE
+    (b"\xce\xfa\xed\xfe", "macho"),   # 32-bit LE
+    (b"\xca\xfe\xba\xbe", "macho"),   # universal/fat
+    (b"PK\x03\x04", "zip"),
+)
+
+
+def _file_format(path: Path) -> str:
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(4)
+    except OSError:
+        return "other"
+    for magic, name in _MAGIC:
+        if head.startswith(magic):
+            return name
+    return "other"
 
 
 def _yargen_check() -> bool:
@@ -434,9 +466,35 @@ def _handle_yargen(args: dict, **_kw) -> str:
 
         # Report what was decided FROM the sample set, so the reasoning is
         # visible rather than buried in argv.
-        header = f"✅ {survey['files']} sample(s), largest {survey['largest_mb']:.1f} MB."
+        fmts = survey.get("formats") or {}
+        fmt_desc = ", ".join(f"{n}× {k}" for k, n in
+                             sorted(fmts.items(), key=lambda kv: -kv[1]))
+        header = (f"✅ {survey['files']} sample(s), largest "
+                  f"{survey['largest_mb']:.1f} MB"
+                  + (f" ({fmt_desc})" if fmt_desc else "") + ".")
         if notes:
             header += "\n" + "\n".join(f"   • {n}" for n in notes)
+
+        # Corpus mismatch is the failure that looks most like success: the rule
+        # compiles, scans, and hits the samples, while being built entirely
+        # from platform boilerplate the Windows corpus never had a chance to
+        # filter. Say it BEFORE the rule, not after — this is the one thing
+        # that decides whether the output is usable.
+        non_pe = sum(n for k, n in fmts.items() if k in ("macho", "elf"))
+        if non_pe:
+            kinds = " and ".join(k for k in ("macho", "elf") if fmts.get(k))
+            header += (
+                f"\n\n🚨 CORPUS MISMATCH: {non_pe} of {survey['files']} sample(s) "
+                f"are {kinds}, but yarGen's downloaded goodware database is built "
+                "from WINDOWS binaries. Platform boilerplate "
+                "(`__mh_execute_header`, code-signing URLs, ELF section names) "
+                "was NOT filtered and will be in the rule below — it may match "
+                "every signed binary on the host.\n"
+                "   Before trusting this rule: run `yara_scan` against a "
+                "goodware directory (/usr/bin, /Applications). ANY hit there "
+                "means the rule is not finished. Matching the samples proves "
+                "nothing on its own."
+            )
 
         # A thin rule and an absent one fail the same way to a reader: it looks
         # like the family simply had nothing distinctive. Say which it is, and
