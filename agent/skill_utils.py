@@ -1254,7 +1254,13 @@ def resolve_skill_config_values(
 
 # ── Description extraction ────────────────────────────────────────────────
 
-SKILL_PROMPT_DESC_LIMIT = 60
+# Raised from 60. At 60 every security-operations description was cut
+# mid-sentence — alert-triage's "'is this real?'" and incident-response's
+# "notification clocks" never reached the model, which is half of what the
+# description was rewritten to say. Measured across 66 skills: only 8 exceed
+# 60 chars, so 120 truncates nothing and costs ~82 tokens in total. The cap
+# still exists because a runaway description would otherwise crowd the index.
+SKILL_PROMPT_DESC_LIMIT = 120
 
 # Trigger phrases shown alongside a skill's description in the prompt index.
 #
