@@ -66,6 +66,31 @@ _SCHEMA_LITERAL_KEYS = frozenset({"const", "default", "enum", "example", "exampl
 # rejected by the registry's existing override-protection logic.
 TOOL_SEARCH_NAME = "tool_search"
 TOOL_DESCRIBE_NAME = "tool_describe"
+
+def _fn_parameters(fn: Dict[str, Any]) -> Dict[str, Any]:
+    """The JSON-Schema for a tool's arguments, whichever key carries it.
+
+    Two shapes reach this module. MCP tools are normalised to OpenAI's
+    ``parameters``; tools registered through tools/registry.py keep the
+    Anthropic ``input_schema`` they were declared with, because registry.py
+    builds the function dict as ``{**entry.schema, "name": ...}`` and never
+    renames the key.
+
+    Reading only ``parameters`` therefore returned ``{}`` for EVERY registry
+    tool — the model was told a tool existed, and its prose description, but
+    not one argument name. Observed downstream as: calling a tool with no
+    arguments purely to read the error and learn the schema, and guessing that
+    yara_scan's `rule` might take a file path. MCP tools described correctly
+    throughout, which is why it went unnoticed.
+    """
+    params = fn.get("parameters")
+    if isinstance(params, dict) and params.get("properties"):
+        return params
+    alt = fn.get("input_schema")
+    if isinstance(alt, dict) and alt.get("properties"):
+        return alt
+    return params if isinstance(params, dict) else (alt if isinstance(alt, dict) else {})
+
 TOOL_CALL_NAME = "tool_call"
 
 BRIDGE_TOOL_NAMES = frozenset({TOOL_SEARCH_NAME, TOOL_DESCRIBE_NAME, TOOL_CALL_NAME})
@@ -510,7 +535,7 @@ def _entry_search_text(td: Dict[str, Any], source_label: str = "") -> str:
     if name.startswith("mcp__"):
         name = name[len("mcp__"):]
     desc = fn.get("description", "") or ""
-    params = ((fn.get("parameters") or {}).get("properties") or {})
+    params = (_fn_parameters(fn).get("properties") or {})
     param_names = " ".join(params.keys())
     # Break snake_case and dotted names into words for BM25.
     name_words = name.replace("_", " ").replace(".", " ").replace("-", " ").replace(":", " ")
@@ -1055,7 +1080,7 @@ def _shared_tool_record(entry: CatalogEntry) -> Dict[str, Any]:
     fn = schema.get("function")
     if not isinstance(fn, dict):
         fn = {}
-    params = fn.get("parameters")
+    params = _fn_parameters(fn)
     if not isinstance(params, dict):
         params = {}
     required = params.get("required")
@@ -1229,7 +1254,7 @@ def dispatch_tool_describe(args: Dict[str, Any],
         if fn is not None:
             tools[name] = {
                 "description": fn.get("description", ""),
-                "parameters": fn.get("parameters", {}),
+                "parameters": _fn_parameters(fn),
             }
         elif _describe_classification(
             name, load_config_readonly().effective_defer_tools
@@ -1377,7 +1402,7 @@ def validate_deferred_call_args(name: str, args: Dict[str, Any]) -> Optional[str
         fn = schema.get("function") if schema.get("type") == "function" else schema
         if not isinstance(fn, dict):
             return None
-        params = fn.get("parameters")
+        params = _fn_parameters(fn)
         if not isinstance(params, dict):
             return None
         required = params.get("required")
