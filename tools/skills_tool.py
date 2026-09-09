@@ -1431,13 +1431,39 @@ def skill_view(
                 )
 
         if not skill_md or not skill_md.exists():
-            available = [s["name"] for s in _sort_skills(_find_all_skills())[:20]]
+            # The list MUST say it is partial, and MUST be relevant.
+            #
+            # This returned the first 20 skills alphabetically under a key
+            # called `available_skills`, which reads as the complete set. A
+            # request for a sigma skill got apple-notes, findmy and p5js —
+            # everything from the categories that sort before "email" — and
+            # the caller reasonably concluded the skill did not exist. It did:
+            # `detection-engineering` was installed the whole time, just past
+            # the cut. Rank by relevance to the name asked for, and name the
+            # total so a short list cannot be mistaken for the whole one.
+            all_skills = _sort_skills(_find_all_skills())
+            wanted = {t for t in re.split(r"[^a-z0-9]+", name.lower()) if t}
+
+            def _relevance(entry: dict) -> tuple:
+                hay = f"{entry.get('name', '')} {entry.get('description', '')}".lower()
+                hits = sum(1 for t in wanted if t and t in hay)
+                return (-hits, entry.get("name", ""))
+
+            ranked = sorted(all_skills, key=_relevance)
+            shown = [s["name"] for s in ranked[:20]]
+            total = len(all_skills)
             return json.dumps(
                 {
                     "success": False,
                     "error": f"Skill '{name}' not found.",
-                    "available_skills": available,
-                    "hint": "Use skills_list to see all available skills",
+                    "closest_skills": shown,
+                    "skills_shown": len(shown),
+                    "skills_total": total,
+                    "hint": (
+                        f"Showing {len(shown)} of {total} installed skills, ranked by "
+                        f"similarity to '{name}'. This is NOT the full list — call "
+                        "skills_list before concluding a skill is unavailable."
+                    ),
                 },
                 ensure_ascii=False,
             )
