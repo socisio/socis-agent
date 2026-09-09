@@ -330,7 +330,28 @@ def _handle_yara_scan(args: dict, **_kw) -> str:
             return f"❌ {res['error']}"
         hits = res["stdout"]
         if res["ok"] and not hits:
-            return (f"✅ No matches in {target}.\n\n"
+            # "No matches" over an EMPTY directory is not a clean sweep, it is
+            # a scan that never happened — and it reads identically. Observed:
+            # an empty /tmp/goodware produced "no false positives ✅" in a
+            # summary, which is the strongest claim this tool can make and the
+            # one least able to survive being wrong.
+            tp = Path(target)
+            scanned = None
+            if tp.is_dir():
+                try:
+                    scanned = sum(1 for f in tp.rglob("*")
+                                  if f.is_file() and not f.is_symlink())
+                except OSError:
+                    scanned = None
+            elif tp.is_file():
+                scanned = 1
+            if scanned == 0:
+                return (f"⚠ {target} contains NO FILES — nothing was scanned.\n\n"
+                        "This is not a clean result. A rule proves nothing against "
+                        "an empty corpus: populate the directory and scan again "
+                        "before concluding it does not false-positive.")
+            count = f" ({scanned} file(s) scanned)" if scanned else ""
+            return (f"✅ No matches in {target}{count}.\n\n"
                     "For a goodware corpus this is the result you want — zero hits "
                     "means no false positives here. For a sample set it means the "
                     "rule does not fire and needs work.")

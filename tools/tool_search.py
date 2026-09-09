@@ -1086,12 +1086,23 @@ def _shared_tool_record(entry: CatalogEntry) -> Dict[str, Any]:
     required = params.get("required")
     if not isinstance(required, list):
         required = []
+    # Names of ALL accepted parameters, not just the required ones. `required`
+    # alone is silent about the surface that actually decides a call: yara_scan
+    # requires only `path`, while `rule` / `rule_file` — the ones that make it
+    # work — are optional, and yara_compile requires nothing at all. An agent
+    # told to "scan with rule_file" searched, saw `required: ["path"]`, could
+    # not see that `rule_file` existed, and fell back to running raw `yara` in
+    # a shell. Names only: enough to call or to know what to describe, without
+    # inlining every schema into a search result.
+    props = params.get("properties")
+    param_names = sorted(props.keys()) if isinstance(props, dict) else []
     return {
         "source": entry.source,
         "source_name": entry.source_name,
         # Cap description so a chatty MCP server doesn't blow up the result.
         "description": (entry.description or "")[:400],
         "required": [r[:64] for r in required if isinstance(r, str)][:32],
+        "parameters": [n[:64] for n in param_names][:32],
     }
 
 
