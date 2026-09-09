@@ -3447,9 +3447,44 @@ def run_doctor(args):
         # tools/detection_tools.py.
         _DETECTION_TOOLSET_INSTALL = {
             "sigma": "install: bash scripts/install.sh --ensure sigma   (sigma-cli; then `sigma plugin install <backend>` per SIEM)",
-            "yara": "install: bash scripts/install.sh --ensure yara     (yarGen is separate — it needs a goodware DB)",
+            "yara": "install: bash scripts/install.sh --ensure yara     (yarGen is separate — see the yarGen check below)",
             "suricata": "install: bash scripts/install.sh --ensure suricata",
         }
+
+        # yarGen gets its own check: it gates a single TOOL (yargen_generate),
+        # not a toolset, so the loop below never mentions it — and the binary
+        # alone is not the interesting state. yarGen without its goodware
+        # database still runs and still emits rules; those rules just match
+        # every Windows binary on the system, because nothing is being filtered
+        # out. A silent wrong answer is worse than a missing tool, so report
+        # the database separately from the binary.
+        try:
+            import shutil as _sh
+            from pathlib import Path as _P
+
+            _yg_bin = _sh.which("yarGen") or _sh.which("yargen")
+            _yg_home = os.environ.get("SOCIS_AGENT_HOME") or str(_P.home() / ".socis-agent")
+            _yg_dbs = _P(_yg_home) / "tools" / "yarGen" / "dbs"
+            _yg_has_db = _yg_dbs.is_dir() and any(_yg_dbs.iterdir())
+
+            if not _yg_bin:
+                check_info(
+                    "yarGen not installed (optional) — the built-in "
+                    "yara_goodware_index + yara_extract cover most rule authoring "
+                    "without its 913 MB corpus"
+                )
+                check_info("    install: bash scripts/install.sh --ensure yargen")
+            elif not _yg_has_db:
+                check_warn(
+                    "yarGen",
+                    "(installed, but NO goodware database — every rule it "
+                    "generates will match every Windows binary)",
+                )
+                check_info("    fix: yarGen --update    (~913 MB, required not optional)")
+            else:
+                check_ok("yarGen + goodware database")
+        except Exception:
+            pass
 
         for item in unavailable:
             env_vars = item.get("missing_vars") or item.get("env_vars") or []

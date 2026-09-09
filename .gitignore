@@ -220,3 +220,19 @@ native/fts5_cjk/*.so
 
 # Disposable profile created by scripts/probe_active_session_exclusivity.py
 .probe-home/
+
+# ── Goodware / detection databases — NEVER commit, NEVER ship in an image ────
+# yarGen's downloaded corpus is ~913 MB and the built-in index is built from
+# the operator's OWN machine. Both are per-installation state a fresh user must
+# generate themselves: shipping one would bloat the repo AND leak a fingerprint
+# of the indexing machine's software inventory.
+#
+# Canonical locations are OUTSIDE this repo (~/.socis-agent/tools/), so these
+# rules are insurance for the case where someone clones yarGen in-tree or runs
+# a tool with the repo as cwd.
+yarGen/
+yargen/
+dbs/
+*.db
+goodware-strings.db
+yargen_rules.yar

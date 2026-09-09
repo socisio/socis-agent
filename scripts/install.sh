@@ -3673,7 +3673,9 @@ _sigma_backend_hint() {
 }
 
 
-install_yargen() {
+# Guidance only — used by the `detection` bundle. Asking for "detection tools"
+# should not trigger a 913 MB download; name yargen explicitly for that.
+install_yargen_info() {
     if command -v yarGen &>/dev/null || command -v yargen &>/dev/null; then
         log_success "yarGen already installed"
         return 0
@@ -3712,7 +3714,83 @@ install_yargen() {
     log_info ""
     log_info "Or the Go rewrite, which upstream now recommends over the Python one:"
     log_info "  go install github.com/Neo23x0/yarGen-Go/cmd/yargen@latest"
+    log_info ""
+    log_info "To install it anyway:  bash scripts/install.sh --ensure yargen"
     return 0
+}
+
+# Explicit `--ensure yargen`. Installs INTO ~/.socis-agent/tools/yarGen so the
+# ~913 MB goodware corpus lands under the agent home rather than in a cloned
+# repo someone might delete — yarGen resolves its dbs/ relative to yarGen.py,
+# so placement alone does it; no symlink.
+YARGEN_ROOT="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/tools/yarGen"
+
+install_yargen() {
+    if command -v yarGen &>/dev/null || command -v yargen &>/dev/null; then
+        log_success "yarGen already installed"
+        _yargen_ensure_db
+        return 0
+    fi
+
+    command -v git &>/dev/null || { log_error "git is required to install yarGen"; return 1; }
+    local py; py="$(command -v python3.11 || command -v python3)"
+    [ -n "$py" ] || { log_error "python3 is required to install yarGen"; return 1; }
+
+    log_info "Installing yarGen into $YARGEN_ROOT"
+    mkdir -p "$(dirname "$YARGEN_ROOT")"
+    if [ -d "$YARGEN_ROOT/.git" ]; then
+        git -C "$YARGEN_ROOT" pull --ff-only -q || log_warn "yarGen pull failed; using existing checkout"
+    else
+        git clone -q --depth 1 https://github.com/Neo23x0/yarGen.git "$YARGEN_ROOT" \
+            || { log_error "yarGen clone failed"; return 1; }
+    fi
+
+    "$py" -m pip install -q -r "$YARGEN_ROOT/requirements.txt" --break-system-packages 2>/dev/null \
+        || "$py" -m pip install -q -r "$YARGEN_ROOT/requirements.txt" \
+        || { log_error "yarGen dependency install failed"; return 1; }
+
+    # A wrapper on PATH: tools/detection_tools.py gates on shutil.which("yarGen"),
+    # so the tool stays invisible to the agent until this exists.
+    mkdir -p "$HOME/.local/bin"
+    cat > "$HOME/.local/bin/yarGen" <<WRAPPER
+#!/usr/bin/env bash
+exec "$py" "$YARGEN_ROOT/yarGen.py" "\$@"
+WRAPPER
+    chmod +x "$HOME/.local/bin/yarGen"
+    log_success "yarGen installed → $HOME/.local/bin/yarGen"
+
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) log_warn "\$HOME/.local/bin is not on PATH — add it or SOCIS will not see yarGen" ;;
+    esac
+
+    _yargen_ensure_db
+}
+
+# The goodware DB is REQUIRED, not optional: without it yarGen's filtering does
+# nothing and every generated rule matches every Windows binary on the system.
+# Installing the binary without it would hand the agent a tool that silently
+# produces useless rules, so this runs by default. Set SOCIS_YARGEN_DB=0 to skip.
+_yargen_ensure_db() {
+    local dbdir="$YARGEN_ROOT/dbs"
+    if [ -d "$dbdir" ] && [ -n "$(ls -A "$dbdir" 2>/dev/null)" ]; then
+        log_success "yarGen goodware database present ($dbdir)"
+        return 0
+    fi
+    if [ "${SOCIS_YARGEN_DB:-1}" = "0" ]; then
+        log_warn "Skipping the goodware database (SOCIS_YARGEN_DB=0)."
+        log_warn "yarGen WILL produce rules that match every Windows binary until you run:"
+        log_warn "  yarGen --update"
+        return 0
+    fi
+    log_info "Downloading the yarGen goodware database (~913 MB) — this is slow."
+    log_info "Skip with SOCIS_YARGEN_DB=0; yarGen is not usable without it."
+    if yarGen --update; then
+        log_success "Goodware database ready ($dbdir)"
+    else
+        log_error "yarGen --update failed. Re-run it by hand: yarGen --update"
+        return 1
+    fi
 }
 
 
@@ -3763,7 +3841,7 @@ ensure_mode() {
                 _install_detection_pkg yara yara
                 _install_detection_pkg suricata suricata
                 install_sigma_cli
-                install_yargen
+                install_yargen_info
                 ;;
             *)
                 log_warn "Unknown dependency: $dep"

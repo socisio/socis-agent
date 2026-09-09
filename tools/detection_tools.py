@@ -291,16 +291,55 @@ def _handle_yargen(args: dict, **_kw) -> str:
     if not p.is_dir():
         return f"❌ Not a directory: {samples}"
     binary = "yarGen" if shutil.which("yarGen") else "yargen"
-    argv = [binary, "-m", str(p), "-a", args.get("author") or "SOCIS"]
+
+    # yarGen WRITES THE RULE TO A FILE; stdout is only progress and goodware-DB
+    # logging. Without -o it drops `yargen_rules.yar` into the process CWD and
+    # we returned the log instead — so the caller saw talk about excluded
+    # patterns and no rule, and an unread .yar file accumulated in whatever
+    # directory the agent happened to be in. Name the output path, then read it.
+    out_dir = tempfile.mkdtemp(prefix="socis-yargen-")
+    out_path = Path(out_dir) / "yargen_rules.yar"
+    argv = [binary, "-m", str(p), "-a", args.get("author") or "SOCIS Agent",
+            "-o", str(out_path)]
     if args.get("opcodes"):
         argv.append("--opcodes")
-    res = _run(argv, timeout=600)  # string extraction over a sample set is slow
-    out = _fmt(res, on_success="(no output)")
-    if res.get("ok"):
-        out += ("\n\n⚠ These are CANDIDATES, not a finished rule. Review every string: "
-                "would the author have to change their code, or just recompile? "
-                "Drop anything a recompile defeats, then test against goodware.")
-    return out
+    try:
+        res = _run(argv, cwd=out_dir, timeout=600)  # extraction over a sample set is slow
+        if res.get("error"):
+            return f"❌ {res['error']}"
+        if not res.get("ok"):
+            detail = res.get("stderr") or res.get("stdout") or f"exit {res.get('exit_code')}"
+            return f"❌ Failed:\n{detail}"
+
+        if not out_path.is_file():
+            return ("❌ yarGen exited 0 but wrote no rule file. Its log follows — "
+                    "the usual cause is a missing goodware database "
+                    "(`yarGen.py --update`) or a samples directory it could not "
+                    f"read.\n\n{res.get('stdout') or '(no output)'}")
+
+        rule = out_path.read_text(encoding="utf-8", errors="replace").strip()
+        if not rule:
+            return ("⚠ yarGen produced an EMPTY rule file: every candidate string "
+                    "was filtered out as goodware. That is a real result — this "
+                    "sample set may share all its strings with benign software. "
+                    "Try more samples of the same family, or --opcodes.")
+
+        # A rule over a large sample set can be long; keep the tail rather than
+        # the head, since yarGen puts the super-rules last.
+        _MAX = 20000
+        truncated = len(rule) > _MAX
+        if truncated:
+            rule = rule[-_MAX:]
+
+        return (f"✅ yarGen wrote {len(rule)} chars of rule text.\n\n"
+                f"```yara\n{rule}\n```"
+                + ("\n\n[rule truncated — head omitted]" if truncated else "")
+                + "\n\n⚠ These are CANDIDATES, not a finished rule. Review every "
+                  "string: would the author have to change their code, or just "
+                  "recompile? Drop anything a recompile defeats, then test with "
+                  "`yara_scan` against both the samples AND known-good binaries.")
+    finally:
+        shutil.rmtree(out_dir, ignore_errors=True)
 
 
 # ── Suricata ─────────────────────────────────────────────────────────────────
@@ -521,7 +560,7 @@ registry.register(
             "type": "object",
             "properties": {
                 "samples_dir": {"type": "string", "description": "Directory of samples. Several samples of one family beat a single file."},
-                "author": {"type": "string", "description": "Author for rule metadata."},
+                "author": {"type": "string", "description": "Author for rule metadata. Defaults to \"SOCIS Agent\"; only set this to credit a human analyst."},
                 "opcodes": {"type": "boolean", "description": "Include opcode analysis (slower, more specific)."},
             },
             "required": ["samples_dir"],
