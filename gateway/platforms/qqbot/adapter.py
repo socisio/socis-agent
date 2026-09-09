@@ -1135,7 +1135,14 @@ class QQAdapter(BasePlatformAdapter):
         if chat_type == "c2c":
             return bool(chat_id) and operator == chat_id
 
-        if chat_type in {"group", "guild"}:
+        # "dm" belongs here, not with c2c: a DM session's chat_id is the DM
+        # GUILD id while the operator is the author's openid, so `operator ==
+        # chat_id` can never hold. _handle_dm_message builds the source with
+        # chat_type="dm", chat_id=guild_id and user_id=author.id — the same
+        # shape group/guild use. Omitting it meant every DM approval click
+        # fell through to `return False`: the button did nothing, with the
+        # denial only visible in the log.
+        if chat_type in {"dm", "group", "guild"}:
             event_chat = str(event.group_openid or event.guild_id or "").strip()
             if not event_chat or event_chat != chat_id:
                 return False
