@@ -31,7 +31,7 @@ install:
   url: https://github.com/socisio/socis-mcp-servers.git
   # Full commit SHA, never a tag or branch. Repository last pushed 2026-03-31,
   # so this commit is ~159 days old — well clear of the >=2 week rule.
-  ref: 48b02bb9f8b426359812475e20a8a485cc070f93
+  ref: e70ac9cfe034ca4aeaf4b8b37d5951b3f1865bbc
   #
   # AXIOS OVERRIDE — same issue as ioc-reputation, same reasoning.
   #
