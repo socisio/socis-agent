@@ -2598,29 +2598,44 @@ class CredentialPool:
         # by a window opened during the previous empty stretch.
         self._last_no_entries_log_at = None
 
+        # request_count must be maintained by EVERY strategy, not just
+        # least_used. It was incremented only in the least_used branch, so a
+        # pool that ran under random/round_robin/priority accumulated zeros —
+        # and the moment the operator switched to least_used it distributed
+        # load from that stale data, parking every request on whichever key
+        # happened to be at 0. The counter is also the usage figure surfaced
+        # for the pool, so under-counting misreports which credential is
+        # actually carrying traffic.
+        def _record_selection(entry: PooledCredential) -> PooledCredential:
+            updated = replace(entry, request_count=entry.request_count + 1)
+            self._replace_entry(entry, updated)
+            return updated
+
         if self._strategy == STRATEGY_RANDOM:
-            entry = random.choice(available)
+            entry = _record_selection(random.choice(available))
             self._current_id = entry.id
             return entry, pending_refresh
 
         if self._strategy == STRATEGY_LEAST_USED and len(available) > 1:
             entry = min(available, key=lambda e: e.request_count)
             # Increment usage counter so subsequent selections distribute load
-            updated = replace(entry, request_count=entry.request_count + 1)
-            self._replace_entry(entry, updated)
+            updated = _record_selection(entry)
             self._current_id = entry.id
             return updated, pending_refresh
 
         if self._strategy == STRATEGY_ROUND_ROBIN and len(available) > 1:
             entry = available[0]
+            # Count the selection before the rotation rewrites priorities, so
+            # the incremented value is the one carried into the new ordering.
+            counted = replace(entry, request_count=entry.request_count + 1)
             rotated = [candidate for candidate in self._entries if candidate.id != entry.id]
-            rotated.append(replace(entry, priority=len(self._entries) - 1))
+            rotated.append(replace(counted, priority=len(self._entries) - 1))
             self._entries = [replace(candidate, priority=idx) for idx, candidate in enumerate(rotated)]
             self._persist()
             self._current_id = entry.id
-            return self._current_unlocked() or entry, pending_refresh
+            return self._current_unlocked() or counted, pending_refresh
 
-        entry = available[0]
+        entry = _record_selection(available[0])
         self._current_id = entry.id
         return entry, pending_refresh
 
