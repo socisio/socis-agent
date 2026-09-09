@@ -20,7 +20,7 @@ description: >-
 # nothing.
 # First-party: written and maintained by SOCIS. Unlike the other community
 # entries there is no upstream to track — see the age-rule note below.
-source: https://github.com/0x4hm3d/nvd-cve-mcp-server
+source: https://github.com/socisio/socis-mcp-servers
 
 transport:
   type: stdio

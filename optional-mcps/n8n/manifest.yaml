@@ -6,7 +6,7 @@ manifest_version: 1
 
 name: n8n
 description: Manage and inspect n8n workflows from SOCIS (stdio bridge, no public port).
-source: https://github.com/CyberSamuraiX/hermes-n8n-mcp
+source: https://github.com/socisio/socis-mcp-servers
 
 # How to launch the server once installed. The keys here map 1:1 to the
 # `mcp_servers.<name>` block written into ~/.socis-agent/config.yaml by the

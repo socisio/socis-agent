@@ -13,7 +13,7 @@ description: >-
 # moved (see also w0h1v/mcp-virustotal, -shodan, -dnstwist). Recorded as
 # resolved rather than as the cited path, because a redirect is controlled by
 # whoever holds the old namespace and upstream-watch must follow the real repo.
-source: https://github.com/zxzinn/opencti-mcp
+source: https://github.com/socisio/socis-mcp-servers
 
 transport:
   type: stdio

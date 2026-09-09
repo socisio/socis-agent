@@ -18,7 +18,7 @@ description: >-
 # same author's — but the canonical URL is recorded here regardless, because a
 # redirect is controlled by whoever holds the old namespace and can be
 # re-pointed later. Attribution in optional-mcps/NOTICE credits BurtTheCoder.
-source: https://github.com/w0h1v/mcp-virustotal
+source: https://github.com/socisio/socis-mcp-servers
 
 transport:
   type: stdio

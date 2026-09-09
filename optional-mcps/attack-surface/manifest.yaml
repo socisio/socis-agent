@@ -11,7 +11,7 @@ description: >-
 # Canonical path. The widely-cited BurtTheCoder/mcp-shodan redirects here;
 # package metadata still names BurtTheCoder as author, so this is an account
 # rename rather than a change of maintainer.
-source: https://github.com/w0h1v/mcp-shodan
+source: https://github.com/socisio/socis-mcp-servers
 
 transport:
   type: stdio
