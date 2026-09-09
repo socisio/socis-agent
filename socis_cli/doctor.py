@@ -3451,6 +3451,38 @@ def run_doctor(args):
             "suricata": "install: bash scripts/install.sh --ensure suricata",
         }
 
+        # ATT&CK data gets its own check for the same reason yarGen does: the
+        # tools are registered unconditionally (stdlib only), so they LOOK
+        # available with no data behind them. The failure is a lookup that
+        # cannot answer, at the moment someone is verifying a technique ID for
+        # a customer deliverable.
+        try:
+            import time as _t
+            from pathlib import Path as _P
+
+            _ah = os.environ.get("SOCIS_AGENT_HOME") or str(_P.home() / ".socis-agent")
+            _attack = _P(_ah) / "cache" / "mitre-attack-enterprise.json"
+            if not _attack.is_file() or _attack.stat().st_size == 0:
+                check_warn(
+                    "MITRE ATT&CK data",
+                    "(not installed — attack_technique/attack_navigator_layer "
+                    "cannot verify any technique ID)",
+                )
+                check_info("    fix: bash scripts/install.sh --ensure mitre  (~35 MB)")
+            else:
+                _age_d = (_t.time() - _attack.stat().st_mtime) / 86400
+                if _age_d > 200:
+                    check_warn(
+                        "MITRE ATT&CK data",
+                        f"(cached {_age_d:.0f} days ago — ATT&CK ships roughly "
+                        "twice a year, so this may be a release behind)",
+                    )
+                    check_info("    refresh: attack_status with refresh=true")
+                else:
+                    check_ok(f"MITRE ATT&CK data ({_age_d:.0f}d old)")
+        except Exception:
+            pass
+
         # yarGen gets its own check: it gates a single TOOL (yargen_generate),
         # not a toolset, so the loop below never mentions it — and the binary
         # alone is not the interesting state. yarGen without its goodware

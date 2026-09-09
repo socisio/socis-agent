@@ -191,6 +191,20 @@ Tools for driving desktop [Projects](../user-guide/cli.md) — named, multi-fold
 |------|-------------|----------------------|
 | `session_search` | Search past sessions stored in the local session DB, or scroll inside one. FTS5-backed retrieval; returns actual messages from the DB (no LLM calls). Four shapes: discovery (pass `query`), scroll (pass `session_id` + `around_message_id`), read (pass `session_id` only), browse (no args). | — |
 
+## `mitre` toolset
+
+Backed by MITRE's `attack-stix-data` Enterprise bundle, cached under
+`~/.socis-agent/cache/`. Installed by the default `install.sh` run; offline
+thereafter.
+
+| Tool | Description | Requires environment |
+|------|-------------|----------------------|
+| `attack_technique` | Look up a technique by ID with tactics, platforms, data sources and MITRE's own detection guidance. Verify every ID here before it reaches a report or a layer. Revoked and deprecated techniques are reported as not current — Navigator renders them regardless, so the ID alone tells an analyst nothing. | ATT&CK data |
+| `attack_search` | Find a technique by name or keyword, optionally scoped by tactic or platform. Use this instead of recalling an ID. | ATT&CK data |
+| `attack_tactic` | List techniques under one tactic, parents with sub-technique counts. The denominator any honest coverage claim needs. | ATT&CK data |
+| `attack_navigator_layer` | Generate schema-valid Navigator layer JSON with optional per-technique scores and comments. Every ID is validated first and the layer is REFUSED if any is unknown. The ATT&CK version is stamped into `versions.attack` so the deliverable records what produced it. | ATT&CK data |
+| `attack_status` | Version, technique count, cache location and age. Check before citing coverage: an offline install serves cached data indefinitely. | — |
+
 ## `sigma` toolset
 
 | Tool | Description | Requires environment |

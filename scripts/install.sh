@@ -3675,6 +3675,60 @@ _sigma_backend_hint() {
 
 # Guidance only — used by the `detection` bundle. Asking for "detection tools"
 # should not trigger a 913 MB download; name yargen explicitly for that.
+# ATT&CK Enterprise STIX bundle (~35 MB). Installed by DEFAULT, not opt-in:
+# technique IDs go into customer reports and Navigator layers, and the whole
+# point of the mitre toolset is that a wrong ID is caught before it ships. A
+# toolset that silently falls back to recalled IDs is worse than absent.
+#
+# Unlike yarGen's 913 MB corpus this is small enough to fetch unconditionally,
+# and it is what makes the toolset work offline afterwards — an air-gapped
+# customer gets the data placed at install time and never needs the network.
+ATTACK_STIX_URL="https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json"
+
+install_mitre_attack() {
+    local cache_dir="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/cache"
+    local dest="$cache_dir/mitre-attack-enterprise.json"
+
+    if [ -s "$dest" ]; then
+        log_success "ATT&CK data present ($dest)"
+        return 0
+    fi
+
+    mkdir -p "$cache_dir"
+    log_info "Downloading MITRE ATT&CK Enterprise (~35 MB)..."
+
+    # Write to a temp file and move into place only on success: a truncated
+    # download left at the real path would parse as corrupt JSON on every
+    # later lookup, and the tool would re-fetch each time rather than failing
+    # visibly.
+    local tmp="$dest.part"
+    if command -v curl &>/dev/null; then
+        curl -fsSL --retry 3 -o "$tmp" "$ATTACK_STIX_URL" || { rm -f "$tmp"; log_error "ATT&CK download failed"; return 1; }
+    elif command -v wget &>/dev/null; then
+        wget -qO "$tmp" "$ATTACK_STIX_URL" || { rm -f "$tmp"; log_error "ATT&CK download failed"; return 1; }
+    else
+        log_error "Neither curl nor wget available; cannot fetch ATT&CK data"
+        return 1
+    fi
+
+    # Verify it is the bundle we expect before trusting it.
+    if ! python3 -c "
+import json,sys
+d=json.load(open('$tmp'))
+objs=d.get('objects') or []
+if not any(o.get('type')=='attack-pattern' for o in objs):
+    sys.exit('no attack-pattern objects')
+print('  objects: %d' % len(objs))
+" 2>/dev/null; then
+        rm -f "$tmp"
+        log_error "Downloaded ATT&CK file is not a valid STIX bundle"
+        return 1
+    fi
+
+    mv "$tmp" "$dest"
+    log_success "ATT&CK data installed ($dest)"
+}
+
 install_yargen_info() {
     if command -v yarGen &>/dev/null || command -v yargen &>/dev/null; then
         log_success "yarGen already installed"
@@ -3861,6 +3915,9 @@ ensure_mode() {
             sigma)
                 install_sigma_cli
                 ;;
+            mitre|attack)
+                install_mitre_attack
+                ;;
             yargen)
                 install_yargen
                 ;;
@@ -3869,6 +3926,7 @@ ensure_mode() {
                 _install_detection_pkg yara yara
                 _install_detection_pkg suricata suricata
                 install_sigma_cli
+                install_mitre_attack
                 install_yargen_info
                 ;;
             *)
@@ -4461,6 +4519,14 @@ main() {
     install_node_deps || return
     install_browser_use_cli
     install_computer_use_driver
+    # ATT&CK data is fetched during the DEFAULT install, not left to --ensure.
+    # The mitre toolset exists so a technique ID is verified before it reaches
+    # a customer report or a Navigator layer; without the data the tools
+    # cannot answer, and the fallback is exactly the recalled-from-memory ID
+    # the toolset was built to eliminate. ~35 MB, and it is what makes the
+    # toolset work offline afterwards. Non-fatal: a failed fetch must not
+    # abort an install, and the tools re-fetch on first use.
+    install_mitre_attack || log_warn "ATT&CK data not installed — run: bash scripts/install.sh --ensure mitre"
     setup_path
     copy_config_templates
     run_setup_wizard
