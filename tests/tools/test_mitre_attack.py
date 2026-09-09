@@ -399,3 +399,30 @@ def test_an_annotated_parent_is_not_duplicated():
     layer = json.loads(out.split("```json")[1].split("```")[0])
     ids = [t["techniqueID"] for t in layer["techniques"]]
     assert ids.count("T1059") == 1
+
+
+def test_layer_accepts_an_id_score_pair():
+    """The shape that falls out of "T1059.001 and T1053.005 with scores 100
+    and 40" — the third form a caller has reached for unprompted. Each
+    refused guess costs a round trip for no reason."""
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": [["T1059.001", 100], ["T1053.005", 40]]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    scored = {t["techniqueID"]: t.get("score") for t in layer["techniques"]}
+    assert scored["T1059.001"] == 100
+    assert scored["T1053.005"] == 40
+
+
+@pytest.mark.parametrize("shape", [
+    ["T1059.001"],
+    [{"id": "T1059.001", "score": 100}],
+    [{"techniqueID": "T1059.001", "score": 100}],
+    [["T1059.001", 100]],
+    "T1059.001",
+])
+def test_every_documented_input_shape_produces_a_layer(shape):
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"techniques": shape})
+    assert out.startswith("✅"), f"{shape} was refused"
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    assert any(t["techniqueID"] == "T1059.001" for t in layer["techniques"])

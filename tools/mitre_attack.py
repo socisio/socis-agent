@@ -341,6 +341,14 @@ def _handle_layer(args: dict, **_kw) -> str:
             score = item.get("score")
             comment = str(item.get("comment") or "")
             colour = str(item.get("color") or item.get("colour") or "")
+        elif isinstance(item, (list, tuple)) and item:
+            # [id, score] pairs — the shape that falls out of "T1059.001 and
+            # T1053.005 with scores 100 and 40". Refusing it cost a round trip
+            # for no reason; the intent is unambiguous.
+            tid = str(item[0]).strip().upper()
+            score = item[1] if len(item) > 1 else None
+            comment = str(item[2]) if len(item) > 2 else ""
+            colour = ""
         else:
             unusable.append(repr(item)[:60])
             continue
@@ -382,7 +390,8 @@ def _handle_layer(args: dict, **_kw) -> str:
                 + "\n\nAccepted shapes:\n"
                 + '    "T1059.001"                                  (plain ID)\n'
                 + '    {"id": "T1059.001", "score": 100}            (with a score)\n'
-                + '    {"techniqueID": "T1059.001", "score": 100}   (Navigator own key)\n')
+                + '    {"techniqueID": "T1059.001", "score": 100}   (Navigator own key)\n'
+                + '    ["T1059.001", 100]                           (id, score pair)\n')
 
     if unknown:
         return ("❌ These are not current Enterprise techniques, so the layer was "
@@ -590,8 +599,9 @@ registry.register(
                 "techniques": {
                     "type": ["array", "string"],
                     "description": (
-                        "Technique IDs, or objects {id, score, comment, color}. "
-                        "score drives the heatmap gradient (0-100)."
+                        "Technique IDs as plain strings, objects "
+                        "{id|techniqueID, score, comment, color}, or [id, score] "
+                        "pairs. score drives the heatmap gradient (0-100)."
                     ),
                 },
                 "name": {"type": "string", "description": "Layer name shown in Navigator."},
