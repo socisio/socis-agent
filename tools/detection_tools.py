@@ -234,10 +234,49 @@ def _yara_check() -> bool:
     return shutil.which("yara") is not None or shutil.which("yarac") is not None
 
 
+def _resolve_rule_text(args: dict) -> tuple[str, str]:
+    """Return ``(rule_text, error)`` from either ``rule`` or ``rule_file``.
+
+    Callers naturally reach for the path of a rule they just wrote, and passing
+    it as ``rule`` fed the PATH to yara as rule source: the failure surfaced as
+    ``syntax error, unexpected regular expression`` on a temp file the caller
+    never created — unattributable, and it pushed one agent into shelling out
+    to raw `yara` instead, losing this tool's guardrails at the exact moment
+    they mattered.
+
+    Reading a caller-supplied path is safe; _write_temp's rule against
+    caller-supplied paths is about WRITING to them.
+    """
+    text = (args.get("rule") or "").strip()
+    ref = (args.get("rule_file") or "").strip()
+
+    # A bare path handed to `rule` is the mistake this exists to catch.
+    if text and not ref and "\n" not in text and len(text) < 4096:
+        maybe = Path(text).expanduser()
+        if maybe.suffix in (".yar", ".yara") and maybe.is_file():
+            ref, text = str(maybe), ""
+
+    if ref:
+        f = Path(ref).expanduser()
+        if not f.is_file():
+            return "", f"❌ Rule file not found: {ref}"
+        try:
+            body = f.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return "", f"❌ Cannot read {ref}: {exc}"
+        if not body.strip():
+            return "", f"❌ Rule file is empty: {ref}"
+        return body, ""
+
+    if not text:
+        return "", "❌ Provide `rule` (rule text) or `rule_file` (path to a .yar file)."
+    return text, ""
+
+
 def _handle_yara_compile(args: dict, **_kw) -> str:
-    rule = args.get("rule") or ""
-    if not rule.strip():
-        return "❌ `rule` is required (the YARA rule as text)."
+    rule, err = _resolve_rule_text(args)
+    if err:
+        return err
     rule_path = _write_temp(rule, ".yar")
     out_path = rule_path + ".yac"
     binary = "yarac" if shutil.which("yarac") else "yara"
@@ -255,10 +294,12 @@ def _handle_yara_compile(args: dict, **_kw) -> str:
 
 
 def _handle_yara_scan(args: dict, **_kw) -> str:
-    rule = args.get("rule") or ""
+    rule, err = _resolve_rule_text(args)
+    if err:
+        return err
     target = args.get("path") or ""
-    if not rule.strip() or not target.strip():
-        return "❌ Both `rule` and `path` are required."
+    if not target.strip():
+        return "❌ `path` is required (what to scan)."
     if not Path(target).exists():
         return f"❌ Path does not exist: {target}"
     rule_path = _write_temp(rule, ".yar")
@@ -475,6 +516,18 @@ def _handle_yargen(args: dict, **_kw) -> str:
         if notes:
             header += "\n" + "\n".join(f"   • {n}" for n in notes)
 
+        # yarGen analyses EVERY file it is given. A previously-generated .yar
+        # left in the samples directory becomes a "sample" and yields a rule
+        # built from rule syntax — observed exactly that way in testing.
+        other = fmts.get("other", 0)
+        if other and other < survey["files"]:
+            header += (
+                f"\n   • {other} file(s) are not executables (no PE/ELF/Mach-O "
+                "magic). yarGen analysed them anyway — check the samples "
+                "directory for notes, reports, or previously-generated .yar "
+                "files, and remove them before relying on this rule."
+            )
+
         # Corpus mismatch is the failure that looks most like success: the rule
         # compiles, scans, and hits the samples, while being built entirely
         # from platform boilerplate the Windows corpus never had a chance to
@@ -689,8 +742,10 @@ registry.register(
         "description": "Compile a YARA rule to check it is syntactically valid.",
         "input_schema": {
             "type": "object",
-            "properties": {"rule": {"type": "string", "description": "YARA rule text."}},
-            "required": ["rule"],
+            "properties": {
+                "rule": {"type": "string", "description": "YARA rule text."},
+                "rule_file": {"type": "string", "description": "Path to a .yar file, as an alternative to `rule`."},
+            },
         },
     },
     handler=_handle_yara_compile,
@@ -713,9 +768,10 @@ registry.register(
             "type": "object",
             "properties": {
                 "rule": {"type": "string", "description": "YARA rule text."},
+                "rule_file": {"type": "string", "description": "Path to a .yar file, as an alternative to `rule`. Use this for a rule already on disk — passing its path as `rule` makes YARA parse the path itself."},
                 "path": {"type": "string", "description": "File or directory to scan (scanned recursively)."},
             },
-            "required": ["rule", "path"],
+            "required": ["path"],
         },
     },
     handler=_handle_yara_scan,
