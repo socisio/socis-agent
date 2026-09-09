@@ -118,9 +118,9 @@ def _sigma_check() -> bool:
 
 
 def _handle_sigma_check(args: dict, **_kw) -> str:
-    rule = args.get("rule") or ""
-    if not rule.strip():
-        return "❌ `rule` is required (the Sigma YAML as text)."
+    rule, err = _resolve_rule_text(args, (".yml", ".yaml"))
+    if err:
+        return err.replace("YARA rule text", "Sigma YAML").replace(".yar file", ".yml file")
     path = _write_temp(rule, ".yml")
     try:
         return _fmt(_run(["sigma", "check", path]),
@@ -174,10 +174,12 @@ def _handle_sigma_list(args: dict, **_kw) -> str:
 
 
 def _handle_sigma_convert(args: dict, **_kw) -> str:
-    rule = args.get("rule") or ""
+    rule, err = _resolve_rule_text(args, (".yml", ".yaml"))
+    if err:
+        return err.replace("YARA rule text", "Sigma YAML").replace(".yar file", ".yml file")
     target = args.get("target") or ""
-    if not rule.strip() or not target.strip():
-        return "❌ Both `rule` and `target` are required."
+    if not target.strip():
+        return "❌ `target` is required (the SIEM backend; `sigma_list` what=targets)."
 
     path = _write_temp(rule, ".yml")
     argv = ["sigma", "convert", "-t", target]
@@ -234,7 +236,7 @@ def _yara_check() -> bool:
     return shutil.which("yara") is not None or shutil.which("yarac") is not None
 
 
-def _resolve_rule_text(args: dict) -> tuple[str, str]:
+def _resolve_rule_text(args: dict, suffixes: tuple = ()) -> tuple[str, str]:
     """Return ``(rule_text, error)`` from either ``rule`` or ``rule_file``.
 
     Callers naturally reach for the path of a rule they just wrote, and passing
@@ -249,11 +251,12 @@ def _resolve_rule_text(args: dict) -> tuple[str, str]:
     """
     text = (args.get("rule") or "").strip()
     ref = (args.get("rule_file") or "").strip()
+    exts = tuple(suffixes or (".yar", ".yara"))
 
     # A bare path handed to `rule` is the mistake this exists to catch.
     if text and not ref and "\n" not in text and len(text) < 4096:
         maybe = Path(text).expanduser()
-        if maybe.suffix in (".yar", ".yara") and maybe.is_file():
+        if maybe.suffix in exts and maybe.is_file():
             ref, text = str(maybe), ""
 
     if ref:
@@ -673,8 +676,10 @@ registry.register(
         "description": "Validate a Sigma rule with sigma-cli. Returns errors and warnings.",
         "input_schema": {
             "type": "object",
-            "properties": {"rule": {"type": "string", "description": "Sigma rule YAML."}},
-            "required": ["rule"],
+            "properties": {
+                "rule": {"type": "string", "description": "Sigma rule YAML."},
+                "rule_file": {"type": "string", "description": "Path to a .yml/.yaml Sigma file, as an alternative to `rule`."},
+            },
         },
     },
     handler=_handle_sigma_check,
@@ -737,6 +742,7 @@ registry.register(
             "type": "object",
             "properties": {
                 "rule": {"type": "string", "description": "Sigma rule YAML."},
+                "rule_file": {"type": "string", "description": "Path to a .yml/.yaml Sigma file, as an alternative to `rule`. Use this for a rule already on disk — passing its path as `rule` makes sigma parse the path as YAML."},
                 "target": {
                     "type": "string",
                     "description": (
@@ -765,7 +771,7 @@ registry.register(
                     ),
                 },
             },
-            "required": ["rule", "target"],
+            "required": ["target"],
         },
     },
     handler=_handle_sigma_convert,

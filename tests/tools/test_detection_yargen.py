@@ -21,6 +21,8 @@ import pytest
 
 from tools.detection_tools import (
     _file_format,
+    _handle_sigma_check,
+    _handle_sigma_convert,
     _handle_yara_scan,
     _handle_yargen,
     _resolve_rule_text,
@@ -356,3 +358,86 @@ def test_scanning_an_empty_directory_is_not_a_pass(tmp_path, monkeypatch):
         {"rule": "rule t { condition: false }", "path": str(populated)}
     )
     assert "No matches" in out and "1 file(s) scanned" in out
+
+
+# ── Sigma takes the same rule input as YARA ─────────────────────────────────
+
+
+@pytest.fixture
+def stub_sigma(tmp_path, monkeypatch):
+    """A sigma-cli that echoes the YAML it was actually given."""
+    bindir = tmp_path / "sbin"
+    bindir.mkdir()
+    script = bindir / "sigma"
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "args = [a for a in sys.argv[1:] if not a.startswith('-')]\n"
+        "f = [a for a in args if a.endswith(('.yml', '.yaml'))]\n"
+        "print('SAW:', open(f[-1]).read().strip()[:80] if f else '(none)')\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+    return bindir
+
+
+@pytest.fixture
+def sigma_rule(tmp_path):
+    f = tmp_path / "rule.yml"
+    f.write_text("title: Suspicious PowerShell\ndetection:\n  condition: sel\n")
+    return f
+
+
+def test_sigma_check_accepts_rule_file(stub_sigma, sigma_rule):
+    assert "Suspicious PowerShell" in _handle_sigma_check({"rule_file": str(sigma_rule)})
+
+
+def test_sigma_check_resolves_a_path_passed_as_rule(stub_sigma, sigma_rule):
+    """sigma would otherwise parse the PATH as YAML."""
+    assert "Suspicious PowerShell" in _handle_sigma_check({"rule": str(sigma_rule)})
+
+
+def test_sigma_check_still_accepts_yaml_text(stub_sigma):
+    assert "title: X" in _handle_sigma_check({"rule": "title: X"})
+
+
+def test_sigma_convert_accepts_rule_file(stub_sigma, sigma_rule):
+    out = _handle_sigma_convert({"rule_file": str(sigma_rule), "target": "splunk"})
+    assert "Suspicious PowerShell" in out
+
+
+def test_sigma_convert_without_a_rule_names_both_options(stub_sigma):
+    err = _handle_sigma_convert({"target": "splunk"})
+    assert "rule_file" in err
+
+
+def test_sigma_convert_without_a_target_says_so(stub_sigma, sigma_rule):
+    err = _handle_sigma_convert({"rule_file": str(sigma_rule)})
+    assert "`target` is required" in err
+
+
+def test_sigma_convert_warns_when_no_pipeline_is_set(stub_sigma, sigma_rule):
+    """A pipeline-less query can be valid and still never match anything —
+    the most expensive kind of wrong, because it looks like a detection."""
+    out = _handle_sigma_convert({"rule_file": str(sigma_rule), "target": "splunk"})
+    assert "No pipeline specified" in out
+
+
+def test_sigma_convert_passes_pipelines_in_order(stub_sigma, sigma_rule, tmp_path):
+    log = tmp_path / "argv.txt"
+    script = stub_sigma / "sigma"
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        f"open({str(log)!r}, 'w').write(json.dumps(sys.argv[1:]))\n"
+        "print('ok')\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    _handle_sigma_convert({
+        "rule_file": str(sigma_rule), "target": "splunk",
+        "pipelines": ["splunk_windows", "splunk_cim"],
+    })
+    import json
+    argv = json.loads(log.read_text())
+    assert argv.count("-p") == 2
+    assert argv.index("splunk_windows") < argv.index("splunk_cim")
