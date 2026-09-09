@@ -702,10 +702,10 @@ def test_null_replay_reports_what_the_capture_contained(stub_suricata, tmp_path)
     out = _handle_suricata_replay({
         "rules": 'alert dns any any -> any any (msg:"x"; dns_query; content:".onion"; sid:1; rev:1;)',
         "pcap": str(pcap)})
-    assert "two opposite causes" in out
+    assert "CANNOT TEST this rule" in out, "must resolve the branch, not restate both"
     assert "flow (4)" in out, "must list the event types actually parsed"
     assert "UNTESTED, not broken" in out
-    assert "dns" not in out.split("Event types")[1].split("\n")[0]
+    assert "dns" not in out.split("Event types parsed:")[1].split("\n")[0]
 
 
 def test_null_replay_lists_dns_when_it_was_present(stub_suricata, tmp_path):
@@ -740,3 +740,21 @@ def test_replay_missing_pcap_is_named(stub_suricata, rules_file):
     out = _handle_suricata_replay({"rules_file": str(rules_file),
                                    "pcap": "/tmp/definitely-not-here.pcap"})
     assert "PCAP not found" in out
+
+
+@pytest.mark.parametrize("rules_key,pcap_key", [
+    ("rules_file", "pcap"),
+    ("rules_path", "pcap_path"),
+    ("rule_file", "pcap_file"),
+    ("rule_path", "pcap"),
+])
+def test_replay_accepts_path_shaped_aliases(
+    stub_suricata, tmp_path, rules_file, rules_key, pcap_key
+):
+    """`pcap_path` / `rules_path` was the sixth parameter-name miss of the day
+    across these tools. A name should not cost a round trip."""
+    _stub_suricata_replay(stub_suricata, "alert")
+    pcap = tmp_path / "t.pcap"
+    pcap.write_bytes(b"fake")
+    out = _handle_suricata_replay({rules_key: str(rules_file), pcap_key: str(pcap)})
+    assert out.startswith("✅"), f"{rules_key}+{pcap_key} was rejected"

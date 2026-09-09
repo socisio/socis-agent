@@ -696,7 +696,11 @@ def _resolve_suricata_rules(args: dict) -> tuple[str, str]:
     contain a newline, so the caller has to decide. Name the problem instead.
     """
     text = (args.get("rules") or "").strip()
-    ref = (args.get("rules_file") or "").strip()
+    # `rules_path` and `rule_file` are the same guess in different clothes;
+    # sixth parameter-name miss of the day across these tools. Accept them
+    # rather than costing a round trip on a name.
+    ref = (args.get("rules_file") or args.get("rules_path")
+           or args.get("rule_file") or args.get("rule_path") or "").strip()
 
     if text and not ref and "\n" not in text and len(text) < 4096:
         maybe = Path(text).expanduser()
@@ -766,7 +770,8 @@ def _handle_suricata_replay(args: dict, **_kw) -> str:
     rules, err = _resolve_suricata_rules(args)
     if err:
         return err
-    pcap = (args.get("pcap") or "").strip()
+    pcap = (args.get("pcap") or args.get("pcap_path")
+            or args.get("pcap_file") or "").strip()
     if not pcap:
         return "❌ `pcap` is required (path to the capture to replay)."
     if not Path(pcap).expanduser().is_file():
@@ -811,21 +816,46 @@ def _handle_suricata_replay(args: dict, **_kw) -> str:
                 except OSError:
                     pass
 
+            app_layer = {k: v for k, v in protos.items()
+                         if k not in ("flow", "netflow", "stats", "anomaly")}
             seen = (", ".join(f"{k} ({v})" for k, v in
                               sorted(protos.items(), key=lambda kv: -kv[1])[:8])
                     or "none recorded")
-            return ("⚠ NO ALERTS — and that has two opposite causes.\n\n"
-                    f"Event types Suricata parsed in this capture: {seen}\n\n"
-                    "1. If the protocol your rule targets is NOT in that list, the "
-                    "capture cannot test this rule. The rule is UNTESTED, not "
-                    "broken — do not discard it, and do not call it verified. Get "
-                    "a capture containing the relevant traffic.\n"
-                    "2. If it IS in the list, the rule is wrong. Check, in order:\n"
-                    "   • Is `flow:` inverted? `to_server` never matches a response.\n"
-                    "   • Is the direction right? A DNS query is client→resolver, so "
-                    "$EXTERNAL_NET -> $HOME_NET never sees one.\n"
-                    "   • Is the content in a different buffer? http.uri excludes the host.\n"
-                    "   • Is the traffic TLS? Then no payload content will ever match.")
+
+            # RESOLVE the branch rather than restating both. Suricata parses an
+            # app-layer event per protocol it understood; if there are none, no
+            # protocol-specific rule could have matched whatever it says, and
+            # the honest verdict is "this capture cannot test it". Leaving the
+            # caller to work that out is how a working rule gets discarded —
+            # one agent repeated both branches verbatim instead of concluding.
+            if not app_layer:
+                return (
+                    "⚠ NO ALERTS — and this capture CANNOT TEST this rule.\n\n"
+                    f"Event types parsed: {seen}\n\n"
+                    "Suricata recorded no application-layer protocol at all "
+                    "(only flow records), so any rule keyed on a protocol "
+                    "buffer — dns_query, http.uri, tls.sni — had nothing to "
+                    "match against.\n\n"
+                    "The rule is UNTESTED, not broken. Do not discard it and do "
+                    "not call it verified. Replay it against a capture that "
+                    "contains the traffic it describes.\n\n"
+                    "A rule matching on IP/port alone (no protocol buffer) WOULD "
+                    "have fired here if it were correct — so if that is your "
+                    "rule, check the direction and ports."
+                )
+            return (
+                f"⚠ NO ALERTS. Protocols parsed: {seen}\n\n"
+                "The capture DOES carry application-layer traffic, so if your "
+                "rule targets one of the protocols above, it did not fire on "
+                "traffic that was present — the rule is wrong. Check in order:\n"
+                "   • Is the direction right? A DNS query is client→resolver, so "
+                "`$EXTERNAL_NET -> $HOME_NET` never sees one.\n"
+                "   • Is `flow:` inverted? `to_server` never matches a response.\n"
+                "   • Is the content in a different buffer? http.uri excludes the host.\n"
+                "   • Is the traffic TLS? Then no payload content will ever match.\n\n"
+                "If your rule targets a protocol NOT in that list, it is "
+                "UNTESTED rather than broken — this capture cannot exercise it."
+            )
     finally:
         Path(rules_path).unlink(missing_ok=True)
 
