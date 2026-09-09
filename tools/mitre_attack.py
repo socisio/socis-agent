@@ -321,7 +321,19 @@ def _handle_layer(args: dict, **_kw) -> str:
     if idx is None:
         return f"❌ {warning}"
 
-    name = (args.get("name") or "SOCIS coverage").strip()
+    # `layer_name` and `title` are natural guesses for what Navigator calls
+    # the layer's "name", and an unrecognised key used to be dropped in
+    # silence: the layer came back named "SOCIS coverage", the caller spent
+    # its turn troubleshooting that instead of relaying the JSON, and a
+    # retry with the same wrong key returned a byte-identical result.
+    name = (args.get("name") or args.get("layer_name")
+            or args.get("title") or "SOCIS coverage").strip()
+
+    # Say what was ignored. Silently dropping an argument the caller clearly
+    # meant is the failure mode this whole tool exists to avoid.
+    _known = {"techniques", "name", "layer_name", "title", "description",
+              "output_path"}
+    ignored = sorted(k for k in args if k not in _known and args.get(k) is not None)
     entries, unknown, unusable = [], [], []
 
     for item in techniques:
@@ -500,6 +512,11 @@ def _handle_layer(args: dict, **_kw) -> str:
         location = (f"\n\n⚠ Could not write the layer file ({save_err}). "
                     "Copy the JSON above into a .json file instead.")
 
+    ignored_note = ("\n\n⚠ Ignored unrecognised argument(s): "
+                    + ", ".join(f"`{k}`" for k in ignored)
+                    + ". Accepted: techniques, name, description, output_path."
+                    if ignored else "")
+
     parent_note = (f" (+{added_parents} parent row(s) marked to reveal the "
                    "annotated sub-techniques)" if added_parents else "")
     return (f"✅ Navigator layer “{name}” — {len(entries)} annotated "
@@ -507,6 +524,7 @@ def _handle_layer(args: dict, **_kw) -> str:
             f"layer format {_LAYER_VERSION}.\n\n"
             f"```json\n{body}\n```"
             + location
+            + ignored_note
             + "\n\nThe ATT&CK version is in `versions.attack`, and the exact "
               "release in the layer metadata, so the deliverable records what "
               "it was built against.\n"
@@ -641,7 +659,7 @@ registry.register(
                         "pairs. score drives the heatmap gradient (0-100)."
                     ),
                 },
-                "name": {"type": "string", "description": "Layer name shown in Navigator."},
+                "name": {"type": "string", "description": "Layer name shown in Navigator, and the filename stem. Aliases: layer_name, title."},
                 "description": {"type": "string", "description": "Layer description."},
                 "output_path": {"type": "string", "description": "Where to write the .json. Defaults to ~/.socis-agent/outputs/navigator-layers/<name>.json — the file is ALWAYS written, because Navigator needs a file to upload."},
             },

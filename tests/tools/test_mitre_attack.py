@@ -471,3 +471,41 @@ def test_a_refused_layer_writes_nothing(tmp_path):
     _handle_layer({"name": "Bad", "techniques": ["T9999"]})
     d = tmp_path / "outputs" / "navigator-layers"
     assert not d.exists() or not list(d.glob("*.json"))
+
+
+# ── argument names a caller actually guesses ────────────────────────────────
+
+
+@pytest.mark.parametrize("key", ["name", "layer_name", "title"])
+def test_layer_name_accepts_its_natural_aliases(key, tmp_path):
+    """`layer_name` was dropped in silence.
+
+    The layer came back named "SOCIS coverage", the caller spent its whole
+    turn troubleshooting the name instead of relaying the JSON, and a retry
+    with the same key returned a byte-identical result — so the mistake was
+    invisible from both ends.
+    """
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({key: "Test", "techniques": ["T1059"]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    assert layer["name"] == "Test"
+    assert (tmp_path / "outputs" / "navigator-layers" / "test.json").is_file()
+
+
+def test_unrecognised_arguments_are_named_not_dropped():
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"name": "X", "techniques": ["T1059"],
+                         "colour_scheme": "blue"})
+    assert "Ignored unrecognised argument" in out
+    assert "colour_scheme" in out
+    assert out.startswith("✅"), "an unknown extra must not fail the layer"
+
+
+def test_technique_id_key_works_inside_technique_objects():
+    """The agent used `technique_id` inside the objects as well."""
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"name": "T", "techniques": [
+        {"technique_id": "T1059.001", "score": 100}]})
+    layer = json.loads(out.split("```json")[1].split("```")[0])
+    scored = {t["techniqueID"]: t.get("score") for t in layer["techniques"]}
+    assert scored["T1059.001"] == 100
