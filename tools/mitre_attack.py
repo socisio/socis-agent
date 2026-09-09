@@ -619,11 +619,16 @@ registry.register(
     schema={
         "name": "attack_navigator_layer",
         "description": (
-            "Generate a schema-valid ATT&CK Navigator layer JSON. EVERY technique ID "
-            "is validated against the current matrix first and the layer is refused "
-            "if any is unknown — an unverified ID renders as a cell the customer "
-            "reads as covered. The ATT&CK version is stamped into versions.attack so "
-            "the deliverable records what it was built against."
+            "Generate a schema-valid ATT&CK Navigator layer JSON, write it to a "
+            ".json file, and return both. EVERY technique ID is validated against "
+            "the current matrix first and the layer is refused if any is unknown — "
+            "an unverified ID renders as a cell the customer reads as covered. The "
+            "ATT&CK version is stamped into versions.attack so the deliverable "
+            "records what it was built against. "
+            "ALWAYS pass the returned JSON block through verbatim in your reply, in "
+            "its ```json fence, AND give the saved file path. Do not summarise it "
+            "to a list of techniques: the JSON is the artifact the analyst uploads, "
+            "and a summary leaves them nothing to use."
         ),
         "input_schema": {
             "type": "object",

@@ -45,6 +45,18 @@ vocabulary, and exposing what you *cannot* see. It is not a scoreboard.
    actionable. But do not guess a sub-technique to look precise.
 5. **Coverage ≠ detection.** A rule that exists is not a rule that works. See
    below.
+6. **Verify every technique ID with `attack_technique` before it ships.**
+   T1059.001 is PowerShell and T1059.003 is cmd. Recalled IDs land in customer
+   reports and Navigator layers, and neither the analyst nor the customer can
+   tell a wrong one from a right one. Revoked techniques still render in
+   Navigator, so the ID alone proves nothing.
+7. **Pass a generated Navigator layer through verbatim, and give its file
+   path.** `attack_navigator_layer` returns the full JSON in a fenced block
+   and writes a `.json`. Summarising it to a list of techniques leaves the
+   analyst with nothing to upload — the JSON *is* the deliverable. Also state
+   the ATT&CK version: it is in `versions.attack` (major) and the layer
+   metadata (exact), and a coverage claim without a matrix version cannot be
+   reproduced next quarter.
 
 ---
 
