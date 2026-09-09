@@ -1,5 +1,5 @@
 ---
-name: detection-engineering
+name: evidence-handling
 description: "Acquire and preserve digital evidence, or answer questions on chain of custody, order of volatility, ISO 27037."
 version: 1.0.0
 author: SOCIS
