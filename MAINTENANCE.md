@@ -84,8 +84,16 @@ so keep them in step:
 ```
 Forked from: NousResearch/hermes-agent @ main (no matching tag exists)
 Inherited:   0.21.0 (Python) / 0.17.0 (desktop)
-Fork date:   2026-09-01        <- FORK_DATE in upstream-watch.yml
+Fork date:   2026-09-01        <- the actual fork point; do not change
+Audited to:  2026-09-04        <- FORK_DATE in upstream-watch.yml
 ```
+
+`FORK_DATE` is the AUDITED-TO date, not the fork date. It starts equal to the
+fork point and only moves after a window has actually been reviewed — moving it
+is what retires commits from the report, so moving it early hides them
+permanently. It was advanced to 2026-09-04 on 2026-09-09 after 20 of 20
+individually-checked pre-Sept-4 commits turned out to be already present in this
+tree (see "Audit log" below).
 
 Verified at the time of the rebrand: the inherited `pyproject.toml` read
 `0.21.0` and `apps/desktop/package.json` read `0.17.0`. Upstream's published
@@ -142,6 +150,35 @@ and a genuine fix may mention none of them (upstream's "body-size cap on
 aiohttp webhook servers" is DoS hardening and matches nothing). Skim the full
 log periodically, not just the filtered set.
 
+### Before applying: does this fork already have it?
+
+Ask this FIRST, before reading the diff. In the 2026-09-09 audit it settled
+20 commits in about as many minutes, and every one was already present.
+
+```bash
+git show <sha> --stat --format="%s"      # which files does it touch?
+```
+
+Then check THIS tree for the behaviour, not the filename — the rebrand renamed
+modules and several fixes live somewhere else entirely:
+
+| upstream                        | here                          |
+|---------------------------------|-------------------------------|
+| `hermes_cli/`                    | `socis_cli/`                  |
+| `tools/approval_detection.py`    | `tools/approval.py`           |
+| `tools/mcp_oauth_provider.py`    | `tools/mcp_oauth_manager.py`  |
+| `agent/client_lifecycle.py`      | `agent/auxiliary_client.py`   |
+| `tools/process_registry_results.py` | `tools/process_registry.py` |
+| `hermes_cli/web_server_profiles.py` | `socis_cli/web_routers/profiles.py` |
+
+A missing file does **not** mean the fix is inapplicable, and a present file
+does not mean it is needed. Grep for the *property* the commit describes.
+
+Subsystems this deployment does not run — relay, cron, kanban notifiers,
+gateway busy-injection, Slack/Feishu/WhatsApp/Teams, a2a — can be deprioritised,
+but that is a deployment fact, not a review. If one is enabled, its commits need
+revisiting.
+
 ### Applying a patch
 
 Do **not** merge upstream wholesale — it would revert the rebrand. Cherry-pick:
@@ -176,6 +213,46 @@ rename separately so the two concerns stay reviewable.
 | Theme keys `'nous'`, `'nous-alt'`, `'default'` | Persisted user settings — renaming resets everyone's saved skin. |
 
 ---
+
+### Audit log
+
+Append to this on every review. The value is knowing what was NOT covered.
+
+#### 2026-09-09 — window 2026-09-01 → 2026-09-08
+
+118 flagged by upstream-watch, 76 checked individually. **5 real fixes**, all
+adapted rather than cherry-picked (renamed files, different function shapes):
+
+| commit | what it was |
+|---|---|
+| `6178e9f4e` | **Live approval bypass.** `env -i rm -rf /`, `FOO=bar rm -rf /`, `env -S '…'` and the `-a` argv0 override all escaped `detect_hardline_command` — the floor that is never bypassable, even in YOLO. Fixed via `_strip_env_prefix`. |
+| `b4464f6fa` + `8c2f3082d` | The OpenAI SDK keeps a callable `api_key` in `_api_key_provider` and leaves `.api_key` as `""`. Three sites copied the empty value onto derived clients. MiniMax OAuth installs a rotating source deliberately. |
+| `9d865810b` | RFC 6749 §6: a refresh response MAY omit `refresh_token`. Storing it verbatim erased the grant, forcing browser re-auth ~one TTL after every login. Affects Asana/Google/Zoho. |
+| `2ff990c13` | `chat_type="dm"` was absent from the qqbot authorization branch, so every DM approval click was silently denied. |
+| `b86fb277b` | `request_count` incremented only under `least_used`; switching strategy later read stale zeros. |
+
+Previously applied: `77ca6a6d1` + `b51c055a1` (GHSA-9f4c-93c8-jc8g),
+`bbbccd393` + `7d44fe9c7`, `f914c9b07`, `aa0beef68`.
+
+**Pre-2026-09-04: 20 of 20 checked were already present**, including
+`f6234d00c` (GitSpawn RCE, GHSA-7x36-8jrh-v4pw — all 7 spawn sites hardened).
+That evidence is why `FORK_DATE` moved to 2026-09-04.
+
+Deferred: `bdf45abd7` — upstream's own message says "do not treat this commit
+as ready"; this fork's `credential_pool` has diverged and Anthropic is
+unconfigured. Revisit if upstream validates it or Anthropic is set up.
+
+**NOT reviewed — ~42 commits**, all in subsystems this deployment does not run:
+relay, cron, kanban notifiers, gateway busy-injection, Slack/Feishu/WhatsApp/
+Teams, a2a, messaging web router. **Enabling any of these means auditing its
+commits from 2026-09-01, not from `FORK_DATE`.**
+
+Also worth knowing: roughly a third of keyword matches are false positives —
+compression commits matching "token cost", a keypad binding matching "escape
+text", and `ebe4e7bb4` where "sanitize" meant wire-format conversion. The
+report ranks by path now (`WATCH_PATHS` in the workflow), but ranking is not
+judgement and the pathspec uses UPSTREAM's names, so a renamed file can rank
+low — `9d865810b`, the most useful find of that audit, did.
 
 ## C. Versioning
 

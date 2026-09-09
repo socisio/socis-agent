@@ -83,7 +83,12 @@ jobs:
           #   1. the `since` input — accepts a ref OR a YYYY-MM-DD date
           #   2. a tag, if one happens to resolve
           #   3. FORK_DATE from MAINTENANCE.md
-          FORK_DATE="2026-09-01"
+          # AUDITED-TO date, not the fork point (2026-09-01). Only move this
+          # after a window has actually been reviewed — moving it retires
+          # commits from the report permanently. Advanced to 09-04 on
+          # 2026-09-09: 20/20 individually-checked pre-09-04 commits were
+          # already present. See MAINTENANCE.md "Audit log".
+          FORK_DATE="2026-09-04"
           SINCE_INPUT="${{ inputs.since }}"
           base=""; datecut=""
           if [ -n "$SINCE_INPUT" ]; then
@@ -180,6 +185,9 @@ jobs:
             hermes_cli/_subprocess_compat.py hermes_cli/curses_ui.py
             hermes_cli/doctor.py hermes_cli/auth_commands.py
             tools/mcp_tool.py tools/mcp_oauth.py tools/skills_hub_install.py
+            tools/mcp_oauth_provider.py tools/mcp_oauth_manager.py
+            tools/approval.py hermes_cli/profiles.py tools/credential_files.py
+            agent/redact.py hermes_cli/proxy hermes_cli/copilot_auth.py
             tools/file_operations.py tools/process_registry.py
             apps/desktop/electron apps/desktop/src
             gateway/platforms optional-mcps
