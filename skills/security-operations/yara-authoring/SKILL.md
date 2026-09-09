@@ -1,6 +1,6 @@
 ---
 name: yara-authoring
-description: "Write YARA rules that survive contact with real data."
+description: "Write YARA rules that survive real data, or answer questions on string selection and goodware testing."
 version: 1.0.0
 author: SOCIS
 license: MIT

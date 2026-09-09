@@ -1,6 +1,6 @@
 ---
 name: alert-triage
-description: "Triage SOC alerts: enrich, scope, classify, verdict."
+description: "Triage a SOC alert, or answer triage questions: enrich, scope, baseline, classify, verdict, 'is this real?'."
 version: 1.0.0
 author: SOCIS
 license: MIT

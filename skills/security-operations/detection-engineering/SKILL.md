@@ -1,6 +1,6 @@
 ---
 name: detection-engineering
-description: "Author, convert and tune Sigma rules for any SIEM."
+description: "Author, convert and tune Sigma rules for any SIEM, or answer detection-engineering questions."
 version: 1.0.0
 author: SOCIS
 license: MIT

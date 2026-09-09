@@ -1,6 +1,6 @@
 ---
 name: attack-mapping
-description: "Map observed activity to MITRE ATT&CK; assess real coverage."
+description: "Map activity to MITRE ATT&CK, or answer questions on technique mapping and honest coverage assessment."
 version: 1.0.0
 author: SOCIS
 license: MIT

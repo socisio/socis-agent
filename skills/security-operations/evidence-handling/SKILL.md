@@ -1,6 +1,6 @@
 ---
 name: detection-engineering
-description: "Author, convert and tune Sigma rules for any SIEM."
+description: "Acquire and preserve digital evidence, or answer questions on chain of custody, order of volatility, ISO 27037."
 version: 1.0.0
 author: SOCIS
 license: MIT

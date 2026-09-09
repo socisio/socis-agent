@@ -1,6 +1,6 @@
 ---
 name: incident-response
-description: "Run an incident: contain, eradicate, recover, report."
+description: "Run an incident, or answer IR questions: phases, containment order, severity, notification clocks, reporting."
 version: 1.0.0
 author: SOCIS
 license: MIT

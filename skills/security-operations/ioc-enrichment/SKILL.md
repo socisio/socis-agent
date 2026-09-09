@@ -1,6 +1,6 @@
 ---
 name: ioc-enrichment
-description: "Enrich an IOC across every connected intel source."
+description: "Enrich an IOC across connected intel sources, or answer questions on enrichment order and pivoting."
 version: 1.0.0
 author: SOCIS
 license: MIT

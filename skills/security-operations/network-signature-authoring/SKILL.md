@@ -1,6 +1,6 @@
 ---
 name: network-signature-authoring
-description: "Write Suricata and Snort rules that actually fire."
+description: "Write Suricata and Snort rules that fire, or answer questions on signature testing and PCAP replay."
 version: 1.0.0
 author: SOCIS
 license: MIT
