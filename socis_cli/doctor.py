@@ -3463,8 +3463,16 @@ def run_doctor(args):
             from pathlib import Path as _P
 
             _yg_bin = _sh.which("yarGen") or _sh.which("yargen")
-            _yg_home = os.environ.get("SOCIS_AGENT_HOME") or str(_P.home() / ".socis-agent")
-            _yg_dbs = _P(_yg_home) / "tools" / "yarGen" / "dbs"
+            # Must match tools/detection_tools.py:_yargen_db_home(). yarGen
+            # resolves dbs/ from the CWD, so the agent pins one directory and
+            # runs from it; doctor checks that same directory, not wherever
+            # the operator happened to run --update.
+            _yg_override = os.environ.get("SOCIS_YARGEN_HOME")
+            if _yg_override:
+                _yg_dbs = _P(_yg_override).expanduser() / "dbs"
+            else:
+                _yg_home = os.environ.get("SOCIS_AGENT_HOME") or str(_P.home() / ".socis-agent")
+                _yg_dbs = _P(_yg_home) / "tools" / "yargen" / "dbs"
             _yg_has_db = _yg_dbs.is_dir() and any(_yg_dbs.iterdir())
 
             if not _yg_bin:
@@ -3480,7 +3488,10 @@ def run_doctor(args):
                     "(installed, but NO goodware database — every rule it "
                     "generates will match every Windows binary)",
                 )
-                check_info("    fix: yarGen --update    (~913 MB, required not optional)")
+                check_info(f"    expected at: {_yg_dbs}")
+                check_info(f"    fix: mkdir -p {_yg_dbs.parent} && cd {_yg_dbs.parent} && yarGen --update")
+                check_info("    (~913 MB. Already downloaded elsewhere? Move that dbs/ here,")
+                check_info("     or set SOCIS_YARGEN_HOME to the directory that contains it.)")
             else:
                 check_ok("yarGen + goodware database")
         except Exception:

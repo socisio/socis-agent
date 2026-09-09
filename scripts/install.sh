@@ -3724,6 +3724,10 @@ install_yargen_info() {
 # repo someone might delete — yarGen resolves its dbs/ relative to yarGen.py,
 # so placement alone does it; no symlink.
 YARGEN_ROOT="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/tools/yarGen"
+# yarGen reads dbs/ from the CWD, not from beside yarGen.py, so the corpus
+# belongs to a pinned directory we always run from — matching
+# tools/detection_tools.py:_yargen_db_home() and the doctor check.
+YARGEN_DB_HOME="${SOCIS_YARGEN_HOME:-${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/tools/yargen}"
 
 install_yargen() {
     if command -v yarGen &>/dev/null || command -v yargen &>/dev/null; then
@@ -3772,7 +3776,7 @@ WRAPPER
 # Installing the binary without it would hand the agent a tool that silently
 # produces useless rules, so this runs by default. Set SOCIS_YARGEN_DB=0 to skip.
 _yargen_ensure_db() {
-    local dbdir="$YARGEN_ROOT/dbs"
+    local dbdir="$YARGEN_DB_HOME/dbs"
     if [ -d "$dbdir" ] && [ -n "$(ls -A "$dbdir" 2>/dev/null)" ]; then
         log_success "yarGen goodware database present ($dbdir)"
         return 0
@@ -3785,7 +3789,8 @@ _yargen_ensure_db() {
     fi
     log_info "Downloading the yarGen goodware database (~913 MB) — this is slow."
     log_info "Skip with SOCIS_YARGEN_DB=0; yarGen is not usable without it."
-    if yarGen --update; then
+    mkdir -p "$YARGEN_DB_HOME"
+    if (cd "$YARGEN_DB_HOME" && yarGen --update); then
         log_success "Goodware database ready ($dbdir)"
     else
         log_error "yarGen --update failed. Re-run it by hand: yarGen --update"

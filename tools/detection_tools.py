@@ -279,6 +279,23 @@ def _handle_yara_scan(args: dict, **_kw) -> str:
         Path(rule_path).unlink(missing_ok=True)
 
 
+def _yargen_db_home() -> Path:
+    """Directory that owns yarGen's ``dbs/``.
+
+    yarGen looks for ``dbs/`` under the CURRENT WORKING DIRECTORY, so whoever
+    ran ``--update`` decided where the 913 MB corpus lives — commonly whatever
+    directory they happened to be in. Pin one location under the agent home and
+    always run from it, so the database is found no matter where the agent's
+    cwd points. ``SOCIS_YARGEN_HOME`` overrides for an existing download.
+    """
+    override = os.environ.get("SOCIS_YARGEN_HOME")
+    if override:
+        return Path(override).expanduser()
+    home = os.environ.get("SOCIS_AGENT_HOME")
+    base = Path(home) if home else Path.home() / ".socis-agent"
+    return base / "tools" / "yargen"
+
+
 def _yargen_check() -> bool:
     return shutil.which("yarGen") is not None or shutil.which("yargen") is not None
 
@@ -299,12 +316,27 @@ def _handle_yargen(args: dict, **_kw) -> str:
     # directory the agent happened to be in. Name the output path, then read it.
     out_dir = tempfile.mkdtemp(prefix="socis-yargen-")
     out_path = Path(out_dir) / "yargen_rules.yar"
-    argv = [binary, "-m", str(p), "-a", args.get("author") or "SOCIS Agent",
+
+    # CWD MATTERS: yarGen resolves its goodware `dbs/` relative to the working
+    # directory, NOT to yarGen.py. Running it from the temp output dir would
+    # find no database and silently emit UNFILTERED rules — rules that match
+    # every Windows binary, with nothing in the output saying so. Run from the
+    # directory that owns dbs/, and refuse rather than guess if it is absent.
+    db_home = _yargen_db_home()
+    if not (db_home / "dbs").is_dir():
+        return ("❌ yarGen goodware database not found at "
+                f"{db_home / 'dbs'}.\n\n"
+                "Without it yarGen filters nothing and every rule it writes "
+                "matches every Windows binary. Build it with:\n"
+                f"  mkdir -p {db_home} && cd {db_home} && yarGen --update\n"
+                "(~913 MB) — or `bash scripts/install.sh --ensure yargen`.")
+
+    argv = [binary, "-m", str(p.resolve()), "-a", args.get("author") or "SOCIS Agent",
             "-o", str(out_path)]
     if args.get("opcodes"):
         argv.append("--opcodes")
     try:
-        res = _run(argv, cwd=out_dir, timeout=600)  # extraction over a sample set is slow
+        res = _run(argv, cwd=str(db_home), timeout=600)  # extraction is slow
         if res.get("error"):
             return f"❌ {res['error']}"
         if not res.get("ok"):
