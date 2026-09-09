@@ -681,10 +681,73 @@ def _suricata_check() -> bool:
     return shutil.which("suricata") is not None
 
 
+def _resolve_suricata_rules(args: dict) -> tuple[str, str]:
+    """Return ``(rules_text, error)`` from ``rules`` or ``rules_file``.
+
+    Also catches the multi-line trap. Suricata requires each rule on ONE line
+    unless every line but the last ends with a backslash. A readable
+    multi-line rule — which is how anyone would write one by hand — fails
+    with ``Signature missing required value "sid"`` even when the sid is
+    plainly there, because the parser stopped at the first newline. Observed:
+    an agent spent three turns concluding the TOOL was mangling its input.
+
+    Joining silently would be wrong: `content:"..."` values can legitimately
+    contain a newline, so the caller has to decide. Name the problem instead.
+    """
+    text = (args.get("rules") or "").strip()
+    ref = (args.get("rules_file") or "").strip()
+
+    if text and not ref and "\n" not in text and len(text) < 4096:
+        maybe = Path(text).expanduser()
+        if maybe.suffix in (".rules", ".rule") and maybe.is_file():
+            ref, text = str(maybe), ""
+
+    if ref:
+        f = Path(ref).expanduser()
+        if not f.is_file():
+            return "", f"❌ Rules file not found: {ref}"
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return "", f"❌ Cannot read {ref}: {exc}"
+        if not text.strip():
+            return "", f"❌ Rules file is empty: {ref}"
+        # A file is Suricata's native input; multi-line handling below still
+        # applies, since the engine reads it the same way either way.
+
+    if not text.strip():
+        sent = [k for k in args if k not in ("rules", "rules_file") and args.get(k)]
+        hint = (" Received: " + ", ".join(f"`{k}`" for k in sent) if sent else "")
+        return "", ("❌ Provide `rules` (rule text) or `rules_file` (path to a "
+                    ".rules file)." + hint)
+
+    # Diagnose the multi-line case before handing it to suricata.
+    lines = [ln for ln in text.splitlines() if ln.strip()
+             and not ln.lstrip().startswith("#")]
+    bad = [ln for ln in lines
+           if ln.rstrip().endswith("(") and not ln.rstrip().endswith("\\")]
+    if bad:
+        return "", (
+            "❌ This rule spans multiple lines without continuations, so "
+            "Suricata's parser stops at the first newline.\n\n"
+            "It reports a misleading error — usually `Signature missing "
+            "required value \"sid\"` — even when the sid is present, because "
+            "it never reached it.\n\n"
+            "Either put each rule on ONE line, or end every line but the last "
+            "with a backslash:\n"
+            '    alert udp any any -> any 53 (msg:"..."; sid:1; rev:1;)\n'
+            "  or\n"
+            '    alert udp any any -> any 53 ( \\\n'
+            '        msg:"..."; \\\n'
+            '        sid:1; rev:1;)\n'
+        )
+    return text, ""
+
+
 def _handle_suricata_check(args: dict, **_kw) -> str:
-    rules = args.get("rules") or ""
-    if not rules.strip():
-        return "❌ `rules` is required (the Suricata rule text)."
+    rules, err = _resolve_suricata_rules(args)
+    if err:
+        return err
     path = _write_temp(rules, ".rules")
     try:
         res = _run(["suricata", "-T", "-S", path])
@@ -699,12 +762,15 @@ def _handle_suricata_check(args: dict, **_kw) -> str:
 
 
 def _handle_suricata_replay(args: dict, **_kw) -> str:
-    rules = args.get("rules") or ""
-    pcap = args.get("pcap") or ""
-    if not rules.strip() or not pcap.strip():
-        return "❌ Both `rules` and `pcap` are required."
-    if not Path(pcap).is_file():
+    rules, err = _resolve_suricata_rules(args)
+    if err:
+        return err
+    pcap = (args.get("pcap") or "").strip()
+    if not pcap:
+        return "❌ `pcap` is required (path to the capture to replay)."
+    if not Path(pcap).expanduser().is_file():
         return f"❌ PCAP not found: {pcap}"
+    pcap = str(Path(pcap).expanduser())
     rules_path = _write_temp(rules, ".rules")
     try:
         with tempfile.TemporaryDirectory() as outdir:
@@ -934,8 +1000,10 @@ registry.register(
         "description": "Validate Suricata rule syntax. Parsing does not mean the rule fires.",
         "input_schema": {
             "type": "object",
-            "properties": {"rules": {"type": "string", "description": "Suricata rule text."}},
-            "required": ["rules"],
+            "properties": {
+                "rules": {"type": "string", "description": "Suricata rule text. Each rule on ONE line, or end every line but the last with a backslash."},
+                "rules_file": {"type": "string", "description": "Path to a .rules file, as an alternative to `rules`."},
+            },
         },
     },
     handler=_handle_suricata_check,
@@ -956,10 +1024,11 @@ registry.register(
         "input_schema": {
             "type": "object",
             "properties": {
-                "rules": {"type": "string", "description": "Suricata rule text."},
+                "rules": {"type": "string", "description": "Suricata rule text. Each rule on ONE line, or end every line but the last with a backslash."},
+                "rules_file": {"type": "string", "description": "Path to a .rules file, as an alternative to `rules`."},
                 "pcap": {"type": "string", "description": "Path to the PCAP file."},
             },
-            "required": ["rules", "pcap"],
+            "required": ["pcap"],
         },
     },
     handler=_handle_suricata_replay,

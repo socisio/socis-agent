@@ -25,6 +25,8 @@ from tools.detection_tools import (
     _fence_for,
     _handle_sigma_check,
     _handle_sigma_convert,
+    _handle_suricata_check,
+    _resolve_suricata_rules,
     _handle_yara_scan,
     _handle_yargen,
     _resolve_rule_text,
@@ -581,3 +583,80 @@ def test_sigma_convert_description_rules_out_a_yara_target():
     desc = _ast.literal_eval(m.group(1))["description"].lower()
     assert "no yara target" in desc
     assert "log events" in desc and "file contents" in desc
+
+
+# ── Suricata: the same rule-input gap, plus the multi-line trap ─────────────
+
+
+@pytest.fixture
+def stub_suricata(tmp_path, monkeypatch):
+    bindir = tmp_path / "surbin"
+    bindir.mkdir()
+    script = bindir / "suricata"
+    script.write_text("#!/usr/bin/env bash\nexit 0\n")
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+    return bindir
+
+
+@pytest.fixture
+def rules_file(tmp_path):
+    f = tmp_path / "onion.rules"
+    f.write_text('alert udp any any -> any 53 (msg:"onion"; sid:2100001; rev:1;)\n')
+    return f
+
+
+def test_suricata_check_accepts_a_rules_file(stub_suricata, rules_file):
+    assert "parse" in _handle_suricata_check({"rules_file": str(rules_file)})
+
+
+def test_suricata_check_resolves_a_path_passed_as_rules(stub_suricata, rules_file):
+    assert "parse" in _handle_suricata_check({"rules": str(rules_file)})
+
+
+def test_a_multiline_rule_is_diagnosed_not_passed_through():
+    """Suricata needs one line per rule, or trailing backslashes.
+
+    A readable multi-line rule fails with `Signature missing required value
+    "sid"` even when the sid is right there, because the parser stopped at the
+    first newline. An agent spent three turns concluding the TOOL was mangling
+    its input.
+    """
+    multiline = (
+        'alert udp $HOME_NET any -> $EXTERNAL_NET 53 (\n'
+        '    msg:"onion dns";\n'
+        '    sid:2100001; rev:1;\n'
+        ')'
+    )
+    _, err = _resolve_suricata_rules({"rules": multiline})
+    assert "multiple lines without continuations" in err
+    assert "sid" in err, "must name the misleading error it would have produced"
+
+
+def test_backslash_continuations_are_accepted():
+    ok = (
+        'alert udp any any -> any 53 ( \\\n'
+        '    msg:"onion dns"; \\\n'
+        '    sid:2100001; rev:1;)'
+    )
+    text, err = _resolve_suricata_rules({"rules": ok})
+    assert not err, err
+    assert "sid:2100001" in text
+
+
+def test_a_single_line_rule_is_accepted():
+    text, err = _resolve_suricata_rules(
+        {"rules": 'alert udp any any -> any 53 (msg:"x"; sid:1; rev:1;)'})
+    assert not err and "sid:1" in text
+
+
+def test_comments_do_not_trigger_the_multiline_check():
+    text, err = _resolve_suricata_rules({"rules": (
+        '# detects onion dns\n'
+        'alert udp any any -> any 53 (msg:"x"; sid:1; rev:1;)\n')})
+    assert not err, err
+
+
+def test_suricata_missing_rules_names_both_options():
+    _, err = _resolve_suricata_rules({"pcap": "/tmp/x.pcap"})
+    assert "rules_file" in err and "pcap" in err
