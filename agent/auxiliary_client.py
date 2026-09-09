@@ -749,6 +749,28 @@ def _run_protected_sync_provider_call(
         return outcome.get("result")
 
 
+def _client_credential(client: Any) -> Any:
+    """The credential to carry forward from *client* — callable source or key.
+
+    The OpenAI SDK does not store a callable ``api_key``; it keeps the callable
+    in ``_api_key_provider`` and leaves ``client.api_key`` as "". Copying
+    ``client.api_key`` onto a derived client therefore hands it an EMPTY
+    credential whenever a rotating source is installed — which SOCIS does
+    deliberately for MiniMax OAuth, whose tokens expire every 15 minutes
+    (see build_minimax_oauth_token_provider). Verified against the installed
+    SDK: `.api_key` is '' and `_api_key_provider` holds the callable.
+
+    Read through ``vars()`` rather than ``getattr``: on a mock or proxy object
+    ``getattr`` can synthesise an attribute that then silently replaces a real
+    static credential (upstream 8c2f3082d). ``vars()`` only sees what is
+    actually on the instance.
+    """
+    provider = vars(client).get("_api_key_provider") if hasattr(client, "__dict__") else None
+    if callable(provider):
+        return provider
+    return getattr(client, "api_key", None)
+
+
 def _client_declares(client_obj: Any, flag: str) -> bool:
     """Whether ``client_obj`` (or its class) sets ``flag`` truthy.
 
@@ -2385,7 +2407,8 @@ class CodexAuxiliaryClient:
         self._real_client = real_client
         adapter = _CodexCompletionsAdapter(real_client, model)
         self.chat = _CodexChatShim(adapter)
-        self.api_key = real_client.api_key
+        # Exposed for the async wrappers below; must survive a rotating source.
+        self.api_key = _client_credential(real_client)
         self.base_url = real_client.base_url
 
     def close(self):
@@ -6729,7 +6752,8 @@ def _to_async_client(sync_client, model: str, is_vision: bool = False):
         return sync_client, model
 
     async_kwargs = {
-        "api_key": sync_client.api_key,
+        # Carry the rotating source, not the SDK's empty `.api_key` shadow.
+        "api_key": _client_credential(sync_client),
         "base_url": str(sync_client.base_url),
     }
     sync_base_url = str(sync_client.base_url)
@@ -6747,7 +6771,7 @@ def _to_async_client(sync_client, model: str, is_vision: bool = False):
         async_kwargs["default_headers"] = build_nvidia_nim_headers(sync_base_url)
     elif _is_official_codex_base_url(sync_base_url):
         async_kwargs["default_headers"] = _codex_cloudflare_headers(
-            sync_client.api_key, base_url=sync_base_url,
+            _client_credential(sync_client), base_url=sync_base_url,
         )
     elif base_url_host_matches(sync_base_url, "x.ai"):
         from tools.xai_http import socis_xai_default_headers
