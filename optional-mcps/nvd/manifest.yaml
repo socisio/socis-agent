@@ -73,7 +73,7 @@ install:
   # Both were found by running the tool and reading what came back, not by
   # reading the code. Worth remembering before assuming a model is ignoring a
   # tool: check the tool can answer the question being asked.
-  ref: e70ac9cfe034ca4aeaf4b8b37d5951b3f1865bbc
+  ref: 6f03f36bc64f0f6a2a1ac7d3f72577d785c9d9a8
   bootstrap:
     - "cd servers/nvd && npm install"
     # Clear transitive advisories before the build.
