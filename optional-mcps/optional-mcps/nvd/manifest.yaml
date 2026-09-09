@@ -28,13 +28,13 @@ transport:
   # Plain ESM JavaScript — no TypeScript, no build step, so src/ is the
   # shipped artefact (package.json `main`).
   args:
-    - "${INSTALL_DIR}/servers/nvd/src/index.js"
+    - "cd servers/nvd && ${INSTALL_DIR}/servers/nvd/src/index.js"
 
 # Runs with no credential. The optional NVD key only changes the rate limit.
 auth:
   type: api_key
   env:
-    - name: NVD_API_KEY
+    - "cd servers/nvd && name: NVD_API_KEY"
       description: "Optional NVD API key. Free at nvd.nist.gov/developers/request-an-api-key. Raises the limit from 5 to 50 requests per 30 seconds."
       required: false
 
@@ -100,12 +100,12 @@ install:
 
 suggest:
   keywords:
-    - cve
-    - cvss
-    - vulnerability lookup
-    - nvd
+    - "cd servers/nvd && cve"
+    - "cd servers/nvd && cvss"
+    - "cd servers/nvd && vulnerability lookup"
+    - "cd servers/nvd && nvd"
   hosts:
-    - nvd.nist.gov
+    - "cd servers/nvd && nvd.nist.gov"
 
 post_install: |
   Works immediately with no credential.

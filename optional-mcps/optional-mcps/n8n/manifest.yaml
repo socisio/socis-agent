@@ -19,7 +19,7 @@ transport:
   # refresh.
   command: "${INSTALL_DIR}/servers/n8n/.venv/bin/python"
   args:
-    - "${INSTALL_DIR}/servers/n8n/server.py"
+    - "cd servers/n8n && ${INSTALL_DIR}/servers/n8n/server.py"
 
 # Optional install step. Omit for npm/uvx servers where transport.command
 # is the install (`npx -y package`). Use for repos that need a local clone
@@ -45,12 +45,12 @@ install:
 auth:
   type: api_key
   env:
-    - name: N8N_BASE_URL
+    - "cd servers/n8n && name: N8N_BASE_URL"
       prompt: "n8n instance URL"
       default: "http://127.0.0.1:5678"
       required: true
       secret: false
-    - name: N8N_API_KEY
+    - "cd servers/n8n && name: N8N_API_KEY"
       prompt: "n8n API key (generate under Settings → API)"
       required: true
       secret: true
@@ -62,14 +62,14 @@ auth:
 # checklist and can opt into the mutating tools per their threat model.
 tools:
   default_enabled:
-    - health
-    - list_workflows
-    - get_workflow
-    - find_workflows
-    - list_executions
-    - get_execution
-    - recent_failures
-    - export_workflow
+    - "cd servers/n8n && health"
+    - "cd servers/n8n && list_workflows"
+    - "cd servers/n8n && get_workflow"
+    - "cd servers/n8n && find_workflows"
+    - "cd servers/n8n && list_executions"
+    - "cd servers/n8n && get_execution"
+    - "cd servers/n8n && recent_failures"
+    - "cd servers/n8n && export_workflow"
 
 post_install: |
   The n8n bridge expects to talk to a running n8n instance over the URL you

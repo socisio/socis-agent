@@ -1,0 +1,61 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: pagerduty
+description: >-
+  PagerDuty incidents, on-call schedules, services and workflows.
+source: https://mcp.pagerduty.com
+
+# Vendor-hosted. Reached through the mcp-remote stdio bridge rather than
+# `type: http`, because PagerDuty uses `Authorization: Token <token>` — the
+# catalog's http+api_key path emits `Bearer`, and TransportSpec has no headers
+# field to override it.
+#
+# US region. EU customers change this to https://mcp.eu.pagerduty.com/mcp in
+# mcp_servers.pagerduty after install — data residency, so it matters which.
+transport:
+  type: stdio
+  command: npx
+  args:
+    - "-y"
+    - "mcp-remote"
+    - "https://mcp.pagerduty.com/mcp"
+    - "--header"
+    - "Authorization:${PAGERDUTY_AUTH_HEADER}"
+
+auth:
+  type: api_key
+  env:
+    - name: PAGERDUTY_AUTH_HEADER
+      description: 'Literally "Token <your-api-token>" — include the word Token and the space. Generate at My Profile > User Settings > API Access.'
+      required: true
+
+suggest:
+  keywords:
+    - pagerduty
+    - on-call
+    - incident escalation
+  hosts:
+    - pagerduty.com
+
+post_install: |
+  Requires PagerDuty Advanced Permissions on the account.
+
+  1. My Profile > User Settings > API Access > create an API User Token.
+     Copy it immediately — it is shown once.
+  2. Set PAGERDUTY_AUTH_HEADER to `Token <your-token>`, including the word
+     "Token" and the space. Not "Bearer", and not the bare token.
+
+  EU customers: change the URL in mcp_servers.pagerduty to
+  https://mcp.eu.pagerduty.com/mcp. The US endpoint will accept the request
+  but routes through US infrastructure, which may breach data-residency
+  commitments you have made to clients.
+
+  WRITE ACCESS: this server can create, modify and resolve incidents, and
+  change on-call schedules. An agent acting on a mistaken instruction could
+  page the wrong people at 3am or resolve a live incident. The token inherits
+  your own permissions — use a dedicated user with the narrowest role that
+  covers your workflow rather than an admin account.
+
+  Restart the session so the tools load.

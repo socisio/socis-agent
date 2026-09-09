@@ -24,12 +24,12 @@ transport:
   type: stdio
   command: node
   args:
-    - "${INSTALL_DIR}/servers/ioc-reputation/build/index.js"
+    - "cd servers/ioc-reputation && ${INSTALL_DIR}/servers/ioc-reputation/build/index.js"
 
 auth:
   type: api_key
   env:
-    - name: VIRUSTOTAL_API_KEY
+    - "cd servers/ioc-reputation && name: VIRUSTOTAL_API_KEY"
       description: "VirusTotal API key — free tier at virustotal.com/gui/my-apikey. Public keys are rate-limited to 4 lookups/min."
       required: true
 
@@ -102,11 +102,11 @@ install:
 
 suggest:
   keywords:
-    - virustotal
-    - file reputation
-    - hash lookup
+    - "cd servers/ioc-reputation && virustotal"
+    - "cd servers/ioc-reputation && file reputation"
+    - "cd servers/ioc-reputation && hash lookup"
   hosts:
-    - virustotal.com
+    - "cd servers/ioc-reputation && virustotal.com"
 
 post_install: |
   Get a free API key at virustotal.com/gui/my-apikey and supply it as

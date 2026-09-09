@@ -1,0 +1,136 @@
+Third-party MCP servers
+=======================
+
+Some entries in this catalog package MCP servers written by others. SOCIS
+writes the manifest — the entry name, description, credential prompts and
+install experience — but the server itself is upstream code.
+
+MIT states one condition and it is this:
+
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+
+So attribution is not optional, and removing it would turn a compliant use
+into an infringement. It also has a practical purpose: without a recorded
+upstream repository, .github/workflows/upstream-watch.yml cannot tell us when
+one of these servers ships a security fix, and we would be shipping
+unmaintained code into customer SOCs without knowing.
+
+
+threat-intel
+------------
+    aplaceforallmystuff/mcp-threatintel
+    https://github.com/aplaceforallmystuff/mcp-threatintel
+    Licensed under the MIT License
+    Pinned commit b71210b2e21766411de858844c1c864291630f30 (2026-08-09)
+
+Aggregates AlienVault OTX, AbuseIPDB, GreyNoise and abuse.ch (URLhaus,
+MalwareBazaar, ThreatFox, Feodo Tracker).
+
+
+endpoint-siem
+-------------
+    gensecaihq/Wazuh-MCP-Server
+    https://github.com/gensecaihq/Wazuh-MCP-Server
+    Licensed under the MIT License
+    Verified at commit af5a61e65589010dc4099827d9da4f91f6e5b20a (2026-08-10)
+
+Connected over HTTP to a customer-operated deployment; the server code is not
+installed by SOCIS. The commit above records what was reviewed.
+
+
+ioc-reputation
+--------------
+    Copyright (c) BurtTheCoder
+    https://github.com/w0h1v/mcp-virustotal
+    Licensed under the MIT License
+    Pinned commit 364ce0d0fb505644c52ed1a83c4f3d5f10abee1f (pushed 2026-05-24)
+
+VirusTotal reputation lookups for files, URLs, IPs and domains.
+
+The repository is reached today at w0h1v/mcp-virustotal; the widely-cited
+BurtTheCoder path redirects there. The package metadata still declares
+BurtTheCoder as author (npm scope @burtthecoder, mcpName
+io.github.BurtTheCoder/virustotal), so this reads as an account rename rather
+than a change of maintainer, and attribution is to BurtTheCoder accordingly.
+
+
+attack-surface
+--------------
+    Copyright (c) BurtTheCoder
+    https://github.com/w0h1v/mcp-shodan
+    Licensed under the MIT License
+    Pinned commit 59c70b91647a22b338bad04ac6269650af5a6f0f (pushed 2026-03-31)
+
+Shodan host, service and certificate intelligence.
+
+
+cti-platform
+------------
+    https://github.com/zxzinn/opencti-mcp
+    Licensed under the MIT License
+    Pinned commit 7cd0c1e568dc712570970e91d76dfd36366433b9 (pushed 2026-08-03)
+
+OpenCTI threat-intelligence queries: STIX entities, indicators, reports and
+connector status.
+
+Reached at zxzinn/opencti-mcp; the widely-cited Spathodea-Network path
+redirects there. Default branch is `master`.
+
+
+Removed entries
+---------------
+`domain-permutation` (BurtTheCoder / w0h1v, mcp-dnstwist) was previously listed
+here. It has been replaced by tools/domain_permutations.py, an independent
+implementation of the published permutation techniques with no third-party code
+— so there is nothing left to attribute. See
+optional-mcps/MCP-IMPLEMENTATION-TRACKING.md for the reasoning.
+
+Credit is still due: dnstwist (Marcin Ulikowski) is the reference
+implementation of this idea and defined the fuzzer taxonomy the tool follows.
+That credit is recorded in the tool's own module docstring.
+
+
+Modifications made by SOCIS
+---------------------------
+None to the server code. SOCIS supplies only the catalog manifest: entry name,
+description, credential declarations, suggestion triggers and post-install
+guidance. Entries are named for the capability an analyst gets rather than for
+the upstream project, which is a packaging choice and not a claim of
+authorship.
+
+
+Review status
+-------------
+These servers are pinned and packaged as-is. They have NOT been line-by-line
+audited by SOCIS beyond the review recorded in
+optional-mcps/MCP-IMPLEMENTATION-TRACKING.md.
+
+This matters more than it would for a skill. A skill is markdown that a human
+reads; an MCP server is executable code holding credentials to a customer's
+security platform. Review any entry before enabling it in a client
+environment, and note in particular that endpoint-siem exposes Wazuh
+active-response tooling capable of isolating hosts and killing processes.
+
+
+MIT License
+-----------
+Reproduced in full as required, and applying to both projects above:
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.

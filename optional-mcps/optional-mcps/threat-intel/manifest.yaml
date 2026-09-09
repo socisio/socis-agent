@@ -13,7 +13,7 @@ transport:
   type: stdio
   command: node
   args:
-    - "${INSTALL_DIR}/servers/threat-intel/dist/index.js"
+    - "cd servers/threat-intel && ${INSTALL_DIR}/servers/threat-intel/dist/index.js"
 
 # Four independent sources, every key optional. The server enables tools per
 # key present, and abuse.ch's Feodo Tracker works with no credential at all —
@@ -23,16 +23,16 @@ transport:
 auth:
   type: api_key
   env:
-    - name: OTX_API_KEY
+    - "cd servers/threat-intel && name: OTX_API_KEY"
       description: "AlienVault OTX — free at otx.alienvault.com. Enables IOC pulses and campaign context."
       required: false
-    - name: ABUSEIPDB_API_KEY
+    - "cd servers/threat-intel && name: ABUSEIPDB_API_KEY"
       description: "AbuseIPDB — free at abuseipdb.com. Enables IP reputation and report history."
       required: false
-    - name: GREYNOISE_API_KEY
+    - "cd servers/threat-intel && name: GREYNOISE_API_KEY"
       description: "GreyNoise — free community tier. Classifies internet background noise vs targeted activity."
       required: false
-    - name: ABUSECH_AUTH_KEY
+    - "cd servers/threat-intel && name: ABUSECH_AUTH_KEY"
       description: "abuse.ch — free at auth.abuse.ch. REQUIRED, not just a rate-limit raise: without it URLhaus, MalwareBazaar and ThreatFox all return HTTP 401 and contribute nothing to an enrichment."
       required: false
 
@@ -70,15 +70,15 @@ install:
 
 suggest:
   keywords:
-    - abuseipdb
-    - greynoise
-    - threatfox
-    - urlhaus
+    - "cd servers/threat-intel && abuseipdb"
+    - "cd servers/threat-intel && greynoise"
+    - "cd servers/threat-intel && threatfox"
+    - "cd servers/threat-intel && urlhaus"
   hosts:
-    - otx.alienvault.com
-    - abuseipdb.com
-    - greynoise.io
-    - abuse.ch
+    - "cd servers/threat-intel && otx.alienvault.com"
+    - "cd servers/threat-intel && abuseipdb.com"
+    - "cd servers/threat-intel && greynoise.io"
+    - "cd servers/threat-intel && abuse.ch"
 
 post_install: |
   Every credential is optional — configure the sources you have. With none,

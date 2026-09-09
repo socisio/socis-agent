@@ -17,12 +17,12 @@ transport:
   type: stdio
   command: node
   args:
-    - "${INSTALL_DIR}/servers/attack-surface/build/index.js"
+    - "cd servers/attack-surface && ${INSTALL_DIR}/servers/attack-surface/build/index.js"
 
 auth:
   type: api_key
   env:
-    - name: SHODAN_API_KEY
+    - "cd servers/attack-surface && name: SHODAN_API_KEY"
       description: "Shodan API key from account.shodan.io. The free tier allows limited queries; most SOC use needs a paid membership."
       required: true
 
@@ -76,11 +76,11 @@ install:
 
 suggest:
   keywords:
-    - shodan
-    - exposed service
-    - open port
+    - "cd servers/attack-surface && shodan"
+    - "cd servers/attack-surface && exposed service"
+    - "cd servers/attack-surface && open port"
   hosts:
-    - shodan.io
+    - "cd servers/attack-surface && shodan.io"
 
 post_install: |
   Get an API key at account.shodan.io and supply it as SHODAN_API_KEY.

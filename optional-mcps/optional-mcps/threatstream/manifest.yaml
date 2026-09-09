@@ -1,0 +1,134 @@
+# SOCIS-approved MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: threatstream
+description: >-
+  Anomali ThreatStream indicator reputation, actor attribution and campaigns.
+source: https://www.anomali.com/resources/videos/anomali-threatstream-mcp-server-installation-guide
+
+# Vendor-official (Anomali). Reached through the mcp-remote stdio bridge rather
+# than `type: http`, because ThreatStream authenticates with
+# `Authorization: Api-Key <user>:<key>` — the catalog's http+api_key path emits
+# `Bearer` and TransportSpec has no headers field to override it.
+#
+# The bridge has a second benefit worth stating: auth.env puts the credential
+# in ~/.socis-agent/.env, where it is prompted for and masked, instead of
+# sitting in plaintext in a config file. During testing this credential was
+# leaked in a screenshot of mcp.json — exactly the failure mode this avoids.
+transport:
+  type: stdio
+  command: npx
+  args:
+    - "-y"
+    - "mcp-remote"
+    - "https://optic.threatstream.com/mcp"
+    # http-only is REQUIRED, and its absence is what produced the 406 this
+    # entry was blocked on for a day.
+    #
+    # mcp-remote defaults to `http-first`: it POSTs to the endpoint, and then
+    # separately opens a GET SSE stream for server-to-client messages. The POST
+    # works against ThreatStream. The SSE GET returns 406 Not Acceptable —
+    # Anomali's endpoint does not serve that stream — and mcp-remote treats
+    # that as fatal even though the connection it needs already succeeded:
+    #
+    #     StreamableHTTPError: Failed to open SSE stream: Not Acceptable
+    #       at StreamableHTTPClientTransport._startOrAuthSse
+    #       code: 406
+    #
+    # `--transport http-only` skips the SSE attempt entirely and the proxy
+    # establishes normally. Do not remove it to "simplify" the args.
+    - "--transport"
+    - "http-only"
+    - "--header"
+    - "Authorization:${THREATSTREAM_AUTH_HEADER}"
+
+auth:
+  type: api_key
+  env:
+    - name: THREATSTREAM_AUTH_HEADER
+      description: 'Literally "Api-Key <username>:<api-key>" — include the words Api-Key, the space, and the colon between username and key.'
+      required: true
+
+# 35 tools, measured at ~66.2k tokens per call — roughly half a 128k context
+# window spent on schemas before a single message. With threat-intel,
+# ioc-reputation, attack-surface and nvd also loaded there is very
+# little room left, and the first symptom is truncated tool output rather than
+# anything that names context as the cause.
+#
+# So pre-check only the read-only intelligence tools an analyst actually uses
+# during triage. Everything else stays available — the install-time checklist
+# shows the full 35 and the operator can enable more.
+#
+# Deliberately EXCLUDED from the default:
+#   create_* / update_* / import_* / test_execute_pir
+#     Write operations against a customer's threat-intel platform. Importing
+#     observables or creating Priority Intelligence Requirements is not
+#     something an agent should do while triaging an alert.
+#   *_pir*, *_agentic_task, *_marketplace_*
+#     Anomali's PIR and agentic-task workflow. Real capability, but it is
+#     workflow authoring rather than enrichment, and it is most of the 35.
+tools:
+  default_enabled:
+    - get_actors
+    - get_actor_details
+    - get_intelligence
+    - ioc_knowledge_tool
+    - search
+    - semantic_search_tool
+    - get_threat_bulletins
+    - get_threat_bulletin_details
+    - get_investigations
+    - get_investigation_details
+    - get_feeds
+    - get_rules
+
+suggest:
+  keywords:
+    - threatstream
+    - anomali
+    - threat actor
+    - campaign attribution
+  hosts:
+    - threatstream.com
+    - anomali.com
+
+post_install: |
+  Set THREATSTREAM_AUTH_HEADER to the COMPLETE header value — the scheme, a
+  space, then username and key separated by a colon:
+
+      Api-Key you@company.com:your-api-key
+
+  Not just the credential. Without the `Api-Key ` prefix the server sees no
+  auth scheme, returns 401, and mcp-remote falls back to OAuth discovery —
+  which fails with a confusing "Invalid OAuth error response" rather than
+  anything mentioning credentials. The username is normally your account
+  email.
+
+  Credentials: ThreatStream credentials are issued by Anomali, not
+  self-service. Contact your Anomali representative if you do not have them.
+  Set THREATSTREAM_AUTH_HEADER to the full string `Api-Key user:key` —
+  including the words "Api-Key", the space, and the colon.
+
+  Note on tenancy: a ThreatStream key is tied to an organisation. In an MSSP
+  context, confirm which tenant's intelligence the key reaches before using it
+  across customer investigations — carrying one customer's observables into
+  another's context is the kind of mistake that ends an engagement.
+
+  EXPECTED NOISE: the log will show repeated
+
+      StreamableHTTPError: Failed to open SSE stream: Not Acceptable  code: 406
+
+  These are HARMLESS. mcp-remote still attempts an SSE stream alongside the
+  POST path; Anomali does not serve it. With --transport http-only the process
+  survives and the JSON-RPC exchange completes normally — check for
+  "Proxy established successfully" and matching request/response pairs rather
+  than judging by the 406 lines. Without http-only the same error is fatal,
+  which is what made this look like a vendor problem for a day.
+
+  CONTEXT COST: the server exposes 35 tools measured at ~66.2k tokens per
+  call. The manifest pre-selects 12 read-only intelligence tools; enable more
+  from the install checklist only if you need them, and expect truncated tool
+  output if you enable all 35 alongside other MCP servers.
+
+  Restart the session so the tools load.

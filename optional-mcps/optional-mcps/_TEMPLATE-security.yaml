@@ -1,0 +1,77 @@
+# Template for a security / SOC MCP catalog entry.
+#
+# This file is NOT loaded: the catalog only reads <name>/manifest.yaml, and a
+# leading underscore keeps it out of the way regardless. Copy it to
+# optional-mcps/<name>/manifest.yaml and delete whichever transport block you
+# do not need.
+#
+# Presence in optional-mcps/ = approval. Merge via PR review.
+manifest_version: 1
+
+name: example-security-tool          # directory name, lowercase, no spaces
+description: >-
+  One sentence, present tense, describing what an analyst gets. Shown in the
+  desktop picker and `socis mcp list`.
+source: https://github.com/owner/repo   # or the vendor's docs page
+
+# ---------------------------------------------------------------------------
+# OPTION A — remote vendor-hosted server.  STRONGLY PREFERRED.
+#
+# No third-party code runs on the analyst's machine and the vendor owns the
+# security of the endpoint. Use this whenever the vendor offers it.
+# ---------------------------------------------------------------------------
+transport:
+  type: http
+  url: https://mcp.vendor.example/mcp
+
+auth:
+  type: oauth        # SOCIS handles discovery, PKCE, token exchange, refresh
+
+# ---------------------------------------------------------------------------
+# OPTION B — self-hosted, installed from git.
+#
+# For on-prem tools (Wazuh, MISP, OpenCTI, TheHive) with no vendor-hosted
+# endpoint. This runs third-party code locally with credentials to a
+# customer's security platform — read the source before pinning.
+#
+# transport:
+#   type: stdio
+#   command: "${INSTALL_DIR}/.venv/bin/python"
+#   args:
+#     - "${INSTALL_DIR}/server.py"
+#
+# auth:
+#   type: api_key
+#   env:
+#     - name: EXAMPLE_API_KEY
+#       description: API token for the tool. Least-privilege, read-only where
+#                    the platform supports it — an MCP server rarely needs
+#                    write access to a SIEM.
+#       required: true
+#
+# install:
+#   type: git
+#   url: https://github.com/owner/repo.git
+#   # CATALOG POLICY: a full commit SHA, never a tag or branch — tags can be
+#   # moved, SHAs cannot. The pinned commit must be at least 2 weeks old at
+#   # pin time, matching the pyproject/npm supply-chain rules. Record what the
+#   # commit is and its date so the next reviewer can judge a bump.
+#   ref: 0000000000000000000000000000000000000000   # "<subject>" (YYYY-MM-DD)
+#   bootstrap:
+#     - "python3 -m venv .venv"
+#     - ".venv/bin/pip install -r requirements.txt"
+# ---------------------------------------------------------------------------
+
+# Composer-suggestion triggers — brand pills in the desktop composer.
+# Keep these tight: a keyword like "alert" or "scan" fires on unrelated
+# conversation and trains people to ignore the suggestions.
+suggest:
+  keywords:
+    - example-security-tool
+  hosts:
+    - vendor.example
+
+post_install: |
+  What the analyst must do before tools appear. Be specific: which credential,
+  where to generate it, what scope it needs, and whether the session must be
+  restarted.
