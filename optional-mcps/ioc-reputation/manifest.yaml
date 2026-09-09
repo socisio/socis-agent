@@ -45,7 +45,7 @@ install:
   # pinned version would skip the build step. The git pin is kept anyway: a
   # commit SHA is content-addressed and cannot be altered, which is the
   # guarantee the catalog's supply-chain policy is built around.
-  ref: d6697b99254cf7a804614ee6c92769b038f3e4c3
+  ref: 13b8fe07720403cf058a1e4ec22248342db8dae3
   # `npm run build` is `tsc && chmod +x build/index.js`, producing the
   # build/index.js referenced above (confirmed from package.json `main`).
   #
