@@ -426,3 +426,48 @@ def test_every_documented_input_shape_produces_a_layer(shape):
     assert out.startswith("✅"), f"{shape} was refused"
     layer = json.loads(out.split("```json")[1].split("```")[0])
     assert any(t["techniqueID"] == "T1059.001" for t in layer["techniques"])
+
+
+# ── the layer must exist as a FILE ──────────────────────────────────────────
+
+
+def test_layer_is_written_to_disk(tmp_path):
+    """Navigator uploads a .json — chat text is not usable.
+
+    Returning the layer inline only left the caller with nothing: the agent
+    summarised the JSON in its reply and the layer was lost.
+    """
+    from tools.mitre_attack import _handle_layer
+    out = _handle_layer({"name": "Acme Q3", "techniques": [["T1059.001", 100]]})
+    assert "Saved to" in out
+    written = list((tmp_path / "outputs" / "navigator-layers").glob("*.json"))
+    assert len(written) == 1
+    layer = json.loads(written[0].read_text(encoding="utf-8"))
+    assert layer["name"] == "Acme Q3"
+    assert any(t["techniqueID"] == "T1059.001" for t in layer["techniques"])
+
+
+def test_layer_filename_is_slugified_from_the_name(tmp_path):
+    from tools.mitre_attack import _handle_layer
+    _handle_layer({"name": "Acme Q3 / Coverage!", "techniques": ["T1059"]})
+    names = [p.name for p in
+             (tmp_path / "outputs" / "navigator-layers").glob("*.json")]
+    assert names == ["acme-q3-coverage.json"], names
+
+
+def test_explicit_output_path_is_honoured(tmp_path):
+    from tools.mitre_attack import _handle_layer
+    target = tmp_path / "deliverables" / "customer-layer.json"
+    out = _handle_layer({"name": "X", "techniques": ["T1059"],
+                         "output_path": str(target)})
+    assert target.is_file()
+    assert json.loads(target.read_text())["name"] == "X"
+    assert str(target) in out or "customer-layer.json" in out
+
+
+def test_a_refused_layer_writes_nothing(tmp_path):
+    """No file may appear when the IDs did not validate."""
+    from tools.mitre_attack import _handle_layer
+    _handle_layer({"name": "Bad", "techniques": ["T9999"]})
+    d = tmp_path / "outputs" / "navigator-layers"
+    assert not d.exists() or not list(d.glob("*.json"))

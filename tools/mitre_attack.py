@@ -469,15 +469,47 @@ def _handle_layer(args: dict, **_kw) -> str:
             added_parents += 1
 
     body = json.dumps(layer, indent=2)
+    # WRITE THE FILE. A Navigator layer is not chat text — it is uploaded to
+    # Navigator as a .json. Returning it inline only left the caller with
+    # nothing usable: the agent summarised the JSON in its reply and the layer
+    # was lost. Write it, then say where it is.
+    slug = re.sub(r"[^a-z0-9._-]+", "-", name.lower()).strip("-") or "layer"
+    if args.get("output_path"):
+        out_path = Path(str(args["output_path"])).expanduser()
+    else:
+        home = os.environ.get("SOCIS_AGENT_HOME")
+        base = Path(home) if home else Path.home() / ".socis-agent"
+        out_path = base / "outputs" / "navigator-layers" / f"{slug}.json"
+    saved, save_err = None, None
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(body + "\n", encoding="utf-8")
+        saved = out_path
+    except OSError as exc:
+        save_err = str(exc)
+
+    if saved:
+        try:
+            shown_path = "~/" + str(saved.relative_to(Path.home()))
+        except ValueError:
+            shown_path = str(saved)
+        location = (f"\n\n📄 Saved to `{shown_path}`\n"
+                    "   Upload it in Navigator → Open Existing Layer → "
+                    "Upload from local.")
+    else:
+        location = (f"\n\n⚠ Could not write the layer file ({save_err}). "
+                    "Copy the JSON above into a .json file instead.")
+
     parent_note = (f" (+{added_parents} parent row(s) marked to reveal the "
                    "annotated sub-techniques)" if added_parents else "")
     return (f"✅ Navigator layer “{name}” — {len(entries)} annotated "
             f"technique(s){parent_note}, ATT&CK v{idx['version']}, "
             f"layer format {_LAYER_VERSION}.\n\n"
-            f"```json\n{body}\n```\n\n"
-            "Save as .json and import via Navigator → Open Existing Layer. "
-            "The ATT&CK version is stamped in `versions.attack` so the "
-            "deliverable records what it was built against.\n"
+            f"```json\n{body}\n```"
+            + location
+            + "\n\nThe ATT&CK version is in `versions.attack`, and the exact "
+              "release in the layer metadata, so the deliverable records what "
+              "it was built against.\n"
             + (f"⚠ {warning}\n" if warning else ""))
 
 
@@ -606,6 +638,7 @@ registry.register(
                 },
                 "name": {"type": "string", "description": "Layer name shown in Navigator."},
                 "description": {"type": "string", "description": "Layer description."},
+                "output_path": {"type": "string", "description": "Where to write the .json. Defaults to ~/.socis-agent/outputs/navigator-layers/<name>.json — the file is ALWAYS written, because Navigator needs a file to upload."},
             },
             "required": ["techniques"],
         },
