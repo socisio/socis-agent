@@ -21,7 +21,7 @@ toolsets:
 metadata:
   socis:
     tags: [Security, IncidentResponse, NIST, DFIR]
-    related_skills: [alert-triage, evidence-handling, attack-mapping]
+    related_skills: [alert-triage, attack-mapping]
 ---
 
 # Incident Response
@@ -80,7 +80,7 @@ response:
 incident channel cannot live on it. Assume email and chat are read by the
 adversary until proven otherwise.
 
-Open the case with an ID and start the evidence log now (`evidence-handling`).
+Open the case with an ID and start the evidence log now: every action, who took it, when, and against which host. Capture volatile state before containment touches it — memory, network connections, running processes — and hash anything you acquire at acquisition time, not later. If you skip a step, record why.
 
 ### Severity
 
