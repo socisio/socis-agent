@@ -752,10 +752,16 @@ registry.register(
                     ),
                 },
                 "pipelines": {
-                    "type": "array",
+                    # A bare string is accepted as well as a list. The handler
+                    # already coerces one, but schema validation runs BEFORE
+                    # the handler, so `pipelines: "splunk_windows"` was
+                    # rejected outright and the coercion was dead code — a
+                    # round trip lost on the commonest case, a single pipeline.
+                    "type": ["array", "string"],
                     "items": {"type": "string"},
                     "description": (
-                        "Field-mapping pipelines, applied in order — e.g. [\"splunk_windows\"] "
+                        "Field-mapping pipelines, applied in order. A single name may be "
+                        "given as a bare string; several as a list — e.g. [\"splunk_windows\"] "
                         "for the splunk backend. Pipelines are BACKEND-SCOPED: check with "
                         "sigma_list (what=pipelines, backend=splunk) rather than the unscoped "
                         "list, which shows a different set. A name that is not installed fails "

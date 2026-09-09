@@ -14,6 +14,7 @@ text it returns.
 """
 
 import os
+import pathlib
 import stat
 from pathlib import Path
 
@@ -441,3 +442,45 @@ def test_sigma_convert_passes_pipelines_in_order(stub_sigma, sigma_rule, tmp_pat
     argv = json.loads(log.read_text())
     assert argv.count("-p") == 2
     assert argv.index("splunk_windows") < argv.index("splunk_cim")
+
+
+def test_sigma_convert_accepts_a_single_pipeline_as_a_string(
+    stub_sigma, sigma_rule, tmp_path
+):
+    """The schema must permit what the handler coerces.
+
+    Validation runs before the handler, so a strict `array` type rejected
+    `pipelines: "splunk_windows"` outright and the handler's string coercion
+    could never run — a wasted round trip on the commonest case.
+    """
+    log = tmp_path / "argv.txt"
+    script = stub_sigma / "sigma"
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        f"open({str(log)!r}, 'w').write(json.dumps(sys.argv[1:]))\n"
+        "print('ok')\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    _handle_sigma_convert({
+        "rule_file": str(sigma_rule), "target": "splunk",
+        "pipelines": "splunk_windows",
+    })
+    import json
+    argv = json.loads(log.read_text())
+    assert argv.count("-p") == 1
+    assert "splunk_windows" in argv
+
+
+def test_sigma_convert_schema_permits_string_or_array():
+    """Guard the schema itself, not just the handler."""
+    import ast as _ast
+    import re as _re
+    src = pathlib.Path("tools/detection_tools.py").read_text(encoding="utf-8")
+    m = _re.search(
+        r'registry\.register\(\s*name="sigma_convert".*?schema=(\{.*?\}),\s*\n\s*handler=',
+        src, _re.S,
+    )
+    schema = _ast.literal_eval(m.group(1))
+    pl = schema["input_schema"]["properties"]["pipelines"]["type"]
+    assert "string" in pl and "array" in pl, f"pipelines type is {pl!r}"
