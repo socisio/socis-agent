@@ -40,7 +40,7 @@ install:
   # Default branch is `master`, not `main`. Worth noting because the SHA pin
   # makes it irrelevant to the install, but anyone checking the repo by hand
   # against `main` will find nothing.
-  ref: 6f03f36bc64f0f6a2a1ac7d3f72577d785c9d9a8
+  ref: 314b0746a674666dd17d74dc6adc5da7f51da323
   # package.json declares `"prepare": "npm run build"`, so npm install already
   # triggers tsc. The explicit build is kept because `prepare` does not run in
   # every npm configuration (--ignore-scripts, some CI defaults), and a missing
