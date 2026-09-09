@@ -13,7 +13,7 @@ transport:
   type: stdio
   command: node
   args:
-    - "${INSTALL_DIR}/dist/index.js"
+    - "${INSTALL_DIR}/servers/threat-intel/dist/index.js"
 
 # Four independent sources, every key optional. The server enables tools per
 # key present, and abuse.ch's Feodo Tracker works with no credential at all —
@@ -38,7 +38,7 @@ auth:
 
 install:
   type: git
-  url: https://github.com/aplaceforallmystuff/mcp-threatintel.git
+  url: https://github.com/socisio/socis-mcp-servers.git
   # Full commit SHA, never a tag or branch — tags move, SHAs do not. Verified
   # 2026-08-09, 28 days old at pin time, against the >=2 week supply-chain rule
   # applied to pyproject and npm dependencies. A freshly-pushed commit is what
@@ -49,7 +49,7 @@ install:
   # build step, but it has NOT been verified as published by the same author.
   # npm name-squatting on a GitHub project is a known supply-chain pattern, so
   # the git pin is used until that is confirmed.
-  ref: b71210b2e21766411de858844c1c864291630f30
+  ref: cdd8dbdabe6d3c7273e51ae46ea15df356d97cef
   bootstrap:
     - "npm install"
     # Clear transitive advisories before the build.
