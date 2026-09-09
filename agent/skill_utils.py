@@ -1256,6 +1256,38 @@ def resolve_skill_config_values(
 
 SKILL_PROMPT_DESC_LIMIT = 60
 
+# Trigger phrases shown alongside a skill's description in the prompt index.
+#
+# Descriptions alone decide loading by lexical overlap, and that misses the
+# conceptual case. "Walk me through the incident response phases" overlaps
+# incident-response's description and loaded it; "How do I decide whether an
+# alert is a true positive?" shares no words with alert-triage's description
+# and did not — even though that skill declares the trigger "is this a true
+# positive", which would have matched exactly.
+#
+# The field has existed in ten skills' frontmatter since they were written and
+# NO CODE HAS EVER READ IT. Three per skill keeps the index affordable; the
+# rest stay in the file as intent.
+SKILL_PROMPT_TRIGGER_LIMIT = 3
+SKILL_PROMPT_TRIGGER_CHARS = 40
+
+
+def extract_skill_triggers(frontmatter: Dict[str, Any]) -> list:
+    """Trigger phrases for the prompt index, capped for context cost."""
+    raw = frontmatter.get("triggers")
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for item in raw:
+        t = str(item).strip().strip("'\"")
+        if not t or len(t) > SKILL_PROMPT_TRIGGER_CHARS:
+            continue
+        out.append(t)
+        if len(out) >= SKILL_PROMPT_TRIGGER_LIMIT:
+            break
+    return out
+
+
 
 def _normalize_skill_description(frontmatter: Dict[str, Any]) -> str:
     """Normalize a skill's description field for comparison/truncation."""
