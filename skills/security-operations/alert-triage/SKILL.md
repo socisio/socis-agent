@@ -22,7 +22,7 @@ toolsets:
 metadata:
   socis:
     tags: [Security, SOC, Triage, DetectionResponse]
-    related_skills: [attack-mapping, incident-response]
+    related_skills: [attack-mapping, incident-response, evidence-handling]
 ---
 
 # Alert Triage

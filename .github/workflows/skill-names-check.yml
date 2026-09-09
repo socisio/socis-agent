@@ -1,0 +1,38 @@
+name: Skill Names Check
+
+# Rejects skills whose frontmatter `name` collides with another's or does not
+# match its directory, and skills whose body is byte-identical to another's.
+#
+# Skill names are a FLAT namespace: `skills/<category>/<dir>/SKILL.md` is
+# indexed by the frontmatter `name:`, not by path. Two skills declaring the
+# same name collide and one becomes permanently unreachable — it never enters
+# the sync manifest, `socis skills reset <dir>` reports "not a tracked bundled
+# skill", and the index shows one entry where there should be two.
+#
+# Nothing raises. That is the whole problem, and why this has to be CI.
+#
+# This shipped: skills/security-operations/evidence-handling/SKILL.md was
+# overwritten with a copy of detection-engineering, frontmatter included, so it
+# declared `name: detection-engineering`. It was unloadable and its 240 lines of
+# RFC 3227 / chain-of-custody guidance were gone, with no error anywhere. It was
+# recovered from git history only because someone happened to look.
+#
+# Runs unconditionally (no change-classifier gate): a bad copy can land in any
+# PR that touches skills/, and gating on a language lane would make this the
+# same passive rule it exists to replace.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check-skill-names:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run skill-name checker
+        run: python3 scripts/check-skill-names.py
