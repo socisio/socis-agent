@@ -150,6 +150,38 @@ and a genuine fix may mention none of them (upstream's "body-size cap on
 aiohttp webhook servers" is DoS hardening and matches nothing). Skim the full
 log periodically, not just the filtered set.
 
+### Skill `triggers:` is not wired up
+
+Ten bundled skills declare a `triggers:` list in their frontmatter. **No code
+reads it** — not the loader, not the prompt builder, not the sync. Verified by
+searching every `.py`, `.ts`, `.tsx` and `.mjs` in the tree; the only matches
+are unrelated (`reset_triggers` in gateway config, Slack reaction triggers, a
+godmode script argument).
+
+It is kept as documentation of intent — "this skill should fire on these
+phrases" is worth recording, and it is the natural data for a matcher if one is
+ever built. But **do not tune it expecting an effect.** What actually decides
+whether a skill loads is:
+
+1. the `description:` in its frontmatter, which appears in `<available_skills>`
+   in every system prompt, and
+2. the model's judgement about relevance.
+
+That judgement is sensitive to phrasing. All eight security-operations
+descriptions were once written as actions ("Run an incident: contain,
+eradicate, recover, report"), and a question — "walk me through the incident
+response phases" — matched none of them, so the model answered from general
+knowledge and skipped guardrails that materially change the advice. Rewriting
+them to cover both doing and explaining ("Run an incident, **or answer IR
+questions**: phases, containment order, notification clocks") fixed the phases
+case. It does not fix every case: a conceptual question with no lexical overlap
+still misses. Descriptions are the lever; they are not a guarantee.
+
+Skill names are also a FLAT namespace — see `scripts/check-skill-names.py`,
+which fails CI on a duplicate name, a name that does not match its directory,
+or a body byte-identical to another skill's. All three shipped once, in the
+same file, and made a 240-line skill permanently unloadable with no error.
+
 ### Tool schemas come in two shapes
 
 Registry tools declare **`input_schema`** (Anthropic). MCP tools declare

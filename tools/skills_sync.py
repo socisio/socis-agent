@@ -993,10 +993,37 @@ def sync_skills(quiet: bool = False) -> dict:
     _write_manifest(manifest)
     optional_provenance_backfilled = _backfill_optional_provenance(quiet=quiet)
 
+    # A bundled skill that exists in the source but NOT in the target is a
+    # broken install, not a normal skip. It has no manifest entry to explain
+    # it, discovery scans the directory so the skill simply is not there, and
+    # every caller so far reported success anyway: three `socis update` runs
+    # said "Already up to date" while evidence-handling was absent. Surface it
+    # even under quiet — quiet should mean "no chatter", not "no problems".
+    missing_from_target: List[str] = []
+    for _name, _src in bundled_skills:
+        if _name in suppressed and _name not in _essential_names():
+            continue
+        if _name in shadowed_by_external:
+            continue
+        _dest = _compute_relative_dest(_src, bundled_dir)
+        if not _dest.exists():
+            missing_from_target.append(_name)
+    if missing_from_target:
+        preview = ", ".join(sorted(missing_from_target)[:5])
+        more = "" if len(missing_from_target) <= 5 else f" (+{len(missing_from_target) - 5} more)"
+        print(
+            f"  ⚠ {len(missing_from_target)} bundled skill(s) are NOT installed "
+            f"and will not load: {preview}{more}\n"
+            f"    The bundled source has them but the skills tree does not. "
+            f"Re-run `socis skills sync`; if they stay missing, "
+            f"`socis skills reset <name> --restore`."
+        )
+
     return {
         "copied": copied,
         "updated": updated,
         "skipped": skipped,
+        "missing_from_target": missing_from_target,
         "user_modified": user_modified,
         "cleaned": cleaned,
         "suppressed": suppressed_skipped,

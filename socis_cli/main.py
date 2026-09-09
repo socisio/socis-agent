@@ -3159,7 +3159,13 @@ def _sync_bundled_skills_quietly() -> None:
 
         sync_skills(quiet=True)
     except Exception:
-        pass
+        # Swallowed on purpose — skills are an enhancement, not a hard
+        # dependency — but NOT unlogged. A silent failure here leaves bundled
+        # skills missing from the index with no way to tell that is why:
+        # `socis update` reports success, `skill_view` reports the skill does
+        # not exist, and the two never connect. logger.debug keeps it out of
+        # normal output while making it findable.
+        logger.debug("Bundled skills sync failed", exc_info=True)
 
 
 def _resolve_use_tui(args) -> bool:
@@ -3418,7 +3424,7 @@ def cmd_chat(args):
         try:
             _sync_bundled_skills_for_startup()
         except Exception:
-            pass
+            logger.debug("Startup skills sync failed", exc_info=True)
 
     if _skills_dir_is_unseeded():
         _skills_sync_bg()
@@ -3431,9 +3437,26 @@ def cmd_chat(args):
         except Exception:
             pass
     else:
-        threading.Thread(
+        # daemon=True means the interpreter kills this thread at exit without
+        # waiting. For a long-lived REPL/gateway that is right — the sync
+        # finishes well before anyone quits. For a SHORT-LIVED invocation
+        # (`socis update`, `socis -z "..."`) the process exits in under a
+        # second and the thread dies part-way through, silently, because
+        # _skills_sync_bg swallows everything.
+        #
+        # Observed: a bundled skill deleted from the target tree stayed
+        # missing across three `socis update` runs, each reporting "Already
+        # up to date", because the sync that would have restored it never
+        # finished. Join briefly so a short command still completes the work
+        # it started; the timeout keeps a slow or stuck sync from holding up
+        # the CLI.
+        _sync_thread = threading.Thread(
             target=_skills_sync_bg, name="bundled-skills-sync", daemon=True
-        ).start()
+        )
+        _sync_thread.start()
+        _sync_thread.join(timeout=float(
+            os.environ.get("SOCIS_SKILLS_SYNC_JOIN_SECONDS", "5")
+        ))
 
     # --yolo: bypass all dangerous command approvals.
     # Also set in main() before _prepare_agent_startup() — that is the
