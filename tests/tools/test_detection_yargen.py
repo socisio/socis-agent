@@ -26,6 +26,7 @@ from tools.detection_tools import (
     _handle_sigma_check,
     _handle_sigma_convert,
     _handle_suricata_check,
+    _handle_suricata_replay,
     _resolve_suricata_rules,
     _handle_yara_scan,
     _handle_yargen,
@@ -660,3 +661,82 @@ def test_comments_do_not_trigger_the_multiline_check():
 def test_suricata_missing_rules_names_both_options():
     _, err = _resolve_suricata_rules({"pcap": "/tmp/x.pcap"})
     assert "rules_file" in err and "pcap" in err
+
+
+# ── a null replay must not be reported as a broken rule ────────────────────
+
+
+def _stub_suricata_replay(bindir, mode):
+    """A suricata that writes eve.json with a chosen set of event types."""
+    script = bindir / "suricata"
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys, json, os\n"
+        "a = sys.argv[1:]\n"
+        "o = a[a.index('-l') + 1] if '-l' in a else '.'\n"
+        "os.makedirs(o, exist_ok=True)\n"
+        f"mode = {mode!r}\n"
+        "if mode == 'alert':\n"
+        "    open(os.path.join(o, 'fast.log'), 'w').write('[1:1:1] fired\\n')\n"
+        "evs = [{'event_type': 'flow'}] * 4 + [{'event_type': 'stats'}]\n"
+        "if mode == 'dns_present':\n"
+        "    evs += [{'event_type': 'dns'}] * 3\n"
+        "with open(os.path.join(o, 'eve.json'), 'w') as f:\n"
+        "    [f.write(json.dumps(e) + '\\n') for e in evs]\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+
+
+def test_null_replay_reports_what_the_capture_contained(stub_suricata, tmp_path):
+    """Zero alerts has two OPPOSITE causes.
+
+    A .onion DNS rule replayed against a capture holding only TCP-to-SOCKS
+    traffic produces zero alerts while being UNTESTED, not broken. The old
+    message said only "the rule did not fire" and went straight to a debugging
+    checklist — which discards a working rule. The skill said the same thing:
+    "No alert means the rule does not work, whatever it looks like."
+    """
+    _stub_suricata_replay(stub_suricata, "no_dns")
+    pcap = tmp_path / "t.pcap"
+    pcap.write_bytes(b"fake")
+    out = _handle_suricata_replay({
+        "rules": 'alert dns any any -> any any (msg:"x"; dns_query; content:".onion"; sid:1; rev:1;)',
+        "pcap": str(pcap)})
+    assert "two opposite causes" in out
+    assert "flow (4)" in out, "must list the event types actually parsed"
+    assert "UNTESTED, not broken" in out
+    assert "dns" not in out.split("Event types")[1].split("\n")[0]
+
+
+def test_null_replay_lists_dns_when_it_was_present(stub_suricata, tmp_path):
+    """With the protocol present, a null result DOES mean the rule is wrong."""
+    _stub_suricata_replay(stub_suricata, "dns_present")
+    pcap = tmp_path / "t.pcap"
+    pcap.write_bytes(b"fake")
+    out = _handle_suricata_replay({"rules": 'alert dns any any -> any any (msg:"x"; sid:1; rev:1;)',
+                                   "pcap": str(pcap)})
+    assert "dns (3)" in out
+    assert "the rule is wrong" in out
+
+
+def test_replay_reports_alerts_when_the_rule_fires(stub_suricata, tmp_path):
+    _stub_suricata_replay(stub_suricata, "alert")
+    pcap = tmp_path / "t.pcap"
+    pcap.write_bytes(b"fake")
+    out = _handle_suricata_replay({"rules": 'alert tcp any any -> any 9150 (msg:"x"; sid:1; rev:1;)',
+                                   "pcap": str(pcap)})
+    assert out.startswith("✅") and "fired" in out
+
+
+def test_replay_accepts_a_rules_file(stub_suricata, tmp_path, rules_file):
+    _stub_suricata_replay(stub_suricata, "alert")
+    pcap = tmp_path / "t.pcap"
+    pcap.write_bytes(b"fake")
+    out = _handle_suricata_replay({"rules_file": str(rules_file), "pcap": str(pcap)})
+    assert out.startswith("✅")
+
+
+def test_replay_missing_pcap_is_named(stub_suricata, rules_file):
+    out = _handle_suricata_replay({"rules_file": str(rules_file),
+                                   "pcap": "/tmp/definitely-not-here.pcap"})
+    assert "PCAP not found" in out

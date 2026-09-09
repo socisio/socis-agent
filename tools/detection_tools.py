@@ -42,7 +42,8 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
+import json
+from typing import Dict, Optional
 
 from tools.registry import registry
 
@@ -781,13 +782,50 @@ def _handle_suricata_replay(args: dict, **_kw) -> str:
             alerts = fast.read_text(encoding="utf-8", errors="replace").strip() if fast.is_file() else ""
             if alerts:
                 return f"✅ Rule fired:\n\n{alerts[:_MAX_OUTPUT]}"
-            return ("⚠ NO ALERTS. The rule did not fire on this PCAP.\n\n"
-                    "Check in this order:\n"
-                    "1. Did Suricata parse the protocol? Look for http/tls events in eve.json.\n"
-                    "   No events means the traffic is on a non-standard port.\n"
-                    "2. Is `flow:` inverted? `to_server` never matches a response.\n"
-                    "3. Is the content in a different buffer? http.uri excludes the host.\n"
-                    "4. Is the traffic TLS? Then no payload content will ever match.")
+
+            # ZERO ALERTS HAS TWO OPPOSITE CAUSES and this used to report only
+            # one of them: "the rule did not fire", straight into a debugging
+            # checklist. But a .onion DNS rule replayed against a capture of
+            # TCP-to-SOCKS traffic produces exactly this output while being
+            # UNTESTED, not broken. Reporting it as broken throws away a
+            # working rule; the reverse ships an unverified one.
+            #
+            # eve.json already answers it — Suricata records an app-layer event
+            # per parsed protocol — so summarise what WAS in the capture rather
+            # than making the caller guess.
+            protos: Dict[str, int] = {}
+            eve = Path(outdir) / "eve.json"
+            if eve.is_file():
+                try:
+                    for line in eve.read_text(encoding="utf-8", errors="replace").splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            ev = json.loads(line)
+                        except ValueError:
+                            continue
+                        et = ev.get("event_type")
+                        if et and et != "stats":
+                            protos[et] = protos.get(et, 0) + 1
+                except OSError:
+                    pass
+
+            seen = (", ".join(f"{k} ({v})" for k, v in
+                              sorted(protos.items(), key=lambda kv: -kv[1])[:8])
+                    or "none recorded")
+            return ("⚠ NO ALERTS — and that has two opposite causes.\n\n"
+                    f"Event types Suricata parsed in this capture: {seen}\n\n"
+                    "1. If the protocol your rule targets is NOT in that list, the "
+                    "capture cannot test this rule. The rule is UNTESTED, not "
+                    "broken — do not discard it, and do not call it verified. Get "
+                    "a capture containing the relevant traffic.\n"
+                    "2. If it IS in the list, the rule is wrong. Check, in order:\n"
+                    "   • Is `flow:` inverted? `to_server` never matches a response.\n"
+                    "   • Is the direction right? A DNS query is client→resolver, so "
+                    "$EXTERNAL_NET -> $HOME_NET never sees one.\n"
+                    "   • Is the content in a different buffer? http.uri excludes the host.\n"
+                    "   • Is the traffic TLS? Then no payload content will ever match.")
     finally:
         Path(rules_path).unlink(missing_ok=True)
 

@@ -48,6 +48,18 @@ replayed the PCAP and watched it alert.
 5. **TLS changed what is possible.** Most C2 is encrypted. Content matching on
    the payload will not work; JA3/JA4, SNI, certificate fields and traffic
    shape are what you have.
+6. **Zero alerts has two causes, and they are opposite.** Either the rule is
+   wrong, or the PCAP has no traffic of the kind the rule matches. A `.onion`
+   DNS rule replayed against a capture containing only TCP to a SOCKS port
+   produces no alerts and is *untested*, not broken. Establish what is in the
+   capture FIRST (step 1) so a null result means something. Never report a
+   rule as broken on a null replay without confirming the relevant protocol
+   was present.
+7. **A .rules file is a production artifact, not a notebook.** A header
+   comment naming the author, date, reference and tested-against PCAP is
+   standard. A narrative test report is not — it ships to the customer's
+   sensor and it belongs in the case notes or the PR description. Observed: a
+   twelve-line "yes it fired" write-up patched into a live rules file.
 
 ---
 
@@ -133,8 +145,23 @@ cat ./out/fast.log
 jq 'select(.event_type=="alert") | .alert.signature' ./out/eve.json
 ```
 
-**No alert means the rule does not work**, whatever it looks like. Debug in
-this order:
+**No alert means one of two things, and they are opposite.** Either the rule
+does not work, or this PCAP contains no traffic of the kind it matches. Settle
+that before concluding anything:
+
+```bash
+# Is the protocol even present? No output = the rule was never exercised.
+tshark -r sample.pcap -T fields -e dns.qry.name | sort -u | head
+tshark -r sample.pcap -q -z io,phs        # protocol hierarchy
+```
+
+A `.onion` DNS rule replayed against a capture of TCP-to-SOCKS-proxy traffic
+produces zero alerts and is **untested**, not broken. Discarding it there
+throws away a working rule; shipping it because "replay ran" ships an
+unverified one. Both are worse than saying "this capture cannot test it".
+
+Once you have confirmed the relevant traffic IS in the capture, a null result
+does mean the rule is wrong. Debug in this order:
 
 1. Did Suricata parse the protocol at all? Check `eve.json` for `http` or
    `tls` events on that flow. If there are none, the traffic is on a
