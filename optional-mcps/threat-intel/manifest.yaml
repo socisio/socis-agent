@@ -49,7 +49,7 @@ install:
   # build step, but it has NOT been verified as published by the same author.
   # npm name-squatting on a GitHub project is a known supply-chain pattern, so
   # the git pin is used until that is confirmed.
-  ref: a191fb97f43f8789f3c168fc50d745fbe31d78c0
+  ref: 7c8aa4d541f4c3ad82899e4cecad922d4623ea82
   bootstrap:
     - "cd servers/threat-intel && npm install"
     # Clear transitive advisories before the build.
