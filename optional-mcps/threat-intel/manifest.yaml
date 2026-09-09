@@ -7,7 +7,7 @@ description: >-
   IOC reputation and threat context from OTX, AbuseIPDB, GreyNoise and abuse.ch.
 # Upstream project. Required: MIT's one condition is that the copyright and
 # permission notice travel with the work. See optional-mcps/NOTICE.
-source: https://github.com/aplaceforallmystuff/mcp-threatintel
+source: https://github.com/socisio/socis-mcp-servers
 
 transport:
   type: stdio
@@ -87,14 +87,10 @@ post_install: |
   Free keys: otx.alienvault.com, abuseipdb.com, greynoise.io (community tier),
   auth.abuse.ch.
 
-  KNOWN BUG (upstream): threatintel_lookup_hash returns
-  `otx: API error 404: endpoint not found` for every hash. Verified 2026-09-09
-  that the OTX API itself is fine — /api/v1/indicators/file/<sha256>/general
-  and /analysis both return 200 with a valid key — so the server is requesting
-  a path that does not exist. OTX hash enrichment does not work through this
-  server; use VirusTotal (ioc-reputation) for hashes until upstream fixes it.
-  Note the failure reads as "404 not found", which is easy to mistake for
-  "OTX has no data on this hash".
-
+  FIXED IN THE SOCIS FORK: upstream's aggregate lookups called abuse.ch
+  without the Auth-Key header (401) and built the OTX hash path with an
+  indicator-type segment the API rejects (404). Both surfaced as "no data
+  on this indicator" rather than "the request was wrong". See
+  servers/threat-intel/PATCHES.md in socisio/socis-mcp-servers.
   All lookups are read-only against public reputation services. Nothing is
   submitted or published. Restart the session so the tools load.
