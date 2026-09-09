@@ -33,7 +33,7 @@ auth:
       description: "GreyNoise — free community tier. Classifies internet background noise vs targeted activity."
       required: false
     - name: ABUSECH_AUTH_KEY
-      description: "abuse.ch — free at auth.abuse.ch. Raises rate limits on URLhaus, MalwareBazaar and ThreatFox."
+      description: "abuse.ch — free at auth.abuse.ch. REQUIRED, not just a rate-limit raise: without it URLhaus, MalwareBazaar and ThreatFox all return HTTP 401 and contribute nothing to an enrichment."
       required: false
 
 install:
@@ -86,6 +86,15 @@ post_install: |
 
   Free keys: otx.alienvault.com, abuseipdb.com, greynoise.io (community tier),
   auth.abuse.ch.
+
+  KNOWN BUG (upstream): threatintel_lookup_hash returns
+  `otx: API error 404: endpoint not found` for every hash. Verified 2026-09-09
+  that the OTX API itself is fine — /api/v1/indicators/file/<sha256>/general
+  and /analysis both return 200 with a valid key — so the server is requesting
+  a path that does not exist. OTX hash enrichment does not work through this
+  server; use VirusTotal (ioc-reputation) for hashes until upstream fixes it.
+  Note the failure reads as "404 not found", which is easy to mistake for
+  "OTX has no data on this hash".
 
   All lookups are read-only against public reputation services. Nothing is
   submitted or published. Restart the session so the tools load.
