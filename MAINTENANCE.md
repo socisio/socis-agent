@@ -150,6 +150,26 @@ and a genuine fix may mention none of them (upstream's "body-size cap on
 aiohttp webhook servers" is DoS hardening and matches nothing). Skim the full
 log periodically, not just the filtered set.
 
+### Tool schemas come in two shapes
+
+Registry tools declare **`input_schema`** (Anthropic). MCP tools declare
+**`parameters`** (OpenAI). `tools/registry.py` builds a tool's function dict as
+`{**entry.schema, "name": ...}` and never renames the key, so both shapes reach
+anything that reads a tool definition — and it must accept either.
+
+Reading only `parameters` returned `{}` for roughly 18 registry tools
+(`cisa_kev`, `detection_tools`, `domain_permutations`, `yara_strings`). Nothing
+raised. The model was handed a tool name and a prose description with **no
+argument names at all**, and behaved accordingly: calling tools with empty
+arguments purely to read the error and learn the schema, and guessing that a
+parameter documented as "YARA rule text" might accept a file path. MCP tools
+described correctly throughout, which is why it went unnoticed.
+
+Use `tools/tool_search.py:_fn_parameters()` rather than reaching for either key
+directly. `tests/tools/test_tool_schema_shapes.py` walks every registered tool
+in `detection_tools.py` and fails if any exposes no parameter names, so a tool
+declared in a third shape is caught rather than silently offered nameless.
+
 ### Before applying: does this fork already have it?
 
 Ask this FIRST, before reading the diff. In the 2026-09-09 audit it settled
