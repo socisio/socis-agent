@@ -47,6 +47,12 @@ This skill is about the second problem.
    get disabled.
 4. **Never match on the sample's hash alone.** That is an IOC, not a rule.
    YARA earns its cost by catching the *next* variant.
+5. **Present every rule inside a ```yara fenced code block** — pass the
+   tool's own fence through rather than retyping the rule as prose. A rule is
+   copied verbatim into a file; reflowed as prose it loses line breaks and
+   indentation, and a string like `"\\cscript.exe "` silently loses a
+   backslash or a trailing space that the match depends on.
+   `yargen_generate` already returns fenced output; keep it.
 
 ---
 

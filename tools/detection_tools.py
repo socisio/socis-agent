@@ -197,12 +197,19 @@ def _fence_for(target: str, fmt: str = "") -> str:
     — Splunk's savedsearches.conf, for instance — so the format wins when set.
     """
     f = (fmt or "").lower()
-    if "conf" in f:
+    # Match format NAMES, not just the word "conf": sigma's splunk backend
+    # offers default / savedsearches / data_model, and only one of those
+    # contains "conf". `savedsearches` emits .conf stanzas and was being
+    # fenced as spl — the model noticed and re-fenced it as ini, which is the
+    # tool getting it wrong and something downstream compensating.
+    if "conf" in f or "savedsearch" in f:
         return "ini"
     if "yaml" in f or "yml" in f:
         return "yaml"
-    if "json" in f:
+    if "json" in f or "data_model" in f or "datamodel" in f:
         return "json"
+    if "xml" in f:
+        return "xml"
     return _BACKEND_FENCE.get((target or "").lower(), "text")
 
 

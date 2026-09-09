@@ -518,10 +518,24 @@ def test_fence_language_per_backend(target, expected):
     assert _fence_for(target) == expected
 
 
-def test_output_format_overrides_the_backend_language():
+@pytest.mark.parametrize(
+    "fmt,expected",
+    [
+        # Sigma's splunk backend offers default / savedsearches / data_model.
+        # Matching only the substring "conf" caught one of the three, so
+        # `savedsearches` — which emits .conf stanzas — was fenced as spl.
+        ("savedsearches", "ini"),
+        ("savedsearches.conf", "ini"),
+        ("data_model", "json"),
+        ("default", "spl"),
+        ("", "spl"),
+        ("yaml", "yaml"),
+        ("json", "json"),
+    ],
+)
+def test_output_format_overrides_the_backend_language(fmt, expected):
     """Non-default formats emit config files, not a bare query."""
-    assert _fence_for("splunk", "savedsearches.conf") == "ini"
-    assert _fence_for("splunk", "") == "spl"
+    assert _fence_for("splunk", fmt) == expected
 
 
 def test_yargen_reference_defaults_to_the_socis_rules_repo(

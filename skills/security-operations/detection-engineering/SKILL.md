@@ -49,6 +49,26 @@ architecture.
    receiving the alert at 3am needs to know what benign activity looks like.
 4. **Do not write rules against fields you have not confirmed exist** in the
    customer's actual schema.
+5. **Present every rule and every converted query inside a fenced code
+   block** — and pass the tool's own fence through rather than retyping the
+   content as prose. A query is pasted verbatim into a search bar; reflowed
+   as prose it loses line breaks and indentation, and `*\\powershell.exe`
+   silently loses a backslash. `sigma_convert` and `yargen_generate` already
+   return fenced output; keep it.
+
+   Tag it with the query language so it renders as code, not text:
+
+   | output | fence |
+   |---|---|
+   | Sigma rule (the YAML itself) | `yaml` |
+   | splunk, splunk_spl2 | `spl` |
+   | splunk `savedsearches` format | `ini` |
+   | kusto, sentinel, m365defender | `kql` |
+   | lucene, opensearch_lucene | `json` |
+   | eql / esql | `eql` / `esql` |
+   | loki | `logql` |
+   | YARA rule | `yara` |
+   | anything else | `text` |
 
 ---
 
