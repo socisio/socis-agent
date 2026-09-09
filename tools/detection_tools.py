@@ -296,6 +296,30 @@ def _yargen_db_home() -> Path:
     return base / "tools" / "yargen"
 
 
+def _yargen_survey(root: Path) -> dict:
+    """What the sample set actually is, so flags follow evidence not guesswork.
+
+    yarGen's own defaults hide two failure modes that look identical to a thin
+    result: ``-fs`` skips anything over 10 MB SILENTLY, and super rules need
+    more than one sample to mean anything. Both are observable here, so neither
+    needs to be a question put to the user — who usually cannot answer it in
+    advance either.
+    """
+    files, largest, biggest_name = 0, 0, ""
+    for f in root.rglob("*"):
+        try:
+            if not f.is_file() or f.is_symlink():
+                continue
+            size = f.stat().st_size
+        except OSError:
+            continue
+        files += 1
+        if size > largest:
+            largest, biggest_name = size, f.name
+    return {"files": files, "largest": largest, "largest_name": biggest_name,
+            "largest_mb": largest / (1024 * 1024)}
+
+
 def _yargen_check() -> bool:
     return shutil.which("yarGen") is not None or shutil.which("yargen") is not None
 
@@ -314,9 +338,6 @@ def _handle_yargen(args: dict, **_kw) -> str:
     # we returned the log instead — so the caller saw talk about excluded
     # patterns and no rule, and an unread .yar file accumulated in whatever
     # directory the agent happened to be in. Name the output path, then read it.
-    out_dir = tempfile.mkdtemp(prefix="socis-yargen-")
-    out_path = Path(out_dir) / "yargen_rules.yar"
-
     # CWD MATTERS: yarGen resolves its goodware `dbs/` relative to the working
     # directory, NOT to yarGen.py. Running it from the temp output dir would
     # find no database and silently emit UNFILTERED rules — rules that match
@@ -334,10 +355,51 @@ def _handle_yargen(args: dict, **_kw) -> str:
                 f"  mkdir -p {shown} && cd {shown} && yarGen --update\n"
                 "(~913 MB) — or `bash scripts/install.sh --ensure yargen`.")
 
+    survey = _yargen_survey(p)
+    if not survey["files"]:
+        return f"❌ No files in {samples} — nothing to analyse."
+
+    # Created only AFTER every early return: an earlier revision made the temp
+    # dir first, so the missing-database and empty-directory paths returned
+    # without reaching the `finally` and left it behind on every failed call.
+    out_dir = tempfile.mkdtemp(prefix="socis-yargen-")
+    out_path = Path(out_dir) / "yargen_rules.yar"
+
     argv = [binary, "-m", str(p.resolve()), "-a", args.get("author") or "SOCIS Agent",
             "-o", str(out_path)]
+    notes: list[str] = []
+
+    # -fs is a MAX FILE SIZE IN MB and defaults to 10. Anything larger is
+    # dropped without a word — a packed dropper or .NET bundle just never
+    # appears in the rule, and the output is indistinguishable from "this
+    # family had few good strings". Derive it from the set instead: the tool
+    # can see the largest file, so the operator should not have to.
+    if survey["largest_mb"] > 9:
+        fs = max(10, int(survey["largest_mb"]) + 5)
+        argv += ["-fs", str(fs)]
+        notes.append(
+            f"raised the size limit to {fs} MB — largest sample "
+            f"({survey['largest_name']}) is {survey['largest_mb']:.1f} MB and "
+            "yarGen's 10 MB default would have skipped it silently"
+        )
+
+    # Super rules are strings shared ACROSS samples. With one file there is
+    # nothing to share, and yarGen spends the time anyway.
+    if survey["files"] == 1:
+        argv.append("--nosuper")
+        notes.append("single sample — skipped super-rule generation (nothing to compare against)")
+
     if args.get("opcodes"):
         argv.append("--opcodes")
+    if args.get("exclude_good"):
+        argv.append("--excludegood")
+        notes.append("--excludegood: goodware strings dropped outright, not merely down-scored")
+    if args.get("min_score") is not None:
+        argv += ["-z", str(int(args["min_score"]))]
+    if args.get("max_strings") is not None:
+        argv += ["-rc", str(int(args["max_strings"]))]
+    if args.get("reference"):
+        argv += ["-r", str(args["reference"])]
     try:
         res = _run(argv, cwd=str(db_home), timeout=600)  # extraction is slow
         if res.get("error"):
@@ -355,9 +417,13 @@ def _handle_yargen(args: dict, **_kw) -> str:
         rule = out_path.read_text(encoding="utf-8", errors="replace").strip()
         if not rule:
             return ("⚠ yarGen produced an EMPTY rule file: every candidate string "
-                    "was filtered out as goodware. That is a real result — this "
-                    "sample set may share all its strings with benign software. "
-                    "Try more samples of the same family, or --opcodes.")
+                    "was filtered out as goodware. That is a real result, not an "
+                    "error — this sample set shares all its strings with benign "
+                    "software.\n\n"
+                    f"Analysed {survey['files']} file(s). Next: add more samples of "
+                    "the same family, or re-run with opcodes=true — yarGen's own "
+                    "guidance is to use opcodes when not enough high-scoring "
+                    "strings can be found.")
 
         # A rule over a large sample set can be long; keep the tail rather than
         # the head, since yarGen puts the super-rules last.
@@ -366,9 +432,27 @@ def _handle_yargen(args: dict, **_kw) -> str:
         if truncated:
             rule = rule[-_MAX:]
 
-        return (f"✅ yarGen wrote {len(rule)} chars of rule text.\n\n"
-                f"```yara\n{rule}\n```"
+        # Report what was decided FROM the sample set, so the reasoning is
+        # visible rather than buried in argv.
+        header = f"✅ {survey['files']} sample(s), largest {survey['largest_mb']:.1f} MB."
+        if notes:
+            header += "\n" + "\n".join(f"   • {n}" for n in notes)
+
+        # A thin rule and an absent one fail the same way to a reader: it looks
+        # like the family simply had nothing distinctive. Say which it is, and
+        # name the documented remedy rather than leaving the caller to guess.
+        thin = rule.count("$") < 3
+        advice = ""
+        if thin and not args.get("opcodes"):
+            advice = ("\n\n⚠ Only a handful of strings survived filtering. That is "
+                      "yarGen's documented cue for opcodes=true — it falls back to "
+                      "opcode sequences when high-scoring strings are scarce. More "
+                      "samples of the same family would help more.")
+
+        return (header + "\n\n"
+                + f"```yara\n{rule}\n```"
                 + ("\n\n[rule truncated — head omitted]" if truncated else "")
+                + advice
                 + "\n\n⚠ These are CANDIDATES, not a finished rule. Review every "
                   "string: would the author have to change their code, or just "
                   "recompile? Drop anything a recompile defeats, then test with "
@@ -588,15 +672,21 @@ registry.register(
     schema={
         "name": "yargen_generate",
         "description": (
-            "Extract candidate strings from malware samples with yarGen, filtered against "
-            "its goodware database. Output is a starting point for triage, not a finished rule."
+            "Generate a YARA rule from malware samples with yarGen, filtered against its "
+            "goodware database. Returns the rule text. File-size limit and super-rule "
+            "handling are DERIVED from the sample set — do not ask the user for them. "
+            "Output is a starting point for triage, not a finished rule."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "samples_dir": {"type": "string", "description": "Directory of samples. Several samples of one family beat a single file."},
                 "author": {"type": "string", "description": "Author for rule metadata. Defaults to \"SOCIS Agent\"; only set this to credit a human analyst."},
-                "opcodes": {"type": "boolean", "description": "Include opcode analysis (slower, more specific)."},
+                "opcodes": {"type": "boolean", "description": "Fall back to opcode sequences. yarGen's own guidance: use when not enough high-scoring strings are found. Slower and much more memory."},
+                "exclude_good": {"type": "boolean", "description": "Drop goodware strings outright instead of down-scoring them. Fewer false positives, but can empty a rule for a family that reuses common code."},
+                "min_score": {"type": "integer", "description": "Score floor for a string (yarGen default 0). Raise only after a first run shows low-value strings surviving — guessing a floor blind can empty the rule."},
+                "max_strings": {"type": "integer", "description": "Max strings per rule (yarGen default 20)."},
+                "reference": {"type": "string", "description": "Reference for rule metadata — a case id, report URL, or sample source."},
             },
             "required": ["samples_dir"],
         },

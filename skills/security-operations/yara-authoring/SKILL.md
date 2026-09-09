@@ -93,13 +93,40 @@ tools are faster and filter against a more relevant corpus.
 If you do install it, the database is required rather than optional:
 
 ```bash
-git clone https://github.com/Neo23x0/yarGen.git
-cd yarGen && pip install -r requirements.txt
-python yarGen.py --update       # 913 MB
+bash scripts/install.sh --ensure yargen     # clones, wires PATH, fetches the db
 ```
 
-Without them its filtering does nothing and you get a rule full of
-`KERNEL32.dll`. Also worth having: `yaraQA` lints rules for quality problems,
+Without the database its filtering does nothing and you get a rule full of
+`KERNEL32.dll`. **Do not install it by hand unless you know where the corpus
+lands**: yarGen writes `dbs/` into the CURRENT WORKING DIRECTORY, not beside
+`yarGen.py`, so running `--update` from a repo checkout drops 913 MB there and
+`yargen_generate` will not find it. SOCIS pins the location to
+`~/.socis-agent/tools/yargen/` and always runs from it;
+`SOCIS_YARGEN_HOME` overrides for an existing download. `socis doctor`
+reports the binary and the database separately — an installed yarGen with no
+database is the dangerous state, because it still emits rules.
+
+### Flags: what to pass, and what not to
+
+`yargen_generate` DERIVES the two flags that matter most from the sample set,
+so do not ask for them:
+
+- **`-fs` (max file size, default 10 MB)** — anything larger is skipped
+  *silently*. The tool raises it to fit the largest sample; without that a
+  packed dropper simply never appears in the rule and the output looks like a
+  family with few good strings.
+- **`--nosuper`** — super rules compare strings ACROSS samples, so they are
+  meaningless for a single file.
+
+Set the rest only with a reason:
+
+| parameter | when |
+|---|---|
+| `opcodes` | after a run comes back thin — yarGen's own cue for scarce high-scoring strings. Costs ~6 GB resident |
+| `exclude_good` | false positives matter more than coverage; can empty a rule for a family reusing common code |
+| `min_score` | only after a first run shows low-value strings surviving. Guessing blind empties the rule |
+| `max_strings` | default 20 is usually right |
+| `reference` | case id, report URL, or sample source, for rule metadata | Also worth having: `yaraQA` lints rules for quality problems,
 and `YaraML` (Sophos, Apache-2.0) takes an ML approach from labelled sets.
 
 ---
