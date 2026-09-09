@@ -32,7 +32,7 @@ install:
   # 2 weeks old at pin time — same supply-chain rules as pyproject
   # dependencies. This SHA is "feat: add local n8n MCP bridge for SOCIS"
   # (2026-05-23). Bumping the pin is a PR to this manifest.
-  ref: 5a880df27edc8bb18f887fc94ecc27067a9a2887
+  ref: 5ca92b1f83dc95f94a34c0750d679ef24aa34f04
   # Bootstrap commands run inside the cloned directory after clone.
   bootstrap:
     - "cd servers/n8n && python3 -m venv .venv"
