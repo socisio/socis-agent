@@ -124,3 +124,79 @@ def test_all_three_call_sites_use_the_summary():
         line = src[idx:line_end]
         assert "_validation_summary(exc)" in line, f"{label} still logs exc directly"
         assert ", exc)" not in line, f"{label} still passes the raw exception"
+
+
+# ── RFC 6749 §6 refresh-token carry-forward ────────────────────────────────
+
+
+class _Tok:
+    """Stands in for OAuthToken: only the three fields the merge touches."""
+
+    def __init__(self, access, refresh=None, scope=None):
+        self.access_token = access
+        self.refresh_token = refresh
+        self.scope = scope
+
+
+def _merge(prior, resp):
+    """Mirror of the merge in _handle_refresh_response.
+
+    Kept as a mirror deliberately: the real handler is an async method on a
+    dynamically-built provider class that needs the MCP SDK, an httpx
+    response and a live OAuth context. The source assertions below pin the
+    real code; these pin the intended semantics.
+    """
+    if prior is not None:
+        if resp.refresh_token is None:
+            resp.refresh_token = prior.refresh_token
+        if resp.scope is None:
+            resp.scope = prior.scope
+    return resp
+
+
+def test_a_non_rotating_server_keeps_its_refresh_token():
+    """The bug. Google, Asana and Zoho answer the refresh grant WITHOUT a
+    refresh_token; storing the response verbatim erased the only one we had,
+    so the next expiry forced a browser re-auth — roughly one TTL after every
+    login."""
+    out = _merge(_Tok("old", "KEEP-ME", "read write"), _Tok("new", None, None))
+    assert out.refresh_token == "KEEP-ME"
+    assert out.scope == "read write", "scope is carried forward too (§5.1)"
+
+
+def test_a_rotating_server_still_wins():
+    """Only None fields are filled — a real rotation must not be discarded,
+    or we would keep presenting a token the server has already revoked."""
+    out = _merge(_Tok("old", "OLD", "read"), _Tok("new", "NEW", "read write"))
+    assert out.refresh_token == "NEW"
+    assert out.scope == "read write"
+
+
+def test_first_login_has_no_prior_tokens():
+    out = _merge(None, _Tok("first", None, None))
+    assert out.refresh_token is None
+
+
+def test_the_prior_tokens_are_read_before_being_overwritten():
+    """Order is the whole fix. `self.context.current_tokens = token_response`
+    ran FIRST in the original, so by the time anything could read the prior
+    value it was already gone."""
+    src = pathlib.Path("tools/mcp_oauth.py").read_text(encoding="utf-8")
+    read = src.index("prior = self.context.current_tokens")
+    # Search FORWARD from the read. There is a second assignment in
+    # _handle_token_response (the initial authorization-code exchange, which
+    # has no prior tokens to carry and correctly needs none), and searching
+    # backwards finds that one instead.
+    write = src.index("self.context.current_tokens = token_response", read)
+    assert read < write, (
+        "current_tokens is overwritten before the prior refresh_token is read")
+
+
+def test_the_carry_forward_is_present_and_conditional():
+    src = pathlib.Path("tools/mcp_oauth.py").read_text(encoding="utf-8")
+    idx = src.index("prior = self.context.current_tokens")
+    block = src[idx: idx + 400]
+    assert "if token_response.refresh_token is None:" in block, (
+        "carry-forward must be conditional — an unconditional copy would "
+        "discard a rotated token")
+    assert "if token_response.scope is None:" in block

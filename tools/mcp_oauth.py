@@ -1280,6 +1280,24 @@ def _get_socis_oauth_provider_class() -> type | None:
             try:
                 content = await response.aread()
                 token_response = OAuthToken.model_validate_json(content)
+                # RFC 6749 §6: a refresh response MAY omit refresh_token (the
+                # authorization server does not rotate) and scope (unchanged).
+                # The SDK's own handler carries both forward; this override
+                # replaced it and did not, so storing the response verbatim
+                # erased the only refresh token we had.
+                #
+                # Servers that do not rotate — Google, Asana, Zoho among them —
+                # therefore died at the NEXT expiry with a forced browser
+                # re-auth, roughly one TTL after every login. Read the prior
+                # tokens BEFORE overwriting current_tokens.
+                #
+                # A rotating server still wins: only None fields are filled.
+                prior = self.context.current_tokens
+                if prior is not None:
+                    if token_response.refresh_token is None:
+                        token_response.refresh_token = prior.refresh_token
+                    if token_response.scope is None:
+                        token_response.scope = prior.scope
                 self.context.current_tokens = token_response
                 self.context.update_token_expiry(token_response)
                 await self.context.storage.set_tokens(token_response)
