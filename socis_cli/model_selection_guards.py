@@ -91,11 +91,69 @@ def _data_policy_guard(
     )
 
 
+def _availability_guard(
+    model_name: str,
+    provider: Optional[str],
+    base_url: Optional[str],
+    api_key: Optional[str],
+    model_info: Optional[ModelInfo],
+) -> Optional[SelectionWarning]:
+    """Warn when the provider says it will not serve this model.
+
+    NO CATALOGUE IS TRUSTWORTHY, and every surface trusted one:
+
+      * models.dev offered a model NVIDIA had retired six weeks earlier
+      * NVIDIA's own /v1/models lists 80 of which the mainstream names 410/404
+      * OpenCode Zen still lists `ox-alpha-free` after delisting it
+      * a model saved in config.yaml months ago is never revalidated — the
+        desktop app failed with "Model x-preview-f-free is not supported"
+        because that model was delisted on 2026-08-26, long after it was saved
+
+    So the only reliable signal is asking the provider. This guard lives in the
+    registry rather than at each surface because the CLI picker, the desktop
+    app, the dashboard and the TUI all had the same gap, and a fix applied at
+    one of them would have left the other three broken.
+
+    The probe is deliberately reluctant to condemn: an empty balance, a missing
+    session header, throttling or a network blip all pass. A guard that fires
+    on conditions unrelated to the model is a guard people learn to click
+    through, which is worse than no guard at all.
+    """
+    if not model_name or not provider or not base_url or not api_key:
+        # Without all four there is nothing to ask. Keyless and OAuth
+        # providers are covered by their own flows.
+        return None
+    try:
+        from socis_cli.model_setup_flows import verify_model_serves
+    except Exception:
+        return None
+
+    ok, detail = verify_model_serves(model_name, api_key, base_url, timeout=12.0)
+    if ok:
+        return None
+    return SelectionWarning(
+        kind="availability",
+        title="Model Unavailable",
+        model=model_name,
+        provider=provider or "",
+        message=(
+            f"{provider} will not serve '{model_name}'.\n"
+            f"  {detail}\n"
+            "Catalogue listings lag provider retirements, so a model can be "
+            "offered here and already be gone. Pick another model."
+        ),
+    )
+
+
 # Registry, evaluated in order. Add new guard classes here — never at the
 # individual surfaces.
+#
+# Availability runs LAST: it makes a network call, and there is no point
+# probing a model the user is about to reject on cost or data-policy grounds.
 _GUARDS = (
     _cost_guard,
     _data_policy_guard,
+    _availability_guard,
 )
 
 
