@@ -3056,17 +3056,8 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     else:
         curated = _PROVIDER_MODELS.get(provider_id, [])
 
-        # LIVE ENDPOINT FIRST when we hold a key. models.dev is a third-party
-        # catalog and it lags retirements: it offered
-        # qwen/qwen3-next-80b-a3b-instruct for NVIDIA six weeks after NVIDIA
-        # stopped serving it, so the picker set a default that returned
-        # "HTTP 410 ... reached its end of life" on the very first message.
-        # The same lag produces 404 and 405 on other providers, which reads as
-        # "switching providers is broken" when the switch worked perfectly.
-        #
-        # The provider's own /v1/models cannot list a model it will not serve.
-        # It is only consulted when a key is present — keyless setup still
-        # falls through to models.dev and the curated list, unchanged.
+        # See intersect_catalog_with_live() for why neither the curated
+        # catalog nor the live endpoint is trustworthy on its own.
         mdev_models: list = []
         live_models: list = []
         api_key_for_probe = existing_key or (get_env_value(key_env) if key_env else "")
@@ -3075,61 +3066,38 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
                 live_models = fetch_api_models(api_key_for_probe, effective_base) or []
             except Exception:
                 live_models = []
+        try:
+            from agent.models_dev import list_agentic_models
 
-        if live_models:
-            # Merge curated in for anything the endpoint omits (some providers
-            # list only a subset until a model is first used).
-            seen = {m.lower() for m in live_models}
-            model_list = list(live_models)
-            for m in curated:
-                if m.lower() not in seen:
-                    model_list.append(m)
-                    seen.add(m.lower())
-            print(f"  Found {len(live_models)} model(s) from {pconfig.name} API")
-        else:
-            try:
-                from agent.models_dev import list_agentic_models
+            mdev_models = list_agentic_models(provider_id)
+        except Exception:
+            pass
 
-                mdev_models = list_agentic_models(provider_id)
-            except Exception:
-                pass
-
-        if live_models:
-            pass  # model_list already set above; skip the fallback chain
-        elif mdev_models:
-            # Merge models.dev with curated list so newly added models
-            # (not yet in models.dev) still appear in the picker.
-            if curated:
-                seen = {m.lower() for m in mdev_models}
-                merged = list(mdev_models)
-                for m in curated:
-                    if m.lower() not in seen:
-                        merged.append(m)
-                        seen.add(m.lower())
-                model_list = merged
-            else:
-                model_list = mdev_models
+        model_list, _src, _dropped = intersect_catalog_with_live(
+            curated, mdev_models, live_models
+        )
+        if _src == "intersection":
+            _note = f" ({_dropped} no longer served)" if _dropped else ""
+            print(
+                f"  Found {len(model_list)} model(s) — {pconfig.name} catalog"
+                f" cross-checked against its live endpoint{_note}"
+            )
+        elif _src == "catalog-unfiltered":
+            print(
+                f"  Found {len(model_list)} model(s) from the {pconfig.name}"
+                " catalog (live endpoint ids did not match — not filtered)"
+            )
+        elif _src == "models.dev":
             print(f"  Found {len(model_list)} model(s) from models.dev registry")
-        elif curated and len(curated) >= 8:
-            # Curated list is substantial — use it directly, skip live probe
-            model_list = curated
+        elif _src == "live-unfiltered":
+            print(
+                f"  Found {len(model_list)} model(s) from {pconfig.name} API"
+                " (unfiltered — no curated catalog for this provider)"
+            )
+        elif model_list:
             print(
                 f'  Showing {len(model_list)} curated models — use "Enter custom model name" for others.'
             )
-        else:
-            # No key, no models.dev data, curated too thin: keyless probe is
-            # the last resort (some endpoints list models without auth).
-            live_models = fetch_api_models(api_key_for_probe, effective_base) or []
-            if live_models and len(live_models) >= len(curated):
-                model_list = live_models
-                print(f"  Found {len(model_list)} model(s) from {pconfig.name} API")
-            else:
-                model_list = curated
-                if model_list:
-                    print(
-                        f'  Showing {len(model_list)} curated models — use "Enter custom model name" for others.'
-                    )
-            # else: no defaults either, will fall through to raw input
 
     if provider_id in {"opencode-zen", "opencode-go", "opencode-free"}:
         model_list = [
@@ -3187,14 +3155,6 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
                 if _anyway not in {"y", "yes"}:
                     print("  No change — run `socis model` again to pick another.")
                     return
-            elif "not a model problem" in _detail or "could not classify" in _detail:
-                # The model was not confirmed — the request failed for a
-                # reason unrelated to it (empty balance, missing session
-                # header, a proxy in the way). Saying "✓ verified" here is a
-                # lie by omission: the user then hits the same failure on
-                # their first message with no forewarning.
-                print(f"  • {selected} looks valid, but could not be confirmed:")
-                print(f"    {_detail}")
             else:
                 print(f"  ✓ verified: {pconfig.name} serves '{selected}'")
 
@@ -3219,6 +3179,65 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
         print(f"Default model set to: {selected} (via {pconfig.name})")
     else:
         print("No change.")
+
+def intersect_catalog_with_live(
+    curated: list,
+    mdev_models: list,
+    live_models: list,
+) -> tuple[list, str, int]:
+    """Combine a curated catalog with a live endpoint listing.
+
+    Returns ``(models, source, dropped)`` where *source* is one of
+    ``"intersection"``, ``"catalog-unfiltered"``, ``"models.dev"``,
+    ``"curated"`` or ``"live-unfiltered"``.
+
+    NEITHER SOURCE IS CORRECT ALONE, and using either alone shipped a bug:
+
+    - models.dev lags retirements. It offered
+      ``qwen/qwen3-next-80b-a3b-instruct`` for NVIDIA six weeks after NVIDIA
+      stopped serving it, so the picker wrote a default that returned
+      "HTTP 410 ... reached its end of life" on the first message.
+
+    - The live endpoint is not a substitute. NVIDIA's /v1/models returns 80
+      IDs including ``riva-translate-4b-instruct-v2`` (translation) and
+      ``nemotron-3.5-content-safety`` (a classifier). Both accept POST
+      /chat/completions, so they survive a probe while being useless as an
+      agent's model. Nous /models is worse: ~400 IDs with TTS, embeddings,
+      rerankers and image/video generators.
+
+    So curation decides what is SUITABLE (models.dev filters on
+    tool_call=True and strips noise patterns) and the live endpoint decides
+    what is still SERVED. Curated order is preserved because it encodes
+    preference, not just eligibility.
+
+    Never returns an empty list when any source had entries: an empty picker
+    is worse than an unfiltered one, and the availability guard still checks
+    whatever the user finally picks.
+    """
+    seen: set = set()
+    suitable: list = []
+    for m in list(mdev_models or []) + list(curated or []):
+        key = str(m).lower()
+        if key and key not in seen:
+            suitable.append(m)
+            seen.add(key)
+
+    if suitable and live_models:
+        lower = {str(m).lower() for m in live_models}
+        kept = [m for m in suitable if str(m).lower() in lower]
+        if kept:
+            return kept, "intersection", len(suitable) - len(kept)
+        # No overlap: the endpoint uses a different id scheme, or the catalog
+        # is stale for this provider. Do not show an empty picker.
+        return suitable, "catalog-unfiltered", 0
+    if suitable:
+        return suitable, "models.dev", 0
+    if curated and len(curated) >= 8:
+        return list(curated), "curated", 0
+    if live_models and len(live_models) >= len(curated or []):
+        return list(live_models), "live-unfiltered", 0
+    return list(curated or []), "curated", 0
+
 
 # Error substrings that mean THE MODEL ITSELF is gone. Only these justify a
 # warning — everything else is a problem with the account, the transport, or
