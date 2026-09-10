@@ -4523,10 +4523,23 @@ def _save_aux_choice(
 
 
 def _reset_aux_to_auto() -> int:
-    """Reset every known aux task back to auto/empty. Returns number reset.
+    """NOT CALLED FROM PRODUCTION — reachable only from tests.
 
-    Includes plugin-registered tasks (via ``_all_aux_tasks``) so a plugin
-    that contributed an auxiliary task gets reset alongside built-ins.
+    Verified 2026-09-10: no caller outside tests/socis_cli/test_aux_config.py.
+    This is deliberate, not an oversight to fix. Wiring it into the provider
+    switch would wipe aux routing a user set on purpose (e.g. titling pinned
+    to a cheap model) every time they changed the main model.
+
+    It is also not needed for the common case: aux tasks with no explicit
+    routing already resolve through `auto` and follow the main model. A stale
+    aux provider is only possible for someone who set one explicitly, and for
+    them a warning at switch time would be right — not silent clearing.
+
+    Kept for a future explicit `socis model --reset-aux`.
+
+    Resets every known aux task back to auto/empty and returns the number
+    reset. Includes plugin-registered tasks (via ``_all_aux_tasks``) so a
+    plugin that contributed an auxiliary task gets reset alongside built-ins.
     """
     from socis_cli.config import load_config, save_config
 
