@@ -4000,6 +4000,64 @@ def _resolve_provider_prefix(model_name: str) -> Optional[tuple[str, str]]:
     return None
 
 
+def provider_has_credentials(provider_id: str) -> bool:
+    """True when *provider_id* has a credential we could actually use.
+
+    Checks the three places one can live, in cost order: an env/.env key, an
+    auth-store login, then a credential-pool entry.
+
+    WHY THIS GATE EXISTS. detect_provider_for_model() guesses a provider from
+    a model NAME. `/model <name>` where the name is only known to another
+    provider used to switch the session there regardless of credentials. For
+    most vendors that is an immediate 401 — noisy, but honest. For OpenRouter
+    it is worse: its runtime resolves with an EMPTY key rather than raising,
+    so the session moved silently onto a metered aggregator the user never
+    chose.
+
+    Errors are swallowed and treated as "no credential": a broken auth store
+    must not make an unusable provider look available, which is the failure
+    this gate exists to prevent.
+    """
+    pid = (provider_id or "").strip().lower()
+    if not pid:
+        return False
+
+    # 1. Env or .env key declared by the provider's config.
+    try:
+        from socis_cli.auth import PROVIDER_REGISTRY
+        from socis_cli.config import get_env_value
+
+        cfg = PROVIDER_REGISTRY.get(pid)
+        for var in (getattr(cfg, "api_key_env_vars", ()) or ()):
+            if (get_env_value(var) or os.environ.get(var) or "").strip():
+                return True
+    except Exception:
+        pass
+
+    # 2. Auth-store login (OAuth and device-code providers keep no env key).
+    try:
+        from socis_cli.auth import _load_auth_store
+
+        store = _load_auth_store() or {}
+        providers = store.get("providers")
+        if isinstance(providers, dict) and providers.get(pid):
+            return True
+    except Exception:
+        pass
+
+    # 3. Credential pool — a pool with no AVAILABLE entry is not a credential.
+    try:
+        from agent.credential_pool import load_pool
+
+        pool = load_pool(pid)
+        if pool.has_credentials() and pool.has_available():
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
 def detect_provider_for_model(
     model_name: str,
     current_provider: str,
@@ -4019,7 +4077,34 @@ def detect_provider_for_model(
     if not name:
         return None
 
-    static_match = detect_static_provider_for_model(name, current_provider)
+    # A GUESS may not move the session to a provider the user cannot use.
+    # Ported from upstream 2466684db. Two exceptions, both deliberate:
+    #   * no current provider yet ("auto") — nothing to protect, and the
+    #     credential step should fail loudly rather than silently ignore input
+    #   * the user NAMED the provider — that is a selection, not a guess
+    # Step 3's `_resolve_provider_prefix` is likewise a selection (the vendor
+    # is declared in `providers:`), so it stays ungated below.
+    _gate_guesses = bool((current_provider or "").strip()) and (
+        (current_provider or "").strip().lower() != "auto"
+    )
+
+    def _guess_ok(candidate: Optional[tuple]) -> Optional[tuple]:
+        if candidate is None or not _gate_guesses:
+            return candidate
+        target = (candidate[0] or "").strip().lower()
+        if not target or target == (current_provider or "").strip().lower():
+            return candidate
+        if provider_has_credentials(target):
+            return candidate
+        logger.debug(
+            "detect_provider_for_model: skipping %s for %r — no credentials",
+            target, name,
+        )
+        return None
+
+    static_match = _guess_ok(
+        detect_static_provider_for_model(name, current_provider)
+    )
     if static_match:
         return static_match
     if _model_in_provider_catalog(name.lower(), _provider_keys(current_provider)):
@@ -4030,7 +4115,10 @@ def detect_provider_for_model(
     or_slug = _find_openrouter_slug(name)
     if or_slug:
         if current_provider != "openrouter":
-            return ("openrouter", or_slug)
+            # OpenRouter is the dangerous one: its runtime resolves with an
+            # EMPTY key instead of raising, so an ungated switch here moves
+            # the session onto a metered aggregator with no error at all.
+            return _guess_ok(("openrouter", or_slug))
         # Already on openrouter, just return the resolved slug
         if or_slug != name:
             return ("openrouter", or_slug)
