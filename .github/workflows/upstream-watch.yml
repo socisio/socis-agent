@@ -288,15 +288,23 @@ jobs:
               repo: context.repo.repo,
               state: 'open',
               labels: 'upstream-watch',
-              per_page: 1,
+              per_page: 20,
             })
 
-            if (found.length > 0) {
+            // Match on TITLE, not just the label. Both jobs in this workflow
+            // use the upstream-watch label, and `per_page: 1` + `found[0]`
+            // took whichever issue came back first — so this job's commit
+            // report was written into the body of the issue titled
+            // "pinned MCP servers have moved", and the two reports overwrote
+            // each other run after run. Observed 2026-09-10.
+            const existing = found.find(i => i.title === title)
+
+            if (existing) {
               await github.rest.issues.update({
                 owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: found[0].number, body,
+                issue_number: existing.number, body,
               })
-              core.notice(`Updated #${found[0].number}`)
+              core.notice(`Updated #${existing.number}`)
             } else if (${{ steps.scan.outputs.sec }} > 0) {
               // Only open a NEW issue when there is something to act on. An
               // empty "nothing found" issue every week trains people to ignore
