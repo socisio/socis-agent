@@ -3056,16 +3056,47 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     else:
         curated = _PROVIDER_MODELS.get(provider_id, [])
 
-        # Try models.dev first — returns tool-capable models, filtered for noise
+        # LIVE ENDPOINT FIRST when we hold a key. models.dev is a third-party
+        # catalog and it lags retirements: it offered
+        # qwen/qwen3-next-80b-a3b-instruct for NVIDIA six weeks after NVIDIA
+        # stopped serving it, so the picker set a default that returned
+        # "HTTP 410 ... reached its end of life" on the very first message.
+        # The same lag produces 404 and 405 on other providers, which reads as
+        # "switching providers is broken" when the switch worked perfectly.
+        #
+        # The provider's own /v1/models cannot list a model it will not serve.
+        # It is only consulted when a key is present — keyless setup still
+        # falls through to models.dev and the curated list, unchanged.
         mdev_models: list = []
-        try:
-            from agent.models_dev import list_agentic_models
+        live_models: list = []
+        api_key_for_probe = existing_key or (get_env_value(key_env) if key_env else "")
+        if api_key_for_probe:
+            try:
+                live_models = fetch_api_models(api_key_for_probe, effective_base) or []
+            except Exception:
+                live_models = []
 
-            mdev_models = list_agentic_models(provider_id)
-        except Exception:
-            pass
+        if live_models:
+            # Merge curated in for anything the endpoint omits (some providers
+            # list only a subset until a model is first used).
+            seen = {m.lower() for m in live_models}
+            model_list = list(live_models)
+            for m in curated:
+                if m.lower() not in seen:
+                    model_list.append(m)
+                    seen.add(m.lower())
+            print(f"  Found {len(live_models)} model(s) from {pconfig.name} API")
+        else:
+            try:
+                from agent.models_dev import list_agentic_models
 
-        if mdev_models:
+                mdev_models = list_agentic_models(provider_id)
+            except Exception:
+                pass
+
+        if live_models:
+            pass  # model_list already set above; skip the fallback chain
+        elif mdev_models:
             # Merge models.dev with curated list so newly added models
             # (not yet in models.dev) still appear in the picker.
             if curated:
@@ -3086,10 +3117,9 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
                 f'  Showing {len(model_list)} curated models — use "Enter custom model name" for others.'
             )
         else:
-            api_key_for_probe = existing_key or (
-                get_env_value(key_env) if key_env else ""
-            )
-            live_models = fetch_api_models(api_key_for_probe, effective_base)
+            # No key, no models.dev data, curated too thin: keyless probe is
+            # the last resort (some endpoints list models without auth).
+            live_models = fetch_api_models(api_key_for_probe, effective_base) or []
             if live_models and len(live_models) >= len(curated):
                 model_list = live_models
                 print(f"  Found {len(model_list)} model(s) from {pconfig.name} API")
