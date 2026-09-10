@@ -68,6 +68,23 @@ GENERATED_PREFIXES = (
     "website/static/api/",
 )
 
+# Trees this fork OWNS: authored work at paths upstream never populates.
+#
+# 762 original security skills (optional-skills/security/ — CMMC compliance,
+# Cobalt Strike beacon analysis, AD ACL abuse, and hundreds more) plus the MCP
+# manifests. Upstream has an optional-skills/ tree with the same category
+# names, but nothing under security/, so these cannot conflict on a rebase:
+# they replay by copying a directory.
+#
+# Counted separately from the shared-code delta because the two need different
+# handling, and conflating them hid the useful number. The first report said
+# "2563 files diverge", which reads as untrackable; the shared-code figure was
+# ~66, which is a day of careful work.
+FORK_OWNED_PREFIXES = (
+    "optional-skills/security/",
+    "optional-mcps/",
+)
+
 
 def _is_noise(rel: str) -> bool:
     parts = Path(rel).parts
@@ -78,6 +95,11 @@ def _is_noise(rel: str) -> bool:
 
 def _is_generated(rel: str) -> bool:
     return any(rel.startswith(p) for p in GENERATED_PREFIXES)
+
+
+def _is_fork_owned(rel: str) -> bool:
+    """Authored, but at a path upstream never populates — replays by copy."""
+    return any(rel.startswith(p) for p in FORK_OWNED_PREFIXES)
 
 
 def walk(root: Path) -> set[str]:
@@ -98,8 +120,13 @@ def classify(fork: Path, rebranded: Path) -> dict:
     yours_only_all = sorted(ours - theirs)
     upstream_only = sorted(theirs - ours)
 
-    yours_only = [p for p in yours_only_all if not _is_generated(p)]
     generated = [p for p in yours_only_all if _is_generated(p)]
+    fork_owned = [p for p in yours_only_all
+                  if not _is_generated(p) and _is_fork_owned(p)]
+    # The delta that matters: authored files at paths upstream ALSO uses, so a
+    # rebase has to reconcile them by hand.
+    yours_only = [p for p in yours_only_all
+                  if not _is_generated(p) and not _is_fork_owned(p)]
 
     differing = []
     for rel in sorted(ours & theirs):
@@ -117,9 +144,21 @@ def classify(fork: Path, rebranded: Path) -> dict:
         area = Path(p).parts[0] if len(Path(p).parts) > 1 else p
         by_area[area] = by_area.get(area, 0) + 1
 
+    fork_owned_areas: dict[str, int] = {}
+    for p in fork_owned:
+        for prefix in FORK_OWNED_PREFIXES:
+            if p.startswith(prefix):
+                fork_owned_areas[prefix.rstrip("/")] = (
+                    fork_owned_areas.get(prefix.rstrip("/"), 0) + 1
+                )
+                break
+
     return {
         "delta_files": len(yours_only),
         "yours_only": yours_only,
+        "fork_owned_count": len(fork_owned),
+        "fork_owned_areas": dict(sorted(fork_owned_areas.items(),
+                                        key=lambda kv: -kv[1])),
         "upstream_only_count": len(upstream_only),
         "differing_count": len(differing),
         "differing": differing,
@@ -153,39 +192,62 @@ def rebrand_upstream(workdir: Path, rebrand_src: Path, ref: str) -> tuple[Path, 
 
 
 def render(result: dict, sha: str, behind: str) -> str:
+    owned = result.get("fork_owned_count", 0)
     lines = [
-        f"Fork delta: **{result['delta_files']}** authored files diverge from a "
-        "rebranded upstream.",
+        f"**{result['delta_files']}** files need merge judgement on a rebase. "
+        f"**{owned}** more replay by copy.",
         "",
         f"- upstream at `{sha[:12]}`, this fork is **{behind}** commits behind",
         f"- {result['upstream_only_count']} files exist upstream and not here "
-        "(post-fork additions)",
+        "(post-fork additions — what a rebase GAINS)",
         f"- {result['differing_count']} files exist in both with different content",
         f"- {result['generated_count']} generated files excluded "
-        "(docs pages, static API output — a rebase regenerates these)",
+        "(docs pages, static API output — rebuilt, not replayed)",
         "",
-        "### The delta, by area",
+        "### Needs merge judgement",
         "",
-        "This is the set a rebase-and-rebrand would have to replay.",
+        "Authored files at paths upstream also uses. This is the only part of a "
+        "rebase that needs reading and deciding.",
         "",
         "| area | files |",
         "|---|---|",
     ]
     for area, count in result["by_area"].items():
         lines.append(f"| `{area}` | {count} |")
+
+    if result.get("fork_owned_areas"):
+        lines += [
+            "",
+            "### Replays by copy",
+            "",
+            "Authored work at paths upstream never populates — it cannot "
+            "conflict, so a rebase copies these trees across.",
+            "",
+            "| tree | files |",
+            "|---|---|",
+        ]
+        for area, count in result["fork_owned_areas"].items():
+            lines.append(f"| `{area}` | {count} |")
+
     lines += [
         "",
         "### Why this is measured",
         "",
-        "The fork cannot merge `upstream/main` — that reverts the rebrand. "
-        "Cherry-picking works while the gap is small; at 1322 commits every "
-        "security fix ported on 2026-09-10 had to be rewritten, because "
-        "upstream had split modules that do not exist here. Rebase-and-rebrand "
-        "replays this delta onto a current base instead, so upstream's changes "
-        "arrive as upstream wrote them.",
+        "The fork cannot merge `upstream/main` — that reverts the rebrand — so "
+        "MAINTENANCE.md §B prescribes cherry-picking. That degrades as the gap "
+        "grows: at 1322 commits behind, every security fix ported on 2026-09-10 "
+        "had to be REWRITTEN rather than cherry-picked, because upstream had "
+        "split modules that do not exist here (`models_detect.py`, "
+        "`client_lifecycle.py`, `approval_detection.py`).",
+        "",
+        "Rebase-and-rebrand replays this delta onto a current base instead, so "
+        "upstream's changes arrive as upstream wrote them. The two figures above "
+        "are deliberately separate: conflating them produced a first report "
+        "reading \"2563 files diverge\", which looks untrackable, when the "
+        "figure needing actual judgement was around sixty.",
         "",
         "The rebrand script ran cleanly against this upstream commit, including "
-        "its syntax and stale-import post-flight checks. If that ever fails, "
+        "its own syntax and stale-import post-flight checks. If that ever fails "
         "this job fails — the strategy depends on it.",
     ]
     return "\n".join(lines)

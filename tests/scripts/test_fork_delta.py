@@ -27,7 +27,8 @@ def _load():
         n for n in tree.body
         if isinstance(n, (ast.Import, ast.ImportFrom, ast.Assign))
         or (isinstance(n, ast.FunctionDef)
-            and n.name in ("walk", "classify", "_is_noise", "_is_generated"))
+            and n.name in ("walk", "classify", "_is_noise", "_is_generated",
+                           "_is_fork_owned", "render"))
     ]
     ns = {}
     exec(compile(ast.Module(body=keep, type_ignores=[]), "<delta>", "exec"), ns)
@@ -38,6 +39,7 @@ _ns = _load()
 classify = _ns["classify"]
 _is_noise = _ns["_is_noise"]
 _is_generated = _ns["_is_generated"]
+_is_fork_owned = _ns["_is_fork_owned"]
 
 
 @pytest.fixture
@@ -170,3 +172,84 @@ def test_the_empty_case_is_zero_not_a_crash(tmp_path):
     b.mkdir()
     r = classify(a, b)
     assert r["delta_files"] == 0 and r["differing_count"] == 0
+
+
+# ── fork-owned trees replay by copy, not by merge ──────────────────────────
+
+def test_the_security_skills_library_is_counted_separately(trees):
+    """762 original security skills live under optional-skills/security/, a
+    path upstream never populates. They are authored work — not build output —
+    but they cannot conflict, so a rebase copies the tree.
+
+    Conflating them with the shared-code delta produced a first report reading
+    "2563 files diverge", which looks untrackable. The figure needing actual
+    judgement was around sixty.
+    """
+    fork, up, write = trees
+    write(fork, "optional-skills/security/analyzing-cobalt-strike/SKILL.md")
+    write(fork, "optional-skills/security/achieving-cmmc-level-2/SKILL.md")
+    write(fork, "tools/mitre_attack.py")
+    r = classify(fork, up)
+    assert r["delta_files"] == 1, "only the shared-code file needs judgement"
+    assert r["fork_owned_count"] == 2
+    assert r["by_area"] == {"tools": 1}
+
+
+def test_mcp_manifests_replay_by_copy(trees):
+    fork, up, write = trees
+    write(fork, "optional-mcps/threat-intel/manifest.yaml")
+    r = classify(fork, up)
+    assert r["delta_files"] == 0
+    assert r["fork_owned_count"] == 1
+
+
+def test_a_shared_optional_skills_category_still_needs_judgement(trees):
+    """Upstream HAS optional-skills/creative — only security/ is ours. A file
+    there is shared code and must not be waved through as replay-by-copy."""
+    fork, up, write = trees
+    write(fork, "optional-skills/creative/ours-only/SKILL.md")
+    r = classify(fork, up)
+    assert r["delta_files"] == 1
+    assert r["fork_owned_count"] == 0
+
+
+def test_generated_wins_over_fork_owned(trees):
+    """A generated file inside a fork-owned tree is still generated — it is
+    rebuilt, not copied, and counting it twice would inflate both figures."""
+    fork, up, write = trees
+    write(fork, "website/docs/user-guide/skills/bundled/x.md")
+    r = classify(fork, up)
+    assert r["generated_count"] == 1
+    assert r["fork_owned_count"] == 0
+
+
+def test_fork_owned_areas_are_broken_down(trees):
+    fork, up, write = trees
+    write(fork, "optional-skills/security/a/SKILL.md")
+    write(fork, "optional-skills/security/b/SKILL.md")
+    write(fork, "optional-mcps/m/manifest.yaml")
+    r = classify(fork, up)
+    assert r["fork_owned_areas"] == {
+        "optional-skills/security": 2, "optional-mcps": 1}
+
+
+@pytest.mark.parametrize("rel,owned", [
+    ("optional-skills/security/x/SKILL.md", True),
+    ("optional-mcps/threat-intel/manifest.yaml", True),
+    ("optional-skills/creative/x/SKILL.md", False),
+    ("tools/mitre_attack.py", False),
+])
+def test_the_fork_owned_predicate(rel, owned):
+    assert _is_fork_owned(rel) is owned
+
+
+def test_the_report_leads_with_the_actionable_number():
+    """One combined figure is not decision-useful. The report has to separate
+    "needs judgement" from "replays by copy" or the reader sees 2563 and
+    concludes a rebase is impossible."""
+    src = pathlib.Path("scripts/fork_delta.py").read_text(encoding="utf-8")
+    render_src = src[src.index("def render("):src.index("def main(")]
+    assert "need merge judgement" in render_src
+    assert "replay by copy" in render_src
+    assert render_src.index("need merge judgement") < render_src.index(
+        "commits behind"), "the actionable figure must come first"
