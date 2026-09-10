@@ -197,7 +197,11 @@ def render(result: dict, sha: str, behind: str) -> str:
         f"**{result['delta_files']}** files need merge judgement on a rebase. "
         f"**{owned}** more replay by copy.",
         "",
-        f"- upstream at `{sha[:12]}`, this fork is **{behind}** commits behind",
+        f"- upstream at `{sha[:12]}`; **{behind}** commits on upstream/main are "
+        "not in this history — but the rebrand rewrote every commit, so there "
+        "is NO common ancestor and this counts upstream's entire history. "
+        "`upstream-watch` reports the meaningful figure: commits since the "
+        "fork date in MAINTENANCE.md.",
         f"- {result['upstream_only_count']} files exist upstream and not here "
         "(post-fork additions — what a rebase GAINS)",
         f"- {result['differing_count']} files exist in both with different content",
