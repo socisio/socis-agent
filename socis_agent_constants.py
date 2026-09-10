@@ -8,6 +8,7 @@ import os
 import shutil
 import stat
 import sys
+from functools import lru_cache
 from contextvars import ContextVar, Token
 from pathlib import Path
 
@@ -50,8 +51,21 @@ def get_socis_agent_home_override() -> str | None:
     return str(override)
 
 
+@lru_cache(maxsize=1)
 def _get_platform_default_socis_agent_home() -> Path:
-    """Return the platform-native default SOCIS home path."""
+    """Return the platform-native default SOCIS home path.
+
+    Cached: this is constant for the life of the process, and it was called
+    8083 times to build ONE model-picker payload — each call hitting
+    Path.home(), which is a password-database lookup. The picker asks per
+    MODEL rather than per provider, so ~600 models across 8 providers
+    multiply every constant-cost helper on the path.
+
+    LOCALAPPDATA is read at first call only. A process that changes it
+    mid-flight would keep the first value, which is the correct trade: it is
+    not something that changes at runtime, and the alternative is thousands
+    of redundant syscalls.
+    """
     if sys.platform == "win32":
         local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
         base = Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
