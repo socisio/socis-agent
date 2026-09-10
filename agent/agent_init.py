@@ -1366,6 +1366,7 @@ def init_agent(
                         client_kwargs["default_headers"] = dict(_ph.default_headers)
                 except Exception:
                     pass
+
         else:
             # No explicit creds — use the centralized provider router
             from agent.auxiliary_client import resolve_provider_client
@@ -1516,6 +1517,42 @@ def init_agent(
         # client_kwargs is the same dict object as agent._client_kwargs, so
         # this mutation is reflected in the client built just below.
         agent._apply_user_default_headers()
+
+        # Merge the OpenCode affinity header HERE — the single point every
+        # credential path reaches. There are fourteen
+        # `client_kwargs["default_headers"] = ...` assignments across the
+        # explicit-creds branches, the routed-provider path and two fallbacks,
+        # and every one ASSIGNS rather than merges. An earlier version of this
+        # merge sat after the first block and was still clobbered by the three
+        # assignments further down.
+        #
+        # The Zen free tier requires x-opencode-session. Without it the relay
+        # answers
+        #
+        #   MissingSessionID: OpenCode's free tier can only be used in OpenCode
+        #
+        # which surfaced to the user as "HTTP 401: Invalid API key" — pointing
+        # at their credentials when the cause was a missing header. Verified by
+        # curl: the identical request succeeds with it, keyless OR keyed.
+        #
+        # No-op for non-OpenCode targets, and merged rather than assigned so it
+        # keeps the attribution and keyless-Authorization headers the branches
+        # set.
+        try:
+            from agent.opencode_affinity import opencode_session_headers
+
+            _oc_session = opencode_session_headers(
+                getattr(agent, "provider", None),
+                str(client_kwargs.get("base_url") or getattr(agent, "base_url", "") or ""),
+                getattr(agent, "session_id", None),
+            )
+            if _oc_session:
+                client_kwargs["default_headers"] = {
+                    **(client_kwargs.get("default_headers") or {}),
+                    **_oc_session,
+                }
+        except Exception:
+            pass
 
         try:
             from socis_cli.config import (
