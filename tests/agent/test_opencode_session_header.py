@@ -172,3 +172,56 @@ def test_the_computed_header_is_actually_consumed():
     raise AssertionError(
         "no `if _oc_session:` guard wraps the default_headers merge — the "
         "computed header may never be applied")
+
+
+# ── the responses/codex transport needs it too ─────────────────────────────
+
+def _codex_src():
+    return pathlib.Path("agent/transports/codex.py").read_text(encoding="utf-8")
+
+
+def test_the_responses_transport_applies_the_session_header():
+    """A model routed through the responses transport still 401'd after the
+    agent_init fix.
+
+    The log showed `codex_stream_request` for muse-spark-1.3-contributor-free
+    and `chat_completion_stream_request` for big-pickle — same provider, same
+    key, seconds apart, and only the second worked. This transport builds its
+    own client and its own extra_headers, so neither agent_init's
+    default_headers merge nor chat_completion_helpers' per-request merge
+    reaches it. Codex and xAI affinity were already handled here; OpenCode was
+    missed.
+    """
+    src = _codex_src()
+    assert "opencode_session_headers" in src, (
+        "the responses transport never applies the OpenCode affinity header")
+
+
+def test_it_merges_rather_than_replaces_extra_headers():
+    """Codex `session_id` and xAI `x-grok-conv-id` are set on the same dict —
+    assigning would drop whichever ran first."""
+    src = _codex_src()
+    idx = src.index("_oc = opencode_session_headers")
+    window = src[idx: idx + 900]
+    assert "_merged.update(_oc)" in window, "assigns instead of merging"
+    assert 'kwargs.get("extra_headers")' in window, (
+        "does not read the existing extra_headers before writing")
+
+
+def test_it_reads_provider_and_base_url_from_params():
+    """`agent` is not in scope in build_kwargs — an earlier version of this
+    patch referenced it and would have raised NameError on every OpenCode
+    request through this transport, silently swallowed by the try/except."""
+    src = _codex_src()
+    idx = src.index("_oc = opencode_session_headers")
+    window = src[idx: idx + 260]
+    assert 'params.get("provider")' in window
+    assert 'params.get("base_url")' in window
+    assert "getattr(agent" not in window, "references an out-of-scope `agent`"
+
+
+def test_the_transport_merge_is_guarded():
+    src = _codex_src()
+    idx = src.index("from agent.opencode_affinity import opencode_session_headers")
+    assert "except Exception" in src[idx: idx + 1200], (
+        "an import failure here would break every responses-transport request")

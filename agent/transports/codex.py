@@ -880,6 +880,45 @@ class ResponsesApiTransport(ProviderTransport):
         if max_tokens is not None and not is_codex_backend:
             kwargs["max_output_tokens"] = max_tokens
 
+        # OpenCode affinity on the RESPONSES transport.
+        #
+        # This transport builds its own client and its own extra_headers, so
+        # neither agent_init's default_headers merge nor
+        # chat_completion_helpers' per-request merge reaches it. Models routed
+        # here (observed: muse-spark-1.3-contributor-free) therefore hit the
+        # Zen relay with no x-opencode-session and got
+        #
+        #   HTTP 401: Invalid API key
+        #
+        # while the SAME provider and key succeeded on the chat_completions
+        # transport (big-pickle worked in the same session, seconds apart).
+        # Upstream documents this header as riding "every request ... on every
+        # transport", and Codex/xAI affinity is already handled just above and
+        # below — OpenCode was simply missed.
+        try:
+            from agent.opencode_affinity import opencode_session_headers
+
+            _oc = opencode_session_headers(
+                params.get("provider"),
+                params.get("base_url"),
+                session_id,
+            )
+            if _oc:
+                _existing = kwargs.get("extra_headers")
+                _merged: Dict[str, str] = {}
+                if isinstance(_existing, dict):
+                    _merged.update(
+                        {
+                            str(k): str(v)
+                            for k, v in _existing.items()
+                            if k and v is not None
+                        }
+                    )
+                _merged.update(_oc)
+                kwargs["extra_headers"] = _merged
+        except Exception:
+            pass
+
         if is_xai_responses and session_id:
             existing_extra_headers = kwargs.get("extra_headers")
             merged_extra_headers: Dict[str, str] = {}
