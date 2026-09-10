@@ -1,0 +1,130 @@
+name: Fork Delta
+
+# How far has this fork diverged from a REBRANDED upstream, and does the
+# rebrand script still work?
+#
+# The fork cannot merge upstream/main — that reverts the rebrand — so
+# MAINTENANCE.md §B prescribes cherry-picking. That degrades as the gap grows:
+# on 2026-09-10, at 1322 commits behind, every security fix ported that day had
+# to be REWRITTEN rather than cherry-picked, because upstream had split modules
+# that do not exist here (models_detect.py, client_lifecycle.py,
+# approval_detection.py).
+#
+# Rebase-and-rebrand is the alternative: take current upstream, run
+# scripts/rebrand over it, replay our authored delta. Measured at ~52 files on
+# 2026-09-10 — tractable. But it depends entirely on the rebrand script still
+# working against current upstream, and on the delta staying small.
+#
+# This job measures both, monthly, so "when do we rebase" has a number. It is
+# READ-ONLY: it never touches the working tree or opens a PR.
+
+on:
+  schedule:
+    # First of the month, 06:00 UTC. Monthly because the delta moves with OUR
+    # commits, not upstream's, and ours are measured in dozens per month.
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Upstream ref to compare against"
+        default: main
+        required: false
+  pull_request:
+    # Run on changes to the rebrand map itself: a broken map blocks the whole
+    # strategy, and the cheapest time to learn that is in the PR that broke it.
+    paths:
+      - "scripts/rebrand/**"
+      - "scripts/fork_delta.py"
+      - ".github/workflows/fork-delta.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: fork-delta
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: rev-list --count HEAD..upstream/main needs it.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Add the upstream remote
+        run: |
+          git remote get-url upstream >/dev/null 2>&1 \
+            || git remote add upstream https://github.com/NousResearch/hermes-agent.git
+
+      # The rebrand runs against a fresh clone in a temp dir. If run_rebrand.py
+      # errors — or its own syntax / stale-import post-flight checks fail — this
+      # step fails, which is the point: the rebase strategy is blocked and we
+      # want to know now, not at rebase time.
+      - name: Measure the delta
+        id: delta
+        run: |
+          python3 scripts/fork_delta.py \
+            --ref "${{ github.event.inputs.ref || 'main' }}" \
+            --json /tmp/fork-delta.json \
+            --markdown /tmp/fork-delta.md
+          {
+            echo "### Fork delta"
+            cat /tmp/fork-delta.md
+          } >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          d = json.load(open("/tmp/fork-delta.json"))
+          print(f"files={d['delta_files']}")
+          print(f"behind={d['commits_behind']}")
+          PY
+
+      - name: Open or update the tracking issue
+        # Only on a schedule or manual run. A PR gets the step summary; opening
+        # an issue per PR would bury the signal, which is the same mistake the
+        # upstream-watch jobs made by sharing one issue.
+        if: github.event_name != 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const body = fs.readFileSync('/tmp/fork-delta.md', 'utf8')
+            const title = 'Fork delta: divergence from rebranded upstream'
+
+            const { data: found } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'fork-delta',
+              per_page: 20,
+            })
+            // Match on TITLE, not the label alone. Two jobs sharing a label and
+            // taking found[0] is exactly how the upstream-watch reports
+            // overwrote each other for weeks (fixed 2026-09-10).
+            const existing = found.find(i => i.title === title)
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              })
+              core.notice(`Updated #${existing.number}`)
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['fork-delta'],
+              })
+              core.notice(`Opened #${issue.number}`)
+            }
