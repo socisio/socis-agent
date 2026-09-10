@@ -135,7 +135,38 @@ async function ensureUnifiedIndex() {
 }
 
 // 0) Pull unified index if we don't have a fresh one.
-await ensureUnifiedIndex();
+//
+// The return value used to be discarded, so `false` — no live fetch AND no
+// local copy — produced a build indistinguishable from a successful one, with
+// an empty Skills Hub. Every failure inside ensureUnifiedIndex() also falls
+// back to whatever is on disk without saying how old it is, so a docs build
+// during an upstream outage silently shipped stale data.
+const unifiedIndexOk = await ensureUnifiedIndex();
+if (!unifiedIndexOk) {
+  console.warn(
+    "[prebuild] NO skills index: the live fetch failed and there is no local " +
+      "copy. The Skills Hub page will be EMPTY. Set SOCIS_REQUIRE_SKILLS_INDEX=1 " +
+      "to fail the build instead of publishing an empty hub.",
+  );
+  if (process.env.SOCIS_REQUIRE_SKILLS_INDEX === "1") {
+    console.error("[prebuild] SOCIS_REQUIRE_SKILLS_INDEX=1 and no index available.");
+    process.exit(1);
+  }
+} else if (existsSync(unifiedIndexFile)) {
+  // Say how old the data is, always. A build that used a week-old cache
+  // looked exactly like one that fetched fresh.
+  try {
+    const ageH = (Date.now() - statSync(unifiedIndexFile).mtimeMs) / 3600000;
+    if (ageH >= UNIFIED_INDEX_MAX_AGE_MS / 3600000) {
+      console.warn(
+        `[prebuild] skills index is ${ageH.toFixed(1)}h old and could not be ` +
+          "refreshed — publishing STALE skills data.",
+      );
+    }
+  } catch {
+    /* age is advisory only */
+  }
+}
 
 // 1) skills.json — required for the Skills Hub page.
 if (!existsSync(extractScript)) {
