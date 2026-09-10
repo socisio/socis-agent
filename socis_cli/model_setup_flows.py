@@ -3169,6 +3169,27 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
         if provider_id in {"opencode-zen", "opencode-go", "opencode-free"}:
             selected = normalize_opencode_model_id(provider_id, selected)
 
+        # VERIFY BEFORE SAVING. Every catalogue lied: models.dev offered a
+        # model NVIDIA retired six weeks earlier, and NVIDIA's own /v1/models
+        # listed 80 of which the mainstream names returned 410 (retired) or
+        # 404 (not servable here). Writing the choice unverified means the
+        # user's first message fails and the provider looks broken.
+        _probe_key = existing_key or (get_env_value(key_env) if key_env else "")
+        if _probe_key and effective_base:
+            _ok, _detail = verify_model_serves(selected, _probe_key, effective_base)
+            if not _ok:
+                print()
+                print(f"  ⚠ {pconfig.name} will not serve '{selected}' — {_detail}")
+                print("    Catalogue listings include retired models, so this is")
+                print("    common. Pick a different model.")
+                print()
+                _anyway = input("  Save it anyway? [y/N]: ").strip().lower()
+                if _anyway not in {"y", "yes"}:
+                    print("  No change — run `socis model` again to pick another.")
+                    return
+            else:
+                print(f"  ✓ verified: {pconfig.name} serves '{selected}'")
+
         _save_model_choice(selected)
 
         # Update config with provider, base URL, and provider-specific API mode
@@ -3190,6 +3211,77 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
         print(f"Default model set to: {selected} (via {pconfig.name})")
     else:
         print("No change.")
+
+def verify_model_serves(
+    model_id: str,
+    api_key: str,
+    base_url: str,
+    *,
+    timeout: float = 20.0,
+) -> tuple[bool, str]:
+    """Ask the provider whether it will actually serve *model_id*.
+
+    Returns ``(ok, detail)``. ``ok`` is False only on a definitive rejection —
+    a network failure or timeout returns True, because refusing to save a
+    working model because the setup machine's link blipped is worse than the
+    problem this solves.
+
+    NO CATALOGUE IS TRUSTWORTHY. models.dev offered a model NVIDIA retired six
+    weeks earlier (HTTP 410 on first use). Switching to the provider's own
+    /v1/models did not help: of NVIDIA's 80 listed models, the mainstream ones
+    were retired (410) or not servable on that endpoint (404), and only a
+    handful — mostly Nemotron — actually answered. Both catalogues are wrong,
+    in different ways.
+
+    So the only reliable signal is a one-token request. It costs a single
+    cheap call during setup and stops the picker writing a default that fails
+    on the user's first message.
+    """
+    import json as _json
+    import urllib.error
+    import urllib.request
+
+    url = base_url.rstrip("/") + "/chat/completions"
+    body = _json.dumps({
+        "model": model_id,
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 1,
+    }).encode()
+    req = urllib.request.Request(
+        url, data=body, method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return (200 <= resp.status < 300), f"HTTP {resp.status}"
+    except urllib.error.HTTPError as exc:
+        raw = ""
+        try:
+            raw = exc.read().decode("utf-8", "replace")[:300]
+        except Exception:
+            pass
+        # 429 is rate limiting, not a dead model — the model is fine.
+        if exc.code == 429:
+            return True, "HTTP 429 (rate limited; model itself looks fine)"
+        detail = f"HTTP {exc.code}"
+        try:
+            parsed = _json.loads(raw)
+            msg = (parsed.get("detail") or parsed.get("error") or {})
+            if isinstance(msg, dict):
+                msg = msg.get("message") or msg.get("detail") or ""
+            if msg:
+                detail += f": {str(msg)[:200]}"
+        except Exception:
+            if raw.strip():
+                detail += f": {raw.strip()[:200]}"
+        return False, detail
+    except Exception as exc:
+        # Network, DNS, TLS, timeout — inconclusive, so do not block.
+        return True, f"could not verify ({type(exc).__name__})"
+
 
 def _model_flow_anthropic(config, current_model=""):
     """Flow for Anthropic provider — OAuth subscription, API key, or Claude Code creds."""
