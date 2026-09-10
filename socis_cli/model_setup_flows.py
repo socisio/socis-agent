@@ -3187,6 +3187,14 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
                 if _anyway not in {"y", "yes"}:
                     print("  No change — run `socis model` again to pick another.")
                     return
+            elif "not a model problem" in _detail or "could not classify" in _detail:
+                # The model was not confirmed — the request failed for a
+                # reason unrelated to it (empty balance, missing session
+                # header, a proxy in the way). Saying "✓ verified" here is a
+                # lie by omission: the user then hits the same failure on
+                # their first message with no forewarning.
+                print(f"  • {selected} looks valid, but could not be confirmed:")
+                print(f"    {_detail}")
             else:
                 print(f"  ✓ verified: {pconfig.name} serves '{selected}'")
 

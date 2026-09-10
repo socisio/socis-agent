@@ -233,3 +233,21 @@ def test_the_probe_runs_before_the_save():
     assert names.index("verify_model_serves") < names.index("_save_model_choice"), (
         f"in {probe_fn.name}, the probe runs after the save — it is decoration")
     assert "if _probe_key and effective_base:" in src, "the probe guard was removed"
+
+
+def test_an_unconfirmed_model_is_not_reported_as_verified():
+    """Three outcomes, not two.
+
+    A 401 CreditsError means the model exists and the balance is empty — the
+    probe never confirmed it serves. Printing "✓ verified" there is a lie by
+    omission: the user hits the same 401 on their first message with no
+    forewarning, which is exactly what happened on OpenCode Zen.
+    """
+    src = pathlib.Path("socis_cli/model_setup_flows.py").read_text(encoding="utf-8")
+    block = src[src.index("_probe_key = existing_key"):]
+    block = block[:block.index("_save_model_choice(selected)")]
+    assert "could not be confirmed" in block, (
+        "an unconfirmed probe still prints the verified tick")
+    # The tick must be gated behind the unconfirmed branch, not the default.
+    assert block.index("could not be confirmed") < block.index("verified:"), (
+        "the unconfirmed case must be handled before the success message")
