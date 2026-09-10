@@ -143,6 +143,36 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 
+def _validation_summary(exc: BaseException) -> str:
+    """Describe a validation failure WITHOUT echoing the rejected value.
+
+    A pydantic ValidationError's str() includes the failing field's INPUT, so
+    logging the exception from a corrupt token file wrote the OAuth access
+    token straight into the warning log — and logs get attached to support
+    tickets. Client-info and metadata files are the same shape: they carry the
+    client secret and endpoint config.
+
+    Reports the failing field names and the type of what arrived, which is
+    everything needed to debug a malformed file and nothing that is a secret.
+    Ported from upstream aa0beef68.
+    """
+    errors = getattr(exc, "errors", None)
+    if callable(errors):
+        try:
+            parsed = errors()
+        except Exception:
+            parsed = None
+        if parsed:
+            parts = []
+            for err in parsed:
+                loc = ".".join(str(x) for x in (err.get("loc") or ())) or "<root>"
+                parts.append(f"{loc}: {err.get('type') or 'invalid'}")
+            return f"{type(exc).__name__} on {len(parsed)} field(s): " + "; ".join(parts[:6])
+    # Not a pydantic error (TypeError/KeyError) — the type alone is safe, but
+    # str() on these can still carry a dict key or value, so it is omitted.
+    return type(exc).__name__
+
+
 class OAuthNonInteractiveError(RuntimeError):
     """Raised when OAuth requires browser interaction in a non-interactive env."""
 
@@ -521,7 +551,7 @@ class SOCISTokenStorage:
         try:
             return OAuthToken.model_validate(data)
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt tokens at %s -- ignoring: %s", self._tokens_path(), exc)
+            logger.warning("Corrupt tokens at %s -- ignoring: %s", self._tokens_path(), _validation_summary(exc))
             return None
 
     async def set_tokens(self, tokens: "OAuthToken") -> None:
@@ -566,7 +596,7 @@ class SOCISTokenStorage:
                 _write_json(self._client_info_path(), info.model_dump(mode="json", exclude_none=True))
             return info
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt client info at %s -- ignoring: %s", self._client_info_path(), exc)
+            logger.warning("Corrupt client info at %s -- ignoring: %s", self._client_info_path(), _validation_summary(exc))
             return None
 
     async def set_client_info(self, client_info: "OAuthClientInformationFull") -> None:
@@ -602,7 +632,7 @@ class SOCISTokenStorage:
         try:
             return OAuthMetadata.model_validate(data)
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt OAuth metadata at %s -- ignoring: %s", self._meta_path(), exc)
+            logger.warning("Corrupt OAuth metadata at %s -- ignoring: %s", self._meta_path(), _validation_summary(exc))
             return None
 
     # -- CIMD refusal ------------------------------------------------------
