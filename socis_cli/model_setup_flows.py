@@ -3212,6 +3212,37 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     else:
         print("No change.")
 
+# Error substrings that mean THE MODEL ITSELF is gone. Only these justify a
+# warning — everything else is a problem with the account, the transport, or
+# the probe, and warning about those trains the user to click through.
+_MODEL_DEAD_MARKERS = (
+    "end of life",
+    "is not supported",
+    "model not found",
+    "does not exist",
+    "no longer available",
+    "unknown model",
+    "invalid model",
+    "model_not_found",
+    "modelerror",
+)
+
+# Error substrings that are explicitly NOT about the model. Observed on real
+# providers during setup:
+#   CreditsError     — OpenCode Zen: model is fine, the balance is zero
+#   MissingSessionID — OpenCode Go: requires a session header a probe lacks
+#   rate limit / 429 — throttled account
+_PROBE_INCONCLUSIVE_MARKERS = (
+    "creditserror",
+    "insufficient balance",
+    "missingsessionid",
+    "rate limit",
+    "quota",
+    "too many requests",
+    "requires explicit opt in",
+)
+
+
 def verify_model_serves(
     model_id: str,
     api_key: str,
@@ -3221,21 +3252,30 @@ def verify_model_serves(
 ) -> tuple[bool, str]:
     """Ask the provider whether it will actually serve *model_id*.
 
-    Returns ``(ok, detail)``. ``ok`` is False only on a definitive rejection —
-    a network failure or timeout returns True, because refusing to save a
-    working model because the setup machine's link blipped is worse than the
-    problem this solves.
+    Returns ``(ok, detail)``. ``ok`` is False ONLY when the provider says the
+    model is gone. Everything else — no balance, throttling, a missing session
+    header, a network blip — returns True, because a check that fires on
+    conditions unrelated to the model is a check people learn to override.
 
-    NO CATALOGUE IS TRUSTWORTHY. models.dev offered a model NVIDIA retired six
-    weeks earlier (HTTP 410 on first use). Switching to the provider's own
-    /v1/models did not help: of NVIDIA's 80 listed models, the mainstream ones
-    were retired (410) or not servable on that endpoint (404), and only a
-    handful — mostly Nemotron — actually answered. Both catalogues are wrong,
-    in different ways.
+    NO CATALOGUE IS TRUSTWORTHY, which is why this exists. models.dev offered
+    a model NVIDIA had retired six weeks earlier (HTTP 410 on first use). The
+    provider's own /v1/models was no better: of NVIDIA's 80 listed models the
+    mainstream ones returned 410 or 404, and OpenCode Zen still lists
+    `ox-alpha-free` after removing it.
 
-    So the only reliable signal is a one-token request. It costs a single
-    cheap call during setup and stops the picker writing a default that fails
-    on the user's first message.
+    Classification is on the error TEXT, not the status code, because status
+    codes are ambiguous across providers. Real responses seen during setup, all
+    of which a code-based check gets wrong:
+
+        401 CreditsError      "Insufficient balance"        -> model is FINE
+        401 ModelError        "Model ox-alpha-free is not supported" -> DEAD
+        400 MissingSessionID  "Error from provider"         -> inconclusive
+        410                   "reached its end of life"     -> DEAD
+        404                   "404 page not found"          -> DEAD
+
+    A User-Agent is mandatory: without one, Cloudflare in front of OpenCode
+    returned `403 error code: 1010` for every model, dead or alive, which made
+    an earlier version of this probe warn indiscriminately.
     """
     import json as _json
     import urllib.error
@@ -3252,6 +3292,9 @@ def verify_model_serves(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            # Cloudflare blocks the default urllib agent — see docstring.
+            "User-Agent": "socis-agent/1.0",
+            "Accept": "application/json",
         },
     )
     try:
@@ -3260,26 +3303,46 @@ def verify_model_serves(
     except urllib.error.HTTPError as exc:
         raw = ""
         try:
-            raw = exc.read().decode("utf-8", "replace")[:300]
+            raw = exc.read().decode("utf-8", "replace")
         except Exception:
             pass
-        # 429 is rate limiting, not a dead model — the model is fine.
-        if exc.code == 429:
-            return True, "HTTP 429 (rate limited; model itself looks fine)"
-        detail = f"HTTP {exc.code}"
+
+        # Pull the human message out of whatever envelope the provider uses.
+        message = ""
         try:
             parsed = _json.loads(raw)
-            msg = (parsed.get("detail") or parsed.get("error") or {})
-            if isinstance(msg, dict):
-                msg = msg.get("message") or msg.get("detail") or ""
-            if msg:
-                detail += f": {str(msg)[:200]}"
+            for key in ("detail", "message", "error"):
+                node = parsed.get(key) if isinstance(parsed, dict) else None
+                if isinstance(node, dict):
+                    message = (node.get("message") or node.get("detail")
+                               or node.get("type") or "")
+                elif isinstance(node, str):
+                    message = node
+                if message:
+                    break
+            # Keep the error TYPE too — 'ModelError' vs 'CreditsError' is the
+            # signal, and it is not always inside the message string.
+            if isinstance(parsed, dict):
+                err = parsed.get("error")
+                if isinstance(err, dict) and err.get("type"):
+                    message = f"{err['type']}: {message}".strip(": ")
         except Exception:
-            if raw.strip():
-                detail += f": {raw.strip()[:200]}"
-        return False, detail
+            message = raw.strip()
+
+        haystack = (message + " " + raw).lower()
+        detail = f"HTTP {exc.code}" + (f": {message[:200]}" if message else "")
+
+        if any(m in haystack for m in _PROBE_INCONCLUSIVE_MARKERS):
+            return True, f"{detail}  (not a model problem — left as-is)"
+        if any(m in haystack for m in _MODEL_DEAD_MARKERS):
+            return False, detail
+        if exc.code in (404, 410):
+            return False, detail
+        if exc.code == 429:
+            return True, f"{detail}  (rate limited)"
+        # Unrecognised failure: say so, but do not condemn the model.
+        return True, f"{detail}  (could not classify — left as-is)"
     except Exception as exc:
-        # Network, DNS, TLS, timeout — inconclusive, so do not block.
         return True, f"could not verify ({type(exc).__name__})"
 
 
