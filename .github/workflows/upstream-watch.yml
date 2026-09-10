@@ -364,6 +364,20 @@ jobs:
             url=$(grep -E '^[[:space:]]+url: https://github.com/' "$m" 2>/dev/null | head -1 \
                   | sed -E 's#.*github\.com/##; s#\.git[[:space:]]*$##; s#[[:space:]]*$##' || true)
             ref=$(grep -E '^[[:space:]]+ref: [0-9a-f]{40}' "$m" 2>/dev/null | head -1 | awk '{print $2}' || true)
+            # SKIP OUR OWN REPOS. This job exists to notice when THIRD-PARTY
+            # code we pin moves. Since the MCP servers were consolidated into
+            # socisio/socis-mcp-servers, every manifest points at a repo we
+            # control — so comparing the pinned ref against "upstream HEAD"
+            # compares our SHA against our own HEAD and reports "moved" after
+            # every commit we make there. On 2026-09-10 that was a dozen
+            # commits in one afternoon. A monitor that always fires is a
+            # monitor nobody reads.
+            case "$url" in
+              socisio/*)
+                echo "  skip $(basename "$d"): $url is ours, not third-party"
+                continue
+                ;;
+            esac
             if [ -n "$url" ] && [ -n "$ref" ]; then
               entries="$entries$(basename "$d")|$url|$ref"$'\n'
             fi
