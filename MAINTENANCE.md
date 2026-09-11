@@ -525,3 +525,14 @@ disclosure. No bug bounty.
 advisory catalog in `socis_cli/security_advisories.py` is a live feature — as
 upstream adds entries for newly-poisoned packages, those are exactly the
 cherry-picks worth prioritising (see §B).
+
+## Known, not fixed (2026-09-11)
+
+- `remoteInstallRoot` in `apps/desktop/electron/remote-lifecycle.ts:1049` built
+  a shell-quoted path that was created as a LOCAL directory relative to
+  `apps/desktop/`, producing `apps/desktop/'/var/folders/.../mutex'`. The
+  directories were removed in 43c61e089; the quoting itself was not changed.
+  If they reappear after an SSH update, that is the line.
+- Upstream `bdf45abd7` (prefer owned Anthropic grants) is deliberately skipped:
+  upstream states "do not treat this commit as ready". Revisit if they validate
+  it, or if this fork starts using Anthropic OAuth grants.
