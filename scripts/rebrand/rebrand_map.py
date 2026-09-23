@@ -134,6 +134,12 @@ PROSE_REPLACEMENTS = [
 # --- Domains --------------------------------------------------------------
 DOMAIN_REPLACEMENTS = [
     ("hermes-agent.nousresearch.com", "agent.socis.io"),
+    # shields.io escapes a literal "-" as "--" in badge text, so the README
+    # docs badge carries "hermes--agent.nousresearch.com". The entry above
+    # cannot match it, and the ("nousresearch.com", "socis.io") catch-all
+    # rewrote it into "socis--agent.socis.io" — a badge naming a host that does
+    # not exist. The rewritten-host post-flight caught it on 2026-09-23.
+    ("hermes--agent.nousresearch.com", "agent.socis.io"),
     ("setup.hermes-agent.nousresearch.com", "setup.agent.socis.io"),
     ("nousresearch.com", "socis.io"),
 ]
@@ -166,3 +172,85 @@ TEXT_EXTENSIONS = {
 # Any file with this exact basename, anywhere in the tree (ours or a
 # vendored third party's), is skipped by the text pass entirely.
 EXTENSIONLESS_LICENSE_NAMES = {"LICENSE", "NOTICE", "COPYING", "LICENSE.txt", "NOTICE.txt"}
+
+
+# Literals that must survive the rebrand VERBATIM, even though they contain
+# strings the tables above rewrite.
+#
+# WHY THIS EXISTS. Rebranding current upstream on 2026-09-23 produced a tree
+# that differed from this fork in ~280 places the map could not see: the
+# blanket ("nousresearch", "socis") and ("nousresearch.com", "socis.io")
+# entries rewrote Nous's LIVE infrastructure. The fork had corrected those by
+# hand after the original rebrand, and the corrections were never encoded back
+# here — so a fresh rebrand silently undid them:
+#
+#   inference-api.nousresearch.com -> inference-api.socis.io   (Nous provider dead)
+#   portal.nousresearch.com        -> portal.socis.io          (Nous login dead)
+#   com.nousresearch.hermes        -> com.socis.socis          (every install loses
+#                                                               its Keychain items and
+#                                                               granted macOS permissions)
+#   "hermes-cli" client id         -> "socis-cli"              (rejected by Nous OAuth)
+#
+# All of it was valid code, so the post-flight syntax and stale-import checks
+# passed and reported the tree clean. They check the wrong thing for this.
+#
+# SOCIS uses Nous as an LLM provider; these are Nous's servers and identifiers,
+# not branding. Masked before the tables run and restored after.
+#
+# Deliberately NOT here: hermes-agent.nousresearch.com and
+# setup.hermes-agent.nousresearch.com are the upstream DOCS/installer sites,
+# which DOMAIN_REPLACEMENTS correctly rebrands to agent.socis.io. The fork keeps
+# a few of those on purpose (e.g. the skills-index fetch in prebuild.mjs);
+# those are reconciled per-file, not protected globally.
+PROTECTED_LITERALS = [
+    # Nous HOSTS are protected by a rule in run_rebrand.py (_NOUS_HOST_RE),
+    # not listed here — an enumerated list fell behind on the first real run.
+    # This list is for Nous identifiers that are not hostnames.
+
+    # macOS bundle identifier — changing it orphans Keychain items and every
+    # granted permission (screen recording, accessibility) on existing installs.
+    "com.nousresearch.hermes",
+
+    # OAuth client id registered with Nous's authorization server.
+    #
+    # Protected by its ASSIGNMENT, never as the bare string: "hermes-cli" is
+    # ALSO the CLI platform's default toolset name (config_defaults.py,
+    # platforms.py, nous_subscription.py, toolsets.py, dump.py), and that one
+    # MUST become "socis-cli". A first version protected the bare literal and
+    # left the CLI's default toolset as "hermes-cli" while the config asked for
+    # "socis-cli", so the CLI would have loaded with no default tools.
+    'DEFAULT_NOUS_CLIENT_ID = "hermes-cli"',
+    '"client_id", "hermes-cli"',
+]
+
+
+# socis.io hosts this project actually runs. After a rebrand, any OTHER
+# `*.socis.io` host is almost certainly a Nous host the tables rewrote because
+# it was missing from PROTECTED_LITERALS — valid code, dead URL. The
+# post-flight fails on those so a new upstream Nous service cannot slip
+# through the way ~280 references did before this check existed.
+KNOWN_SOCIS_HOSTS = {
+    "socis.io",
+    "agent.socis.io",
+    "setup.agent.socis.io",
+}
+
+# Rewritten hosts a human has LOOKED AT and accepted. Each needs a reason.
+# Adding a host here is a decision, not a way to silence the check.
+REVIEWED_REWRITTEN_HOSTS = {
+    # Docstring example of a suffix-spoofing attack in
+    # tools/managed_gateway_auth.py. The validation compares an exact
+    # (scheme, netloc) pair, never a suffix, so only the prose changed.
+    "evil-connector-gateway.socis.io",
+    # Comment in scripts/sandbox/generate-e2e-matrix.mjs (was
+    # hermes.nousresearch.com/install.ps1). Not executed.
+    "socis.socis.io",
+    # UNRESOLVED (2026-09-23): .github/workflows/install-e2e-windows-run.yml
+    # downloads a Windows installer from here (was
+    # hermes-assets.nousresearch.com/Hermes-Setup.exe). Neither is right for
+    # SOCIS — Nous's installer is not ours, and this host does not exist.
+    # Decide whether SOCIS ships a Windows installer; until then that workflow
+    # points at a dead URL. Accepted here only so it does not block the
+    # canary; it is NOT fixed.
+    "socis-assets.socis.io",
+}

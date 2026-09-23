@@ -41,7 +41,8 @@ from rebrand_map import (
     MODULE_NAME_TEXT_REPLACEMENTS,
     PROSE_REPLACEMENTS, DOMAIN_REPLACEMENTS,
     MODULE_RENAMES, EXCLUDE_PATHS, TEXT_EXTENSIONS,
-    EXTENSIONLESS_LICENSE_NAMES,
+    EXTENSIONLESS_LICENSE_NAMES, PROTECTED_LITERALS,
+    KNOWN_SOCIS_HOSTS, REVIEWED_REWRITTEN_HOSTS,
 )
 
 
@@ -69,12 +70,100 @@ def build_replacement_table():
     return tier1 + tier2 + tier3 + tier4 + tier5
 
 
+# Longest first: "stg-inference-api.nousresearch.com" must be masked before
+# "inference-api.nousresearch.com", or the shorter match splits the longer one.
+_PROTECTED = sorted(PROTECTED_LITERALS, key=len, reverse=True)
+
+
+def _sentinel(i: int) -> str:
+    # NUL-delimited so no table entry can match inside it.
+    return f"\x00REBRAND_PROTECTED_{i}\x00"
+
+
+# Any host with a subdomain under nousresearch.com (or staging-nousresearch.com)
+# is Nous infrastructure and must survive. This is a RULE rather than a list
+# because a list is always behind: the first version enumerated the known
+# services and a fresh rebrand still rewrote 24 test fixtures and a Windows
+# installer URL it did not know about. Every Nous host is a Nous host.
+#
+# The optional leading "." is deliberate: product code checks suffixes like
+# ``host.endswith(".agents.nousresearch.com")``, and a pattern that required a
+# label first would skip that form entirely.
+_NOUS_HOST_RE = __import__("re").compile(
+    r"(?<![A-Za-z0-9-])(\.?(?:[a-z0-9-]+\.)+(?:staging-)?nousresearch\.com)(?![A-Za-z0-9-])"
+)
+
+
+# Nous-owned repositories, HuggingFace models and datasets are written
+# "NousResearch/<name>" — hermes-example-plugins, atropos, Hermes-4-70B,
+# Hermes-3-Llama-3.1-70B, hermes-agent-megascience-sft1, and many more. The prose
+# rule ("NousResearch", "SOCIS") renamed every one to a nonexistent
+# "SOCIS/<name>". On 2026-09-23 the fork carried 60 such damaged references,
+# including model IDs a provider would reject as "model not found".
+#
+# Only the upstream REPOSITORY itself becomes the fork's: "NousResearch/
+# hermes-agent" exactly, with a word boundary so it cannot consume
+# "NousResearch/hermes-agent-megascience-sft1" (an earlier plain-substring
+# entry did exactly that). Every other NousResearch/<name> is Nous's, and stays.
+_NOUS_OWNER_RE = __import__("re").compile(
+    r"NousResearch/([A-Za-z0-9][A-Za-z0-9._-]*)"
+)
+_UPSTREAM_REPO_RE = __import__("re").compile(r"^hermes-agent(\.git)?$")
+# The Nous GitHub ORG page (no repository after it) — an attribution link.
+_NOUS_ORG_PAGE_RE = __import__("re").compile(r"github\.com/NousResearch(?![A-Za-z0-9/_-])")
+
+
+def _is_rebranded_nous_host(host: str) -> bool:
+    """The docs and installer family, which DOMAIN_REPLACEMENTS maps on purpose
+    (hermes-agent.nousresearch.com -> agent.socis.io, and setup. under it)."""
+    h = host.lstrip(".")
+    return h == "hermes-agent.nousresearch.com" or h.endswith(".hermes-agent.nousresearch.com")
+
+
 def apply_text_replacements(content: str, table) -> tuple:
+    """Apply the rebrand table, leaving Nous infrastructure untouched.
+
+    Two masks run before the table and are restored after: every Nous host
+    (see _NOUS_HOST_RE) except the docs/installer family, and the non-host
+    PROTECTED_LITERALS — the macOS bundle id and the OAuth client id.
+    """
+    masked = {}
+    counter = [0]
+
+    def _mask(value: str) -> str:
+        token = _sentinel(counter[0])
+        counter[0] += 1
+        masked[token] = value
+        return token
+
+    content = _NOUS_HOST_RE.sub(
+        lambda m: m.group(1) if _is_rebranded_nous_host(m.group(1)) else _mask(m.group(1)),
+        content,
+    )
+    def _owner(m):
+        name = m.group(1)
+        # Trailing sentence punctuation is not part of the name.
+        core = name.rstrip(".")
+        tail = name[len(core):]
+        if _UPSTREAM_REPO_RE.match(core):
+            return _mask("socisio/socis-agent" + core[len("hermes-agent"):]) + tail
+        return _mask(f"NousResearch/{core}") + tail
+
+    content = _NOUS_OWNER_RE.sub(_owner, content)
+    content = _NOUS_ORG_PAGE_RE.sub(lambda m: _mask(m.group(0)), content)
+
+    for lit in _PROTECTED:
+        if lit in content:
+            content = content.replace(lit, _mask(lit))
+
     counts = {}
     for old, new in table:
         if old in content:
             counts[old] = content.count(old)
             content = content.replace(old, new)
+
+    for token, lit in masked.items():
+        content = content.replace(token, lit)
     return content, counts
 
 
@@ -203,6 +292,42 @@ def import_sanity_check(root: Path) -> list:
     return problems
 
 
+def unknown_host_check(root: Path) -> list:
+    """Find `*.socis.io` hosts that SOCIS does not run.
+
+    A rewritten Nous host is valid code with a dead URL, so the syntax and
+    import checks cannot see it. Returns (path, line_no, host) for every host
+    that is neither known nor explicitly reviewed.
+    """
+    import re as _re
+
+    pattern = _re.compile(r"\b([a-z0-9-]+(?:\.[a-z0-9-]+)*\.socis\.io)\b")
+    allowed = KNOWN_SOCIS_HOSTS | REVIEWED_REWRITTEN_HOSTS
+    found = []
+    for path in root.rglob("*"):
+        if not path.is_file() or not is_text_candidate(path.name):
+            continue
+        rel = str(path.relative_to(root))
+        if is_excluded(rel) or "node_modules" in path.parts or ".git" in path.parts:
+            continue
+        # The map documents broken forms as examples; do not flag itself.
+        if rel.startswith("scripts/rebrand/"):
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except OSError:
+            continue
+        for n, line in enumerate(lines, 1):
+            for raw in pattern.findall(line):
+                # A DNS label cannot begin with "-", so a leading dash is the
+                # surrounding text, not the host: shields.io badge text reads
+                # "Docs-agent.socis.io", and the match must be agent.socis.io.
+                host = raw.lstrip("-.")
+                if host not in allowed:
+                    found.append((rel, n, host))
+    return found
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".")
@@ -246,6 +371,22 @@ def main():
         print("OK - no stale imports." if not stale else f"!!! {len(stale)} stale imports:")
         for p, name in stale[:20]:
             print(f"    {p}: still references '{name}'")
+
+        print("\nPost-flight: rewritten-host check...")
+        hosts = unknown_host_check(root)
+        print("OK - no unknown socis.io hosts." if not hosts
+              else f"!!! {len(hosts)} socis.io references to hosts SOCIS does not run:")
+        for p, n, h in hosts[:20]:
+            print(f"    {p}:{n}: {h}")
+        if hosts:
+            print("    Each is probably a Nous host missing from PROTECTED_LITERALS.")
+            print("    Protect it, or add it to REVIEWED_REWRITTEN_HOSTS with a reason.")
+
+        # These used to be PRINTED and the script still exited 0, so a caller
+        # running this with check=True — scripts/fork_delta.py does — passed
+        # on syntax errors and stale imports alike.
+        if errors or stale or hosts:
+            return 1
     else:
         print("\n>>> DRY RUN - pass --apply-text to write changes. <<<")
     if not args.apply_renames:
@@ -253,4 +394,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main() or 0)
