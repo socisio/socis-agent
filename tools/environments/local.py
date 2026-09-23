@@ -446,6 +446,28 @@ def _build_provider_env_blocklist() -> frozenset:
 
 _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST = _build_provider_env_blocklist()
 
+# Case-folded view of the blocklist, and the predicate every check uses.
+#
+# The blocklist is built from `api_key_env_vars` and config keys — all
+# uppercase — and was tested with `key in BLOCKLIST`, an exact match. On Linux
+# environment variable names are case-SENSITIVE, so `openai_api_key` and
+# `OpenAI_Api_Key` are valid names that are not in the set: the credential was
+# handed to a terminal or execute_code child while `OPENAI_API_KEY` was
+# correctly withheld. Upstream b534f4b8c8.
+#
+# Comparing case-insensitively is the safe direction: a false positive here
+# withholds a variable that merely looks credential-shaped, which is
+# recoverable via passthrough registration. A false negative leaks a key.
+_SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST_CI = frozenset(
+    name.casefold() for name in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST
+)
+
+
+def _is_blocked_provider_env(name: str) -> bool:
+    """True when *name* is a provider credential, regardless of its casing."""
+    return str(name or "").casefold() in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST_CI
+
+
 # First-party platform credentials the agent's own platform adapters need in
 # terminal children (e.g. the ``BUZZ_*`` vars for the Buzz messaging
 # platform, which drive the platform-mandated ``buzz`` CLI: BUZZ_PRIVATE_KEY,
@@ -710,7 +732,7 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
             continue
         first_party = _is_terminal_first_party_env(key)
         passthrough = _is_passthrough(key)
-        if key in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST and not (passthrough or first_party):
+        if _is_blocked_provider_env(key) and not (passthrough or first_party):
             continue
         # First-party platform vars are the process's own env values: use them
         # directly, never scope-resolve (multiplex with no scope would raise
@@ -735,7 +757,7 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
         else:
             first_party = _is_terminal_first_party_env(key)
             passthrough = _is_passthrough(key)
-            if key in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST and not (passthrough or first_party):
+            if _is_blocked_provider_env(key) and not (passthrough or first_party):
                 continue
             resolved = value
             if passthrough and not first_party:
@@ -883,7 +905,13 @@ def socis_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str]
 
     if not inherit_credentials:
         # Tier 2 — strip provider/tool credentials unless explicitly inherited.
-        for key in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST:
+        #
+        # Iterate the ENVIRONMENT, not the blocklist. Popping the blocklist's
+        # own (uppercase) spellings left a differently-cased variable in place:
+        # `openai_api_key` survived into the child while `OPENAI_API_KEY` was
+        # removed. Env var names are case-sensitive on Linux, so both can be
+        # set at once (upstream b534f4b8c8).
+        for key in [k for k in env if _is_blocked_provider_env(k)]:
             env.pop(key, None)
 
     # Windows UTF-8 safety for spawned processes (#31420).
@@ -1549,7 +1577,7 @@ def _make_run_env(env: dict) -> dict:
         else:
             first_party = _is_terminal_first_party_env(k)
             passthrough = _is_passthrough(k)
-            if k in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST and not (passthrough or first_party):
+            if _is_blocked_provider_env(k) and not (passthrough or first_party):
                 continue
             # First-party vars use the merged env value directly (see
             # _sanitize_subprocess_env); only passthrough names resolve.

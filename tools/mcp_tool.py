@@ -1942,35 +1942,52 @@ def _apply_identity_header(server_name: str, config: dict, headers: dict) -> dic
 
 
 def _make_redirect_header_stripper(
+    httpx_mod,
     original_url,
     *,
     strict: bool = False,
     configured_header_names: "set[str] | frozenset[str]" = frozenset(),
 ):
-    """Build an httpx response hook that guards cross-origin redirects.
+    """Return an ``AsyncClient`` SUBCLASS that guards cross-origin redirects.
 
-    Always strips ``Authorization`` when a redirect leaves the original
-    origin. When *strict* is true (portable Agent Plugins v1 packages with
-    ``strict_redirect_headers``), every *configured* header (lowercase names
-    in *configured_header_names*) is stripped as well — the v1 spec forbids
-    forwarding package-configured headers to a different origin without
-    explicit user authorization.
+    Always strips ``Authorization`` when a redirect leaves the original origin.
+    When *strict* is true (portable Agent Plugins v1 packages with
+    ``strict_redirect_headers``), every *configured* header is stripped too —
+    the v1 spec forbids forwarding package-configured headers to a different
+    origin without explicit user authorization.
+
+    WHY A SUBCLASS AND NOT AN EVENT HOOK. This was a response event hook
+    reading ``response.next_request``, which httpx does not populate until
+    AFTER response hooks run. The guard therefore always early-returned and
+    ``strict_redirect_headers`` silently did nothing — while documenting itself
+    as enforcing spec §7.2.1. Configured headers (``X-API-Key`` and the like)
+    forwarded to any redirect target for as long as the option has existed.
+    Upstream a8afb3b567 (#115155).
+
+    ``_build_redirect_request`` is the only seam that sees exclusively redirect
+    follow-ups. A REQUEST hook would also fire on the OAuth flow's token and
+    registration requests to a different-origin authorization server and strip
+    their credentials, breaking auth to fix a leak.
     """
+    _origin = (original_url.scheme, original_url.host, original_url.port)
+    _names = {str(n).lower() for n in configured_header_names}
 
-    async def _strip_on_cross_origin_redirect(response):
-        if response.is_redirect and response.next_request:
-            target = response.next_request.url
-            if (target.scheme, target.host, target.port) != (
-                original_url.scheme, original_url.host, original_url.port,
-            ):
-                response.next_request.headers.pop("authorization", None)
-                response.next_request.headers.pop("Authorization", None)
+    class _RedirectBoundaryClient(httpx_mod.AsyncClient):
+        def _build_redirect_request(self, request, response):
+            follow_up = super()._build_redirect_request(request, response)
+            target = follow_up.url
+            if (target.scheme, target.host, target.port) != _origin:
+                # httpx strips Authorization cross-origin natively; explicit
+                # here so the boundary does not depend on that behaviour.
+                follow_up.headers.pop("authorization", None)
+                follow_up.headers.pop("Authorization", None)
                 if strict:
-                    for _name in configured_header_names:
-                        while _name in response.next_request.headers:
-                            del response.next_request.headers[_name]
+                    for _name in _names:
+                        while _name in follow_up.headers:
+                            del follow_up.headers[_name]
+            return follow_up
 
-    return _strip_on_cross_origin_redirect
+    return _RedirectBoundaryClient
 
 
 def _format_connect_error(exc: BaseException) -> str:
@@ -3767,6 +3784,7 @@ class MCPServerTask:
         ssl_verify: bool = True,
         client_cert=None,
         timeout: float = 5.0,
+        strict_redirect_headers: bool = False,
     ) -> None:
         """Probe *url* for an MCP-shaped response before the SDK connects.
 
@@ -3810,8 +3828,18 @@ class MCPServerTask:
             client_kwargs["cert"] = client_cert
 
         probe_headers = dict(headers) if headers else {}
+        # Same redirect boundary as the transport client. The probe followed
+        # redirects with NO boundary at all, so configured headers (X-API-Key
+        # and the like) went to cross-origin targets before the handshake had
+        # even started (upstream a8afb3b567).
+        _probe_client_cls = _make_redirect_header_stripper(
+            _httpx,
+            _httpx.URL(url),
+            strict=strict_redirect_headers,
+            configured_header_names={key.lower() for key in probe_headers},
+        )
         try:
-            async with _httpx.AsyncClient(**client_kwargs) as client:
+            async with _probe_client_cls(**client_kwargs) as client:
                 # HEAD is cheapest; fall back to GET if the server doesn't
                 # implement it (405 Method Not Allowed / 501 Not Implemented).
                 resp = await client.head(url, headers=probe_headers)
@@ -4104,7 +4132,8 @@ class MCPServerTask:
 
             _original_url = httpx.URL(url)
 
-            _strip_auth_on_cross_origin_redirect = _make_redirect_header_stripper(
+            _client_cls = _make_redirect_header_stripper(
+                httpx,
                 _original_url,
                 strict=_strict_cfg_headers,
                 configured_header_names=_configured_header_names,
@@ -4114,7 +4143,7 @@ class MCPServerTask:
                 "follow_redirects": True,
                 "timeout": httpx.Timeout(float(connect_timeout), read=300.0),
                 "verify": ssl_verify,
-                "event_hooks": {"response": [_strip_auth_on_cross_origin_redirect]},
+
             }
             if headers:
                 client_kwargs["headers"] = headers
@@ -4126,7 +4155,7 @@ class MCPServerTask:
             # Caller owns the client lifecycle — the SDK skips cleanup when
             # http_client is provided, so we wrap in async-with.
             try:
-                async with httpx.AsyncClient(**client_kwargs) as http_client:
+                async with _client_cls(**client_kwargs) as http_client:
                     # Unpacked positionally rather than by fixed arity: mcp
                     # 1.x yields (read, write, get_session_id) and 2.x yields
                     # (read, write). This file supports both SDK generations,
@@ -4347,6 +4376,8 @@ class MCPServerTask:
                         headers=_probe_headers,
                         ssl_verify=config.get("ssl_verify", True),
                         client_cert=_resolve_client_cert(self.name, config),
+                        strict_redirect_headers=bool(
+                            config.get("strict_redirect_headers")),
                     )
                 except NonMcpEndpointError as exc:
                     logger.warning("%s", exc)

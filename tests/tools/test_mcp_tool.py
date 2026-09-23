@@ -2945,70 +2945,86 @@ class TestMCPDiscoveryCrossProcessLock:
 
 
 class TestRedirectHeaderStripper:
-    """Cross-origin redirect header boundary (portable Agent Plugins v1)."""
+    """Cross-origin redirect header boundary (portable Agent Plugins v1).
 
-    def _make_response(self, next_headers):
+    These tests previously drove a RESPONSE EVENT HOOK with a hand-built
+    `SimpleNamespace(is_redirect=True, next_request=...)`. Real httpx does not
+    populate `response.next_request` until after response hooks run, so the
+    production hook always early-returned and `strict_redirect_headers` never
+    enforced anything -- while these tests passed, because the fixture handed
+    the hook something httpx never would. The tests encoded the bug.
+
+    They now exercise the real seam: `_build_redirect_request` on the
+    AsyncClient subclass the factory returns, fed a genuine httpx 3xx so httpx
+    itself builds the follow-up (upstream a8afb3b567, #115155).
+    """
+
+    ORIGIN = "https://origin.example.test/mcp"
+
+    def _follow(self, location, headers, **factory_kwargs):
         import httpx
 
-        next_request = httpx.Request(
-            "GET", "https://other.example.test/mcp", headers=next_headers
+        from tools.mcp_tool import _make_redirect_header_stripper
+
+        client_cls = _make_redirect_header_stripper(
+            httpx, httpx.URL(self.ORIGIN), **factory_kwargs
         )
-        response = SimpleNamespace(
-            is_redirect=True,
-            next_request=next_request,
-        )
-        return response, next_request
+        client = client_cls()
+        try:
+            request = httpx.Request("GET", self.ORIGIN, headers=headers)
+            response = httpx.Response(
+                302, headers={"location": location}, request=request
+            )
+            return client._build_redirect_request(request, response)
+        finally:
+            asyncio.run(client.aclose())
+
+    def test_the_factory_returns_a_client_subclass_not_a_hook(self):
+        """A hook is the shape that could not work."""
+        import httpx
+
+        from tools.mcp_tool import _make_redirect_header_stripper
+
+        cls = _make_redirect_header_stripper(httpx, httpx.URL(self.ORIGIN))
+        assert isinstance(cls, type)
+        assert issubclass(cls, httpx.AsyncClient)
 
     def test_default_strips_only_authorization(self):
-        import httpx
-
-        from tools.mcp_tool import _make_redirect_header_stripper
-
-        hook = _make_redirect_header_stripper(
-            httpx.URL("https://origin.example.test/mcp")
+        follow = self._follow(
+            "https://other.example.test/mcp",
+            {"Authorization": "Bearer x", "X-Tenant": "t"},
         )
-        response, next_request = self._make_response(
-            {"Authorization": "Bearer x", "X-Tenant": "t"}
-        )
-        asyncio.run(hook(response))
-        assert "authorization" not in next_request.headers
-        assert next_request.headers["x-tenant"] == "t"
+        assert "authorization" not in follow.headers
+        assert follow.headers["x-tenant"] == "t"
 
     def test_strict_strips_configured_headers_cross_origin(self):
-        import httpx
-
-        from tools.mcp_tool import _make_redirect_header_stripper
-
-        hook = _make_redirect_header_stripper(
-            httpx.URL("https://origin.example.test/mcp"),
+        follow = self._follow(
+            "https://other.example.test/mcp",
+            {"Authorization": "Bearer x", "X-Tenant": "t", "Accept": "a"},
             strict=True,
             configured_header_names={"x-tenant"},
         )
-        response, next_request = self._make_response(
-            {"Authorization": "Bearer x", "X-Tenant": "t", "Accept": "a"}
-        )
-        asyncio.run(hook(response))
-        assert "authorization" not in next_request.headers
-        assert "x-tenant" not in next_request.headers
+        assert "authorization" not in follow.headers
+        assert "x-tenant" not in follow.headers
         # Client-generated headers unrelated to package config survive.
-        assert next_request.headers["accept"] == "a"
+        assert follow.headers["accept"] == "a"
 
     def test_same_origin_redirect_keeps_headers(self):
-        import httpx
-
-        from tools.mcp_tool import _make_redirect_header_stripper
-
-        hook = _make_redirect_header_stripper(
-            httpx.URL("https://origin.example.test/mcp"),
+        follow = self._follow(
+            "https://origin.example.test/other",
+            {"Authorization": "Bearer x", "X-Tenant": "t"},
             strict=True,
             configured_header_names={"x-tenant"},
         )
-        next_request = httpx.Request(
-            "GET",
-            "https://origin.example.test/other",
-            headers={"Authorization": "Bearer x", "X-Tenant": "t"},
+        assert follow.headers["authorization"] == "Bearer x"
+        assert follow.headers["x-tenant"] == "t"
+
+    def test_a_port_change_is_cross_origin(self):
+        follow = self._follow(
+            "https://origin.example.test:8443/mcp",
+            {"Authorization": "Bearer x", "X-Tenant": "t"},
+            strict=True,
+            configured_header_names={"x-tenant"},
         )
-        response = SimpleNamespace(is_redirect=True, next_request=next_request)
-        asyncio.run(hook(response))
-        assert next_request.headers["authorization"] == "Bearer x"
-        assert next_request.headers["x-tenant"] == "t"
+        assert "authorization" not in follow.headers
+        assert "x-tenant" not in follow.headers

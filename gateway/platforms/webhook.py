@@ -469,8 +469,9 @@ class WebhookAdapter(BasePlatformAdapter):
     def toolsets_for_source(self, source) -> Optional[List[str]]:
         """Per-route toolset override.
 
-        Webhook session chat_ids are ``webhook:{route}:{delivery_id}``.
-        When the matching route config carries a ``toolsets`` list, that list
+        The route is taken from ``source.user_id`` (exactly
+        ``webhook:{route}`` as authenticated), never parsed out of
+        ``chat_id``. When the matching route config carries a ``toolsets`` list, that list
         replaces the platform-level ``platform_toolsets.webhook`` resolution
         for this run only. Routes without the key keep the platform default
         (the intentionally constrained webhook-safe toolset), so a single
@@ -483,11 +484,21 @@ class WebhookAdapter(BasePlatformAdapter):
         exposed through `socis webhook subscribe`, so an agent-created
         subscription cannot self-grant elevated tools).
         """
-        chat_id = str(getattr(source, "chat_id", "") or "")
-        parts = chat_id.split(":", 2)
-        if len(parts) < 2 or parts[0] != "webhook":
+        # GHSA-2fmg-cjqm-hhrj. Keyed on user_id, which _dispatch_agent_run
+        # stamps as exactly "webhook:{route_name}" from the AUTHENTICATED URL
+        # segment. The previous version split chat_id
+        # ("webhook:{route}:{delivery_id}") on ":", so a route named
+        # "build:external" resolved to route "build" and inherited ITS
+        # toolsets: a caller holding the weak route's HMAC secret got the
+        # privileged sibling's terminal and file tools.
+        #
+        # No split at all, deliberately: delivery_id is caller-supplied
+        # (X-GitHub-Delivery, svix-id, X-Request-ID), so any parse of chat_id —
+        # including rsplit — stays attacker-influenced.
+        user_id = str(getattr(source, "user_id", "") or "")
+        if not user_id.startswith("webhook:"):
             return None
-        route_config = self._routes.get(parts[1])
+        route_config = self._routes.get(user_id[len("webhook:"):])
         if not isinstance(route_config, dict):
             return None
         toolsets = route_config.get("toolsets")

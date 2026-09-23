@@ -824,11 +824,21 @@ def _reauth_oauth_server(name: str, server_config: dict) -> bool:
         _info("Use `socis mcp remove` + `socis mcp add` to reconfigure auth.")
         return False
 
-    # Wipe both disk and in-memory cache so the next probe forces a fresh
-    # OAuth flow.
+    # Force a fresh OAuth flow: drop the in-process provider, the tokens, the
+    # client registration and the CIMD refusal marker — but NOT the cached
+    # authorization-server metadata. When that document cannot be re-fetched
+    # (WAF-fronted split-host servers) it is the only thing keeping the
+    # announced authorize URL off the SDK's `{mcp-origin}/authorize` guess,
+    # which does not exist. A working discovery still overwrites it
+    # (upstream f44e73dab6, #115329).
+    #
+    # `socis mcp remove` still wipes everything — that deletes the server.
     try:
         from tools.mcp_oauth_manager import get_manager
-        get_manager().remove(name)
+        from tools.mcp_oauth import SOCISTokenStorage
+
+        get_manager().evict(name)
+        SOCISTokenStorage(name).remove(keep_metadata=True)
     except Exception as exc:
         _warning(f"Could not clear existing OAuth state: {exc}")
 

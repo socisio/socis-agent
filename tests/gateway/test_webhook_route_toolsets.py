@@ -1,137 +1,113 @@
-"""Per-route webhook toolset overrides (adapter.toolsets_for_source).
+"""Per-route webhook toolsets bind to the AUTHENTICATED route.
 
-A webhook route config may carry a ``toolsets`` list that replaces the
-platform-level ``platform_toolsets.webhook`` resolution for runs triggered by
-that route only. The gateway validates the override through the same
-``_get_platform_tools`` path as platform config, so restricted/unknown names
-behave identically to a manually configured platform toolset list.
+GHSA-2fmg-cjqm-hhrj, ported from upstream 9345c67854.
+
+`toolsets_for_source` recovered the route by splitting the session chat_id
+`webhook:{route}:{delivery_id}` on ":", while authentication used the exact URL
+segment. A route named "build:external" therefore resolved to route "build" and
+inherited its toolsets: a caller holding the weak route's HMAC secret got the
+privileged sibling's terminal and file tools.
+
+The fix keys on `source.user_id`, which _dispatch_agent_run stamps as exactly
+`webhook:{route_name}` from the authenticated segment. No split at all --
+delivery_id is caller-supplied (X-GitHub-Delivery, svix-id, X-Request-ID), so
+any parse of chat_id, rsplit included, stays attacker-influenced.
 """
 
-from gateway.platforms.base import BasePlatformAdapter
-from gateway.platforms.webhook import WebhookAdapter
-from gateway.run import GatewayRunner
-from socis_cli.tools_config import _get_platform_tools
+import pathlib
+
+import pytest
 
 
-class _Src:
-    def __init__(self, chat_id):
+class _Source:
+    def __init__(self, user_id="", chat_id=""):
+        self.user_id = user_id
         self.chat_id = chat_id
 
 
-def _make_adapter(routes):
-    wa = object.__new__(WebhookAdapter)
-    wa._routes = routes
-    return wa
+class _Adapter:
+    """Just the method under test, with a routes table."""
+
+    def __init__(self, routes):
+        self._routes = routes
+
+    toolsets_for_source = None  # bound below
 
 
-def _make_runner(adapter):
-    gr = object.__new__(GatewayRunner)
-    gr._adapter_for_source = lambda source: adapter
-    return gr
+def _load():
+    src = pathlib.Path("gateway/platforms/webhook.py").read_text(encoding="utf-8")
+    start = src.index("    def toolsets_for_source(self, source)")
+    end = src.index("\n    # ---", start)
+    body = "\n".join(
+        line[4:] if line.startswith("    ") else line
+        for line in src[start:end].splitlines()
+    )
+    import typing
+    ns = {"Optional": typing.Optional, "List": typing.List}
+    exec(compile(body, "<toolsets>", "exec"), ns)
+    return ns["toolsets_for_source"]
 
 
-BASE_CONFIG = {"platform_toolsets": {"webhook": ["web", "vision", "clarify"]}}
+_Adapter.toolsets_for_source = _load()
+
+PRIVILEGED = {"toolsets": ["terminal", "file"]}
+ROUTES = {"build": PRIVILEGED, "build:external": {}, "plain": {"toolsets": ["web"]}}
 
 
-class TestWebhookAdapterToolsetsForSource:
-    def test_route_with_toolsets_returns_list(self):
-        wa = _make_adapter({"mon": {"secret": "x", "toolsets": ["terminal", "file"]}})
-        assert wa.toolsets_for_source(_Src("webhook:mon:d1")) == ["terminal", "file"]
-
-    def test_route_without_toolsets_returns_none(self):
-        wa = _make_adapter({"plain": {"secret": "x"}})
-        assert wa.toolsets_for_source(_Src("webhook:plain:d1")) is None
-
-    def test_unknown_route_returns_none(self):
-        wa = _make_adapter({})
-        assert wa.toolsets_for_source(_Src("webhook:ghost:d1")) is None
-
-    def test_non_webhook_chat_id_returns_none(self):
-        wa = _make_adapter({"mon": {"secret": "x", "toolsets": ["terminal"]}})
-        assert wa.toolsets_for_source(_Src("telegram:123")) is None
-
-    def test_empty_or_non_list_toolsets_returns_none(self):
-        wa = _make_adapter(
-            {
-                "empty": {"secret": "x", "toolsets": []},
-                "str": {"secret": "x", "toolsets": "terminal"},
-                "blank": {"secret": "x", "toolsets": ["  ", ""]},
-            }
-        )
-        assert wa.toolsets_for_source(_Src("webhook:empty:d")) is None
-        assert wa.toolsets_for_source(_Src("webhook:str:d")) is None
-        assert wa.toolsets_for_source(_Src("webhook:blank:d")) is None
-
-    def test_base_adapter_default_is_none(self):
-        # Non-webhook adapters inherit a None default: no override anywhere.
-        wa = _make_adapter({})
-        assert (
-            BasePlatformAdapter.toolsets_for_source(wa, _Src("webhook:mon:d")) is None
-        )
+def test_a_colon_route_cannot_inherit_its_siblings_toolsets():
+    """The advisory. 'build:external' split to 'build' and took terminal+file."""
+    a = _Adapter(ROUTES)
+    src = _Source(user_id="webhook:build:external",
+                  chat_id="webhook:build:external:delivery-123")
+    assert a.toolsets_for_source(src) is None
 
 
-class TestGatewayResolveEnabledToolsetsForSource:
-    def test_override_replaces_platform_resolution(self):
-        wa = _make_adapter(
-            {"mon": {"secret": "x", "toolsets": ["terminal", "file", "web"]}}
-        )
-        gr = _make_runner(wa)
-        res = GatewayRunner._resolve_enabled_toolsets_for_source(
-            gr, BASE_CONFIG, _Src("webhook:mon:d"), "webhook"
-        )
-        assert "terminal" in res and "file" in res and "web" in res
-        assert "vision" not in res  # platform list fully replaced, not merged
+def test_a_crafted_delivery_id_cannot_name_another_route():
+    """delivery_id is caller-supplied. Pins against a future rsplit."""
+    a = _Adapter(ROUTES)
+    src = _Source(user_id="webhook:plain", chat_id="webhook:plain:build")
+    assert a.toolsets_for_source(src) == ["web"], "resolved by chat_id, not user_id"
 
-    def test_override_validated_like_platform_config(self):
-        # Contract: resolving with an override is byte-identical to resolving
-        # the same list configured as platform_toolsets.webhook.
-        override = ["terminal", "file", "web", "discord_admin"]
-        wa = _make_adapter({"mon": {"secret": "x", "toolsets": override}})
-        gr = _make_runner(wa)
-        res = GatewayRunner._resolve_enabled_toolsets_for_source(
-            gr, BASE_CONFIG, _Src("webhook:mon:d"), "webhook"
-        )
-        expected = sorted(
-            _get_platform_tools(
-                {"platform_toolsets": {"webhook": list(override)}}, "webhook"
-            )
-        )
-        assert res == expected
-        # discord_admin is platform-restricted to discord — must be dropped.
-        assert "discord_admin" not in res
 
-    def test_no_override_uses_platform_resolution(self):
-        wa = _make_adapter({"plain": {"secret": "x"}})
-        gr = _make_runner(wa)
-        res = GatewayRunner._resolve_enabled_toolsets_for_source(
-            gr, BASE_CONFIG, _Src("webhook:plain:d"), "webhook"
-        )
-        assert res == sorted(_get_platform_tools(BASE_CONFIG, "webhook"))
-        assert "terminal" not in res
+def test_a_colon_route_gets_the_toolsets_it_configured():
+    """Upstream notes the old code silently fell back to the platform default
+    for a ':' route with no colliding sibling. It should get its own."""
+    a = _Adapter({"build:external": {"toolsets": ["web"]}})
+    src = _Source(user_id="webhook:build:external",
+                  chat_id="webhook:build:external:d1")
+    assert a.toolsets_for_source(src) == ["web"]
 
-    def test_adapter_exception_falls_back_to_platform_resolution(self):
-        wa = _make_adapter({})
-        wa.toolsets_for_source = lambda source: (_ for _ in ()).throw(
-            RuntimeError("boom")
-        )
-        gr = _make_runner(wa)
-        res = GatewayRunner._resolve_enabled_toolsets_for_source(
-            gr, BASE_CONFIG, _Src("webhook:mon:d"), "webhook"
-        )
-        assert res == sorted(_get_platform_tools(BASE_CONFIG, "webhook"))
 
-    def test_missing_adapter_falls_back_to_platform_resolution(self):
-        gr = _make_runner(None)
-        res = GatewayRunner._resolve_enabled_toolsets_for_source(
-            gr, BASE_CONFIG, _Src("webhook:mon:d"), "webhook"
-        )
-        assert res == sorted(_get_platform_tools(BASE_CONFIG, "webhook"))
+def test_a_plain_route_is_unchanged():
+    a = _Adapter(ROUTES)
+    src = _Source(user_id="webhook:build", chat_id="webhook:build:d1")
+    assert a.toolsets_for_source(src) == ["terminal", "file"]
 
-    def test_original_config_not_mutated(self):
-        cfg = {"platform_toolsets": {"webhook": ["web"]}}
-        wa = _make_adapter({"mon": {"secret": "x", "toolsets": ["terminal"]}})
-        gr = _make_runner(wa)
-        GatewayRunner._resolve_enabled_toolsets_for_source(
-            gr, cfg, _Src("webhook:mon:d"), "webhook"
-        )
-        assert cfg["platform_toolsets"]["webhook"] == ["web"]
+
+@pytest.mark.parametrize("user_id", ["", "slack:general", "webhook", "notwebhook:x"])
+def test_a_non_webhook_source_is_refused(user_id):
+    a = _Adapter(ROUTES)
+    assert a.toolsets_for_source(_Source(user_id=user_id)) is None
+
+
+def test_an_unknown_route_grants_nothing():
+    a = _Adapter(ROUTES)
+    assert a.toolsets_for_source(_Source(user_id="webhook:nope")) is None
+
+
+def test_an_empty_toolsets_list_grants_nothing():
+    """An empty list must not read as 'grant everything'."""
+    a = _Adapter({"r": {"toolsets": []}})
+    assert a.toolsets_for_source(_Source(user_id="webhook:r")) is None
+
+
+def test_chat_id_is_never_parsed():
+    """Guard the mechanism, not just the outcome: any chat_id parse is
+    attacker-influenced, so the source must not contain one."""
+    src = pathlib.Path("gateway/platforms/webhook.py").read_text(encoding="utf-8")
+    start = src.index("def toolsets_for_source")
+    block = src[start: src.index("\n    # ---", start)]
+    code = "\n".join(l for l in block.splitlines() if not l.strip().startswith("#"))
+    assert "chat_id" not in code.split('"""')[-1], (
+        "chat_id is still parsed in the body")
+    assert "user_id" in code

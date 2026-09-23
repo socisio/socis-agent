@@ -87,7 +87,17 @@ def _is_socis_provider_credential(name: str) -> bool:
     # as passthrough and tunnel them into an execute_code / terminal child.
     if _is_socis_internal_secret(name):
         return True
-    return name in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST
+    # Case-insensitive: env var names are case-sensitive on Linux, so
+    # `openai_api_key` is a different name than the uppercase one in the
+    # blocklist and an exact match let it through (upstream b534f4b8c8).
+    try:
+        from tools.environments.local import _is_blocked_provider_env
+
+        return _is_blocked_provider_env(name)
+    except ImportError:
+        return str(name or "").casefold() in {
+            n.casefold() for n in _SOCIS_AGENT_PROVIDER_ENV_BLOCKLIST
+        }
 
 
 def register_env_passthrough(var_names: Iterable[str]) -> None:

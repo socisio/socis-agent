@@ -659,12 +659,21 @@ class SOCISTokenStorage:
 
     # -- cleanup -----------------------------------------------------------
 
-    def remove(self) -> None:
-        """Delete all stored OAuth state for this server."""
+    def remove(self, *, keep_metadata: bool = False) -> None:
+        """Delete stored OAuth state for this server.
+
+        ``keep_metadata`` spares ``.meta.json`` — the cached authorization-
+        server metadata. A re-login needs it when that document cannot be
+        re-fetched: WAF-fronted split-host servers refuse the discovery
+        request, and without the cached copy the SDK falls back to
+        ``{mcp-origin}/authorize``, which does not exist. The cached document
+        was the only thing that announced the real ``authorization_endpoint``.
+        A working discovery still overwrites it. Upstream f44e73dab6 (#115329).
+        """
         for p in (
             self._tokens_path(),
             self._client_info_path(),
-            self._meta_path(),
+            *(() if keep_metadata else (self._meta_path(),)),
             self._cimd_rejected_path(),
         ):
             p.unlink(missing_ok=True)
@@ -1221,9 +1230,33 @@ def _get_socis_oauth_provider_class() -> type | None:
             self._socis_token_user_agent = token_user_agent
 
         def _stamp_token_user_agent(self, request):
+            """Every token-endpoint request carries a User-Agent.
+
+            Stamping ONLY when ``oauth.user_agent`` is configured meant an
+            unconfigured server sent its token POSTs with no User-Agent at
+            all. These requests are built by hand — the SDK's
+            ``_exchange_token_authorization_code`` / ``_refresh_token`` and the
+            device-flow poll — and travel through ``client.send()``, which
+            never merges the client's default headers.
+
+            A WAF in front of the authorization server answers 403 to a
+            header-less POST, and that surfaces only as
+            "Token exchange failed (403)" with nothing pointing at the cause.
+            The same class of failure cost real debugging time on 2026-09-10,
+            when Cloudflare in front of OpenCode answered `403 error code:
+            1010` to a probe sending urllib's default agent.
+
+            Configured value still wins; the fallback only fills the gap.
+            Ported from upstream af1ac349eb.
+            """
             ua = getattr(self, "_socis_token_user_agent", None)
-            if ua:
-                request.headers["User-Agent"] = ua
+            if not ua:
+                try:
+                    from socis_cli import __version__ as _v
+                except Exception:
+                    _v = "0.0.0"
+                ua = f"SOCIS-Agent/{_v}"
+            request.headers["User-Agent"] = ua
             return request
 
         def _coerce_client_secret_post(self) -> None:
@@ -1265,7 +1298,39 @@ def _get_socis_oauth_provider_class() -> type | None:
 
             from mcp.client.auth.oauth2 import OAuthTokenError
 
-            raise OAuthTokenError(f"Token exchange failed ({response.status_code})")
+            # A bare "Token exchange failed (403)" gave no clue WHY. A non-2xx
+            # body carries no tokens and is the only thing that distinguishes a
+            # WAF's HTML "Request blocked" from the issuer's `invalid_grant` —
+            # the same missing-User-Agent 403 cost debugging time twice on
+            # 2026-09-10/11 for exactly this reason. Upstream f44e73dab6.
+            #
+            # Tag-stripped, whitespace-collapsed, bounded, and passed through
+            # the redactor. 2xx bodies never reach this path: they are handled
+            # above and can carry real tokens.
+            excerpt = ""
+            try:
+                raw = (await response.aread()).decode("utf-8", "replace")
+                import re as _re
+
+                text = _re.sub(r"<[^>]*>", " ", raw)
+                text = " ".join(text.split())[:200]
+                if text:
+                    try:
+                        from agent.redact import redact_sensitive_text
+
+                        # force=True: the redactor can be switched off by
+                        # config, and its own docstring reserves `force` for
+                        # "safety boundaries that must never return raw
+                        # secrets". An error that reaches logs and the user is
+                        # one.
+                        text = redact_sensitive_text(text, force=True)
+                    except Exception:
+                        text = "[body omitted: redactor unavailable]"
+                    excerpt = f": {text}"
+            except Exception:
+                excerpt = ""
+            raise OAuthTokenError(
+                f"Token exchange failed ({response.status_code}){excerpt}")
 
         async def _handle_refresh_response(self, response) -> bool:
             """Accept any 2xx refresh response and avoid logging token bodies."""

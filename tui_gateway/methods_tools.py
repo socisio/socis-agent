@@ -2652,6 +2652,25 @@ def _(rid, params: dict) -> dict:
         _mcp_reset_profile(token)
 
 
+def _scrub_shell_output(text: str) -> str:
+    """Redact credentials from shell.exec output before it reaches the client.
+
+    Fails CLOSED: if the redactor cannot be imported, the output is withheld
+    rather than returned raw — a shell RPC that hands back an unredacted
+    `printenv` because an import failed is the leak this exists to prevent.
+    """
+    if not text:
+        return text
+    try:
+        from agent.redact import redact_sensitive_text
+    except Exception:
+        return "[output withheld: redactor unavailable]"
+    try:
+        return redact_sensitive_text(text, force=True)
+    except Exception:
+        return "[output withheld: redaction failed]"
+
+
 @method("shell.exec")
 def _(rid, params: dict) -> dict:
     cmd = params.get("command", "")
@@ -2683,18 +2702,30 @@ def _(rid, params: dict) -> dict:
             stdin=subprocess.DEVNULL,
             creationflags=windows_hide_flags(),
         )
+        # Scrub before anything leaves the gateway. The child inherits the
+        # gateway's full environment, so `printenv` / `env` through this RPC
+        # printed every configured API key straight back to the client, and
+        # any command echoing a token did the same. Upstream a5c044d2e7.
+        #
+        # Truncate FIRST, then redact: redacting the whole output and slicing
+        # afterwards could cut a mask in half and expose part of a secret at
+        # the boundary. force=True because this is a safety boundary — the
+        # redactor can be disabled by config, and its docstring reserves force
+        # for exactly this case.
         return _ok(
             rid,
             {
-                "stdout": r.stdout[-4000:],
-                "stderr": r.stderr[-2000:],
+                "stdout": _scrub_shell_output(r.stdout[-4000:]),
+                "stderr": _scrub_shell_output(r.stderr[-2000:]),
                 "code": r.returncode,
             },
         )
     except subprocess.TimeoutExpired:
         return _err(rid, 5002, "command timed out (30s)")
     except Exception as e:
-        return _err(rid, 5003, str(e))
+        # An exception message can carry the command line, and the command
+        # line can carry a secret (`curl -H "Authorization: Bearer …"`).
+        return _err(rid, 5003, _scrub_shell_output(str(e)))
 
 
 def register(server) -> None:

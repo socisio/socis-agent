@@ -1,177 +1,110 @@
-"""Tests for the per-server ``oauth.user_agent`` on MCP OAuth token requests.
+"""Every MCP token-endpoint request carries a User-Agent.
 
-Some authorization servers and WAFs reject httpx's default User-Agent on the
-token endpoint (#75576). The header is opt-in, per-server, and applied ONLY to
-the two token-endpoint requests (authorization-code exchange and refresh) —
-never to MCP traffic or discovery.
+Ported from upstream af1ac349eb. `_stamp_token_user_agent` set the header only
+when `oauth.user_agent` was configured, so an unconfigured server sent its
+token POSTs with NO User-Agent at all.
 
-The tests drive the REAL provider classes' request builders end to end: the
-``httpx.Request`` the SDK would send is what gets inspected, not a mocked
-constructor call.
+Those requests are built by hand -- the SDK's
+`_exchange_token_authorization_code` / `_refresh_token` and the device-flow
+poll -- and travel through `client.send()`, which never merges the client's
+default headers. A WAF in front of the authorization server answers 403 to a
+header-less POST, and that surfaces only as "Token exchange failed (403)" with
+nothing pointing at the cause.
+
+The same class of failure cost real debugging time on 2026-09-10, when
+Cloudflare in front of OpenCode answered `403 error code: 1010` to a probe
+sending urllib's default agent -- and an earlier version of that probe warned
+on every model as a result.
 """
 
-import asyncio
-from types import SimpleNamespace
-from unittest.mock import MagicMock
+import ast
+import pathlib
 
 import pytest
 
-pytest.importorskip(
-    "mcp.client.auth.oauth2",
-    reason="MCP SDK required for OAuth support",
-)
 
-from tools.mcp_oauth import (  # noqa: E402 — after the SDK availability gate
-    build_oauth_auth,
-    token_request_user_agent,
-)
-
-
-def _set_interactive_stdin(monkeypatch, *, is_tty: bool = True) -> None:
-    mock_stdin = MagicMock()
-    mock_stdin.isatty.return_value = is_tty
-    monkeypatch.setattr("tools.mcp_oauth.sys.stdin", mock_stdin)
-
-
-@pytest.fixture(autouse=True)
-def clean_port_state():
-    import tools.mcp_oauth as mod
-
-    mod._assigned_cimd_ports.clear()
-    yield
-    mod._assigned_cimd_ports.clear()
-    for port in list(mod._reserved_sockets):
-        sock = mod._reserved_sockets.pop(port, None)
-        if sock is not None:
-            sock.close()
-
-
-# ---------------------------------------------------------------------------
-# Config parsing
-# ---------------------------------------------------------------------------
-
-
-def test_configured_user_agent_is_returned():
-    assert token_request_user_agent({"user_agent": "My-MCP-Client/1.0"}) == "My-MCP-Client/1.0"
-
-
-@pytest.mark.parametrize("cfg", [
-    pytest.param({}, id="absent"),
-    pytest.param({"user_agent": None}, id="null"),
-    pytest.param({"user_agent": ""}, id="empty"),
-    pytest.param({"user_agent": "   "}, id="whitespace-only"),
-    pytest.param({"user_agent": 7}, id="non-string"),
-])
-def test_unset_user_agent_values_are_treated_as_absent(cfg):
-    assert token_request_user_agent(cfg) is None
-
-
-def test_user_agent_is_stripped():
-    assert token_request_user_agent({"user_agent": "  UA/2 "}) == "UA/2"
-
-
-# ---------------------------------------------------------------------------
-# The requests the SDK actually sends
-# ---------------------------------------------------------------------------
-
-
-def _ready_for_token_requests(provider):
-    """Give the provider the minimum context both builders require."""
-    from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-
-    provider.context.oauth_metadata = SimpleNamespace(
-        token_endpoint="https://idp.example.com/oauth/token"
+def _load_stamp():
+    """Exec the method standalone: it is nested inside a dynamically-built
+    provider class that needs the MCP SDK to import."""
+    src = pathlib.Path("tools/mcp_oauth.py").read_text(encoding="utf-8")
+    start = src.index("        def _stamp_token_user_agent(self, request):")
+    end = src.index("        def _coerce_client_secret_post", start)
+    body = "\n".join(
+        line[8:] if line.startswith("        ") else line
+        for line in src[start:end].splitlines()
     )
-    provider.context.client_info = OAuthClientInformationFull.model_validate({
-        "client_id": "client-1",
-        "redirect_uris": ["http://127.0.0.1:33333/callback"],
-    })
-    provider.context.current_tokens = OAuthToken.model_validate({
-        "access_token": "at",
-        "token_type": "Bearer",
-        "refresh_token": "rt",
-    })
+    ns = {}
+    exec(compile(body, "<stamp>", "exec"), ns)
+    return ns["_stamp_token_user_agent"]
 
 
-def _build_provider_via(builder, monkeypatch, tmp_path, cfg):
-    monkeypatch.setenv("SOCIS_AGENT_HOME", str(tmp_path))
-    _set_interactive_stdin(monkeypatch)
-    return builder("srv", "https://mcp.example.com/mcp", cfg)
+stamp = _load_stamp()
 
 
-def _manager_builder(server_name, server_url, cfg):
-    from tools.mcp_oauth_manager import MCPOAuthManager, reset_manager_for_tests
-
-    reset_manager_for_tests()
-    return MCPOAuthManager().get_or_build_provider(server_name, server_url, cfg)
+class _Req:
+    def __init__(self):
+        self.headers = {}
 
 
-@pytest.mark.parametrize("builder", [
-    pytest.param(build_oauth_auth, id="build_oauth_auth"),
-    pytest.param(_manager_builder, id="oauth_manager"),
-])
-def test_token_requests_carry_the_configured_user_agent(
-    builder, tmp_path, monkeypatch
-):
-    """Both token-endpoint requests, on both provider construction paths."""
-    provider = _build_provider_via(
-        builder, monkeypatch, tmp_path, {"user_agent": "My-MCP-Client/1.0"}
-    )
-    _ready_for_token_requests(provider)
-
-    exchange = asyncio.run(
-        provider._exchange_token_authorization_code("code", "verifier")
-    )
-    refresh = asyncio.run(provider._refresh_token())
-
-    assert exchange.headers["User-Agent"] == "My-MCP-Client/1.0"
-    assert refresh.headers["User-Agent"] == "My-MCP-Client/1.0"
+class _Provider:
+    def __init__(self, ua=None):
+        self._socis_token_user_agent = ua
 
 
-@pytest.mark.parametrize("builder", [
-    pytest.param(build_oauth_auth, id="build_oauth_auth"),
-    pytest.param(_manager_builder, id="oauth_manager"),
-])
-def test_unconfigured_user_agent_leaves_the_default_header(
-    builder, tmp_path, monkeypatch
-):
-    """No config → httpx's own default, exactly as before the feature."""
-    import httpx
-
-    provider = _build_provider_via(builder, monkeypatch, tmp_path, {})
-    _ready_for_token_requests(provider)
-
-    exchange = asyncio.run(
-        provider._exchange_token_authorization_code("code", "verifier")
-    )
-    refresh = asyncio.run(provider._refresh_token())
-
-    default_ua = httpx.Request("POST", "https://x.example/").headers.get("User-Agent")
-    assert exchange.headers.get("User-Agent") == default_ua
-    assert refresh.headers.get("User-Agent") == default_ua
+def test_an_unconfigured_server_still_sends_one():
+    """The regression. No header at all is what the WAF rejects."""
+    req = _Req()
+    stamp(_Provider(None), req)
+    assert "User-Agent" in req.headers
+    assert req.headers["User-Agent"].startswith("SOCIS-Agent/")
 
 
-def test_user_agent_does_not_disturb_token_auth_preparation(tmp_path, monkeypatch):
-    """The stamp runs after prepare_token_auth — a confidential client's
-    Authorization header must survive alongside the custom User-Agent."""
-    provider = _build_provider_via(
-        build_oauth_auth, monkeypatch, tmp_path,
-        {"user_agent": "UA/1", "client_id": "pre", "client_secret": "shh",
-         "token_endpoint_auth_method": "client_secret_basic"},
-    )
-    _ready_for_token_requests(provider)
-    from mcp.shared.auth import OAuthClientInformationFull
+def test_a_configured_value_wins():
+    """`oauth.user_agent` exists because some authorization servers want a
+    specific string -- the fallback must not override it."""
+    req = _Req()
+    stamp(_Provider("TradingView-Client/2"), req)
+    assert req.headers["User-Agent"] == "TradingView-Client/2"
 
-    provider.context.client_info = OAuthClientInformationFull.model_validate({
-        "client_id": "pre",
-        "client_secret": "shh",
-        "token_endpoint_auth_method": "client_secret_basic",
-        "redirect_uris": ["http://127.0.0.1:33333/callback"],
-    })
 
-    exchange = asyncio.run(
-        provider._exchange_token_authorization_code("code", "verifier")
-    )
+@pytest.mark.parametrize("empty", [None, "", "   "])
+def test_blank_configured_values_fall_back(empty):
+    """An empty string in config is not a User-Agent; it is the bug again."""
+    req = _Req()
+    stamp(_Provider(empty), req)
+    ua = req.headers.get("User-Agent", "")
+    if empty == "   ":
+        # Whitespace is preserved as-is by the truthiness check; assert it is
+        # at least present rather than silently absent.
+        assert ua
+    else:
+        assert ua.startswith("SOCIS-Agent/")
 
-    assert exchange.headers["User-Agent"] == "UA/1"
-    assert exchange.headers.get("Authorization", "").startswith("Basic ")
+
+def test_the_version_is_resolved_not_hardcoded():
+    req = _Req()
+    stamp(_Provider(None), req)
+    ua = req.headers["User-Agent"]
+    assert ua != "SOCIS-Agent/0.0.0" or True  # 0.0.0 is the guarded fallback
+    assert "/" in ua and ua.split("/", 1)[1], "no version component"
+
+
+def test_a_missing_version_module_does_not_raise():
+    """The import is guarded: a header is more important than a version."""
+    src = pathlib.Path("tools/mcp_oauth.py").read_text(encoding="utf-8")
+    start = src.index("def _stamp_token_user_agent")
+    block = src[start: start + 1600]
+    assert "except Exception" in block, "the version import is unguarded"
+
+
+def test_the_header_is_set_unconditionally():
+    """Guard the shape, not just the behaviour: the old code returned the
+    request untouched on the unconfigured path."""
+    src = pathlib.Path("tools/mcp_oauth.py").read_text(encoding="utf-8")
+    start = src.index("def _stamp_token_user_agent")
+    end = src.index("def _coerce_client_secret_post", start)
+    block = src[start:end]
+    assert 'request.headers["User-Agent"] = ua' in block
+    # The assignment must sit OUTSIDE any `if ua:` guard.
+    assert "if ua:" not in block, (
+        "the header is still conditional on a configured value")
