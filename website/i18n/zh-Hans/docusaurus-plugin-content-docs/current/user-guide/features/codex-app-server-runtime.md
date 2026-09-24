@@ -350,7 +350,7 @@ Codex 的内置工具集涵盖 shell/文件操作/patch，但没有网络搜索�
 [mcp_servers.socis-tools]
 command = "/path/to/python"
 args = ["-m", "agent.transports.socis_tools_mcp_server"]
-env = { SOCIS_AGENT_HOME = "/your/.socis", PYTHONPATH = "...", SOCIS_AGENT_QUIET = "1" }
+env = { SOCIS_AGENT_HOME = "/your/.socis-agent", PYTHONPATH = "...", SOCIS_AGENT_QUIET = "1" }
 startup_timeout_sec = 30.0
 tool_timeout_sec = 600.0
 ```

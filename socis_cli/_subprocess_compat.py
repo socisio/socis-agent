@@ -505,7 +505,7 @@ def _text_names_socis(text: str) -> bool:
     Instead, split on path separators and whitespace and require a segment
     that *starts with* ``socis`` (``socis``, ``socis.exe``, ``socis_cli``,
     ``socis-agent``, ``socis-runtime``) or the hidden-dir form
-    ``.socis``/``.socis-runtime``.
+    ``.socis-agent``/``.socis-runtime``.
     """
     for token in re.split(r"[\\/\s=,;\"']+", text.lower()):
         if token.startswith("socis") or token.startswith(".socis-agent"):

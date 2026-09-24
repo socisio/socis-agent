@@ -2735,7 +2735,7 @@ DEFAULT_CONFIG = {
             "transport_fallback": "deny",
         },
         # Writes to agent-instruction files (AGENTS.md/CLAUDE.md/SOUL.md/
-        # .cursorrules, project-local .socis config) always require human
+        # .cursorrules, project-local .socis-agent config) always require human
         # approval — even under auto-approve/yolo. Extra patterns are
         # fnmatch globs matched against the basename (e.g. "*.mdc").
         "protected_instruction_files": True,

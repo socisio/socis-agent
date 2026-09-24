@@ -135,7 +135,7 @@ Create a branch, push a change, and open a PR. Within 30–90 seconds (depending
 To follow the agent's progress in real time:
 
 ```bash
-tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis}/logs/gateway.log"
+tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/logs/gateway.log"
 ```
 
 ---
@@ -171,7 +171,7 @@ curl -s -X POST http://localhost:8644/webhooks/github-pr-review \
 
 Then watch the agent run:
 ```bash
-tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis}/logs/gateway.log"
+tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/logs/gateway.log"
 ```
 
 :::note

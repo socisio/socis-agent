@@ -144,7 +144,7 @@ test('POSIX relaunch gate refuses live and uncertain install markers without exe
         }
 
         if (command.includes('SOCIS_AGENT_HOME')) {
-          return '/home/alice/.socis\n'
+          return '/home/alice/.socis-agent\n'
         }
 
         if (command.includes('.socis-update-in-progress')) {
@@ -196,7 +196,7 @@ test('POSIX relaunch gate rechecks after token upload immediately before process
       }
 
       if (command.includes('SOCIS_AGENT_HOME')) {
-        return '/home/alice/.socis\n'
+        return '/home/alice/.socis-agent\n'
       }
 
       if (command.includes('.socis-update-in-progress')) {
@@ -238,7 +238,7 @@ test('POSIX relaunch gate rechecks after token upload immediately before process
 
 test('listRemoteSOCISProfiles inventories Mini-style profile dirs without spawning a dashboard', async () => {
   const ssh = fakeSsh([
-    [/SOCIS_AGENT_HOME/, '/Users/zillajr/.socis\n'],
+    [/SOCIS_AGENT_HOME/, '/Users/zillajr/.socis-agent\n'],
     [/ls -1/, 'bob\ndixie\ngoose\nrambo\nbob.rollback-old\n']
   ])
 
@@ -563,7 +563,7 @@ test('pidIsOurDashboard accepts the venv entrypoint an installer wrapper execs i
   ])
 
   assert.equal(
-    await pidIsOurDashboard(ssh, 5, SPAWN_NONCE, '~/.local/bin/socis', '/Users/cd9c/.socis', OWNERSHIP_ID, 'ops'),
+    await pidIsOurDashboard(ssh, 5, SPAWN_NONCE, '~/.local/bin/socis', '/Users/cd9c/.socis-agent', OWNERSHIP_ID, 'ops'),
     true
   )
   assert.match(ownershipProbe, /socis-agent.*venv.*bin.*socis/)
@@ -1048,7 +1048,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
   assert.match(spawn, /--profile\b/)
   assert.ok(spawn.includes('writer_2'))
   assert.match(spawn, /serve\s+--isolated/)
-  assert.match(spawn, /\.socis\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
+  assert.match(spawn, /\.socis-agent\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
   assert.ok(!spawn.includes(' work'), 'the local Desktop scope must not become the remote profile')
 })
 
@@ -1164,7 +1164,7 @@ test('connect() fresh spawn writes socisHome + protocolVersion into the lockfile
     [/uname/, 'Linux\nx86_64'],
     [/\[ -x/, 'OK'],
     [/cat .*lock\.json/, ''], // no lockfile
-    [/SOCIS_AGENT_HOME/, '/home/alice/.socis\n'],
+    [/SOCIS_AGENT_HOME/, '/home/alice/.socis-agent\n'],
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/printf '%s\\n'/, ''],
@@ -1184,7 +1184,7 @@ test('connect() fresh spawn writes socisHome + protocolVersion into the lockfile
   await connect(connectDeps(ssh, { adoptServedToken: async () => 'fresh' }))
   const lockWrite = writes.find(c => c.includes('schemaVersion')) || ''
   assert.match(lockWrite, new RegExp(`"protocolVersion":${PROTOCOL_VERSION}`))
-  assert.match(lockWrite, /"socisHome":"\/home\/alice\/\.socis"/)
+  assert.match(lockWrite, /"socisHome":"\/home\/alice\/\.socis-agent"/)
 })
 
 test('connect() respawns when the lockfile pid is dead (killed dashboard)', async () => {
@@ -1450,7 +1450,7 @@ test('buildSpawnCommand includes --ssh-session-token-file when tokenFilePath is 
   })
 
   assert.match(cmd, /--ssh-session-token-file/)
-  assert.match(cmd, /\.socis\/desktop-ssh\//)
+  assert.match(cmd, /\.socis-agent\/desktop-ssh\//)
 })
 
 test('buildSpawnCommand always uses serve, never dashboard', () => {

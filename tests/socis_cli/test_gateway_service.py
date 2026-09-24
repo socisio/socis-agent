@@ -415,7 +415,7 @@ class TestLaunchdServiceRecovery:
             "generate_launchd_plist",
             lambda: (
                 "<plist>--replace\n<key>SOCIS_AGENT_HOME</key>"
-                "<string>/Users/alice/.socis</string></plist>"
+                "<string>/Users/alice/.socis-agent</string></plist>"
             ),
         )
         # Pretend the gateway is running and that we ARE inside its tree.
@@ -490,7 +490,7 @@ class TestLaunchdServiceRecovery:
             "generate_launchd_plist",
             lambda: (
                 "<plist>--replace\n<key>SOCIS_AGENT_HOME</key>"
-                "<string>/Users/alice/.socis</string></plist>"
+                "<string>/Users/alice/.socis-agent</string></plist>"
             ),
         )
         # Gateway running, but we are NOT inside its tree.
@@ -542,7 +542,7 @@ class TestLaunchdServiceRecovery:
             "generate_launchd_plist",
             lambda: (
                 "<plist>--replace\n<key>SOCIS_AGENT_HOME</key>"
-                "<string>/Users/alice/.socis</string></plist>"
+                "<string>/Users/alice/.socis-agent</string></plist>"
             ),
         )
         monkeypatch.setattr("gateway.status.get_running_pid", lambda *a, **k: 4242)
@@ -595,7 +595,7 @@ class TestLaunchdServiceRecovery:
             "generate_launchd_plist",
             lambda: (
                 "<plist>--replace\n<key>SOCIS_AGENT_HOME</key>"
-                "<string>/Users/alice/.socis</string></plist>"
+                "<string>/Users/alice/.socis-agent</string></plist>"
             ),
         )
         monkeypatch.setattr("gateway.status.get_running_pid", lambda *a, **k: 4242)
@@ -1294,8 +1294,8 @@ class TestSystemUnitSOCISHome:
 
         unit = gateway_cli.generate_systemd_unit(system=True, run_as_user="alice")
 
-        assert 'SOCIS_AGENT_HOME=/home/alice/.socis' in unit
-        assert '/root/.socis' not in unit
+        assert 'SOCIS_AGENT_HOME=/home/alice/.socis-agent' in unit
+        assert '/root/.socis-agent' not in unit
 
 
     def test_user_unit_unaffected_by_change(self):
@@ -1445,7 +1445,7 @@ class TestSOCISHomeForTargetUser:
         monkeypatch.delenv("SOCIS_AGENT_HOME", raising=False)
 
         result = gateway_cli._socis_agent_home_for_target_user("/home/alice")
-        assert result == "/home/alice/.socis"
+        assert result == "/home/alice/.socis-agent"
 
 
 
@@ -1751,7 +1751,7 @@ class TestSystemUnitPathRemapping:
         # always exists) — NOT the source checkout under it. Pinning cwd to the
         # checkout is the rot bug fixed alongside this: a relocated/removed
         # checkout would crash-loop the unit on CHDIR (status=200).
-        assert "WorkingDirectory=/home/alice/.socis" in unit
+        assert "WorkingDirectory=/home/alice/.socis-agent" in unit
         assert "WorkingDirectory=/home/alice/.socis-agent/socis-agent" not in unit
 
 

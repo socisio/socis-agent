@@ -1626,7 +1626,7 @@ def _sync_socis_agent_home_from_systemd_unit(system: bool) -> None:
     """When acting on a system-scope unit, adopt its ``SOCIS_AGENT_HOME``.
 
     Under ``sudo``, ``SOCIS_AGENT_HOME`` is stripped and ``HOME=/root``, so
-    :func:`get_socis_agent_home` falls back to ``/root/.socis`` — the wrong
+    :func:`get_socis_agent_home` falls back to ``/root/.socis-agent`` — the wrong
     profile. The unit file pins ``SOCIS_AGENT_HOME`` for the actual gateway
     process, so we mirror that into our own environment to make
     ``read_runtime_status`` / ``get_running_pid`` read the correct files.
@@ -3904,7 +3904,7 @@ def _socis_agent_home_for_target_user(target_home_dir: str) -> str:
 
     When installing a system service via sudo, get_socis_agent_home() resolves to
     root's home.  This translates it to the target user's equivalent path:
-      /root/.socis                    → /home/alice/.socis
+      /root/.socis-agent                    → /home/alice/.socis-agent
       /root/.socis-agent/profiles/coder     → /home/alice/.socis-agent/profiles/coder
       /opt/custom-socis               → /opt/custom-socis  (kept as-is)
     """
@@ -4287,7 +4287,7 @@ def systemd_unit_is_current(system: bool = False) -> bool:
     # site, so a future callsite cannot regress it by forgetting to pre-sync.
     #
     # Under ``sudo socis gateway … --system``, SOCIS_AGENT_HOME is often stripped
-    # and falls back to ``/root/.socis``. Adopting the unit's pinned home
+    # and falls back to ``/root/.socis-agent``. Adopting the unit's pinned home
     # first makes TimeoutStopSec / WorkingDirectory / SOCIS_AGENT_HOME comparisons
     # use the real operator config — otherwise start/restart "refresh" rewrites
     # a correct unit from root's defaults and ``status`` keeps warning forever.
@@ -4607,7 +4607,7 @@ def systemd_install(
     # regenerate. This pre-sync is NOT redundant with the systemd_unit_is_current
     # chokepoint: the ``--force`` path below skips the is_current gate and calls
     # generate_systemd_unit() directly (line ~3172), so without this a
-    # ``sudo socis gateway install --system --force`` would bake /root/.socis
+    # ``sudo socis gateway install --system --force`` would bake /root/.socis-agent
     # into an already-correct unit. Keep it to protect that bypass path.
     if unit_path.exists():
         _sync_socis_agent_home_from_systemd_unit(system=system)

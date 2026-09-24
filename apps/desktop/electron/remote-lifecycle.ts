@@ -279,7 +279,7 @@ async function probeRemotePlatform(ssh) {
 // state store; best-effort.
 async function probeRemoteSOCISHome(ssh) {
   try {
-    const out = (await ssh.exec('echo "${SOCIS_AGENT_HOME:-$HOME/.socis}"')).trim().split('\n').pop()
+    const out = (await ssh.exec('echo "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}"')).trim().split('\n').pop()
 
     return out || '~/.socis-agent'
   } catch (cause) {

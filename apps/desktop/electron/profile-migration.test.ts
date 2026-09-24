@@ -140,7 +140,7 @@ function baseDeps(overrides: Record<string, unknown> = {}) {
 
   return {
     legacyActivePath: '/home/u/.socis-agent/active_profile',
-    socisHome: '/home/u/.socis',
+    socisHome: '/home/u/.socis-agent',
     profilesRoot: '/home/u/.socis-agent/profiles',
     existsSync: fs.existsSync,
     readFileSync: fs.readFileSync,
@@ -528,20 +528,20 @@ test('migrateActiveProfileIfMissing prefers a single running gateway over heuris
 // ---------------------------------------------------------------------------
 
 test('profileStateDbPath puts default at socisHome, named under profilesRoot', () => {
-  assert.equal(profileStateDbPath('default', '/home/u/.socis', '/home/u/.socis-agent/profiles'), '/home/u/.socis-agent/state.db')
+  assert.equal(profileStateDbPath('default', '/home/u/.socis-agent', '/home/u/.socis-agent/profiles'), '/home/u/.socis-agent/state.db')
   assert.equal(
-    profileStateDbPath('conduit', '/home/u/.socis', '/home/u/.socis-agent/profiles'),
+    profileStateDbPath('conduit', '/home/u/.socis-agent', '/home/u/.socis-agent/profiles'),
     '/home/u/.socis-agent/profiles/conduit/state.db'
   )
 })
 
 test('profileGatewayPidPath puts default at socisHome', () => {
   assert.equal(
-    profileGatewayPidPath('default', '/home/u/.socis', '/home/u/.socis-agent/profiles'),
+    profileGatewayPidPath('default', '/home/u/.socis-agent', '/home/u/.socis-agent/profiles'),
     '/home/u/.socis-agent/gateway.pid'
   )
   assert.equal(
-    profileGatewayPidPath('coder', '/home/u/.socis', '/home/u/.socis-agent/profiles'),
+    profileGatewayPidPath('coder', '/home/u/.socis-agent', '/home/u/.socis-agent/profiles'),
     '/home/u/.socis-agent/profiles/coder/gateway.pid'
   )
 })
@@ -561,7 +561,7 @@ test('findRunningGatewayProfiles sees default gateway.pid at socisHome', () => {
   assert.deepEqual(
     findRunningGatewayProfiles('/home/u/.socis-agent/profiles', ['default', 'coder'], {
       ...fs,
-      socisHome: '/home/u/.socis',
+      socisHome: '/home/u/.socis-agent',
       isSOCISProcess: pid => pid === 99
     }),
     ['default']

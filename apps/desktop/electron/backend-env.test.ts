@@ -15,7 +15,7 @@ import {
 
 test('desktop backend PATH adds SOCIS-managed bins and missing POSIX sane entries', () => {
   const result = buildDesktopBackendPath({
-    socisHome: '/Users/test/.socis',
+    socisHome: '/Users/test/.socis-agent',
     venvRoot: '/Users/test/.socis-agent/socis-agent/venv',
     currentPath: '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin',
     platform: 'darwin',
@@ -39,7 +39,7 @@ test('desktop backend PATH adds SOCIS-managed bins and missing POSIX sane entrie
 })
 
 test('managed Node dirs lead with the platform-native layout but always offer both', () => {
-  const posix = socisManagedNodePathEntries('/Users/test/.socis', {
+  const posix = socisManagedNodePathEntries('/Users/test/.socis-agent', {
     platform: 'darwin',
     pathModule: path.posix
   })
@@ -65,7 +65,7 @@ test('managed Node dirs are empty without a SOCIS home', () => {
 
 test('every managed Node dir outranks the inherited PATH on both platforms', () => {
   for (const [platform, pathModule, home, inherited, delimiter] of [
-    ['darwin', path.posix, '/Users/test/.socis', '/usr/local/bin:/usr/bin', ':'],
+    ['darwin', path.posix, '/Users/test/.socis-agent', '/usr/local/bin:/usr/bin', ':'],
     ['win32', path.win32, 'C:\\socis', 'C:\\Program Files\\nodejs;C:\\Windows\\System32', ';']
   ] as const) {
     const entries = buildDesktopBackendPath({
@@ -90,7 +90,7 @@ test('every managed Node dir outranks the inherited PATH on both platforms', () 
 
 test('desktop backend PATH preserves first occurrence and avoids duplicates', () => {
   const result = buildDesktopBackendPath({
-    socisHome: '/Users/test/.socis',
+    socisHome: '/Users/test/.socis-agent',
     venvRoot: '/Users/test/.socis-agent/socis-agent/venv',
     currentPath: '/opt/homebrew/bin:/usr/bin:/opt/homebrew/bin:/bin',
     platform: 'darwin',
@@ -107,7 +107,7 @@ test('desktop backend PATH preserves first occurrence and avoids duplicates', ()
 
 test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () => {
   const env = buildDesktopBackendEnv({
-    socisHome: '/Users/test/.socis',
+    socisHome: '/Users/test/.socis-agent',
     pythonPathEntries: ['/repo/socis-agent'],
     venvRoot: '/Users/test/.socis-agent/socis-agent/venv',
     currentEnv: {
@@ -129,7 +129,7 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
 
 test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly', () => {
   const defaulted = buildDesktopBackendEnv({
-    socisHome: '/Users/test/.socis',
+    socisHome: '/Users/test/.socis-agent',
     currentEnv: { PATH: '/usr/bin' },
     platform: 'darwin',
     pathModule: path.posix
@@ -138,7 +138,7 @@ test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly
   assert.equal(defaulted.PYTHONUTF8, '1')
 
   const optedOut = buildDesktopBackendEnv({
-    socisHome: '/Users/test/.socis',
+    socisHome: '/Users/test/.socis-agent',
     currentEnv: { PATH: '/usr/bin', PYTHONUTF8: '0' },
     platform: 'darwin',
     pathModule: path.posix
@@ -150,13 +150,13 @@ test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly
 test('normalizeSOCISHomeRoot maps profile homes back to the global SOCIS root', () => {
   assert.equal(
     normalizeSOCISHomeRoot('/Users/test/.socis-agent/profiles/oracle', { pathModule: path.posix }),
-    '/Users/test/.socis'
+    '/Users/test/.socis-agent'
   )
   assert.equal(
     normalizeSOCISHomeRoot('C:\\Users\\test\\AppData\\Local\\socis\\profiles\\oracle', { pathModule: path.win32 }),
     'C:\\Users\\test\\AppData\\Local\\socis'
   )
-  assert.equal(normalizeSOCISHomeRoot('/Users/test/.socis', { pathModule: path.posix }), '/Users/test/.socis')
+  assert.equal(normalizeSOCISHomeRoot('/Users/test/.socis-agent', { pathModule: path.posix }), '/Users/test/.socis-agent')
 })
 
 test('Windows PATH casing and delimiter are preserved without POSIX sane entries', () => {

@@ -135,7 +135,7 @@ GitHub 会立即发送一个 `ping` 事件以确认连接。该事件会被安�
 要实时跟踪 agent 的进度：
 
 ```bash
-tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis}/logs/gateway.log"
+tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/logs/gateway.log"
 ```
 
 ---
@@ -171,7 +171,7 @@ curl -s -X POST http://localhost:8644/webhooks/github-pr-review \
 
 然后观察 agent 运行：
 ```bash
-tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis}/logs/gateway.log"
+tail -f "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/logs/gateway.log"
 ```
 
 :::note

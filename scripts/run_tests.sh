@@ -103,7 +103,7 @@ fi
 EXTRA_PYTHONPATH=""
 EXTRA_PYTEST_PLUGINS=""
 if [ -f "$HOME/.socis-agent/pytest_live_guard.py" ]; then
-  EXTRA_PYTHONPATH="$HOME/.socis"
+  EXTRA_PYTHONPATH="$HOME/.socis-agent"
   EXTRA_PYTEST_PLUGINS="pytest_live_guard"
 fi
 

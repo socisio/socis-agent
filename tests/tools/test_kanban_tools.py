@@ -927,7 +927,7 @@ def test_create_respects_auto_subscribe_on_create_false(monkeypatch, worker_env,
     channel. This is the knob that addresses the upstream design
     concern from PR #19718 (reverted in #19721) — users who want
     explicit kanban_notify-subscribe calls per task get that."""
-    # worker_env already created <tmp>/.socis; use a fresh sibling
+    # worker_env already created <tmp>/.socis-agent; use a fresh sibling
     # home to avoid mkdir() colliding with the worker's directory.
     home = tmp_path / "gate-home" / ".socis-agent"
     home.mkdir(parents=True)

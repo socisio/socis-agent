@@ -57,7 +57,7 @@ def profile_env(tmp_path, monkeypatch):
     """Set up an isolated environment for profile tests.
 
     * Path.home() -> tmp_path  (so _get_profiles_root() = tmp_path/.socis-agent/profiles)
-    * SOCIS_AGENT_HOME  -> tmp_path/.socis  (so get_socis_agent_home() agrees)
+    * SOCIS_AGENT_HOME  -> tmp_path/.socis-agent  (so get_socis_agent_home() agrees)
     * Creates the bare-minimum ~/.socis-agent directory.
     """
     monkeypatch.setattr(Path, "home", lambda: tmp_path)

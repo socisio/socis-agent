@@ -224,7 +224,7 @@ managed venv, lazy dependencies, gateway, and docs tooling.
 
 ```bash
 curl -fsSL https://agent.socis.io/install.sh | bash
-cd "${SOCIS_AGENT_HOME:-$HOME/.socis}/socis-agent"
+cd "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/socis-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```

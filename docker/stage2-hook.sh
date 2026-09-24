@@ -78,7 +78,7 @@ fi
 # privileges so the chown checks below see real metadata and the later
 # `s6-setuidgid socis mkdir -p` block doesn't EACCES on root-owned
 # ancestors. Without this, custom SOCIS_AGENT_HOME paths whose parents only
-# root can create (e.g. `SOCIS_AGENT_HOME=/home/socis/.socis` in a Compose
+# root can create (e.g. `SOCIS_AGENT_HOME=/home/socis/.socis-agent` in a Compose
 # file, or any path under a fresh / not pre-populated by the image)
 # fail on first boot with `mkdir: cannot create directory '/...': Permission
 # denied` and the cont-init hook exits non-zero. Idempotent — `mkdir -p`

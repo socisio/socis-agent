@@ -730,7 +730,7 @@ class TestCmdUpdateProfileSkillSync:
             branch="main", verify_ok=True, commit_count="1"
         )
 
-        default_p = SimpleNamespace(name="default", path=Path("/fake/.socis"))
+        default_p = SimpleNamespace(name="default", path=Path("/fake/.socis-agent"))
         active_p = SimpleNamespace(name="bit", path=Path("/fake/.socis-agent/profiles/bit"))
         other_p = SimpleNamespace(name="work", path=Path("/fake/.socis-agent/profiles/work"))
         all_profiles = [default_p, active_p, other_p]
@@ -768,7 +768,7 @@ class TestCmdUpdateProfileSkillSync:
             branch="main", verify_ok=True, commit_count="1"
         )
 
-        default_p = SimpleNamespace(name="default", path=Path("/fake/.socis"))
+        default_p = SimpleNamespace(name="default", path=Path("/fake/.socis-agent"))
         synced_paths = []
 
         def fake_seed(path, quiet=False):

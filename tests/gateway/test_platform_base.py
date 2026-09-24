@@ -723,7 +723,7 @@ class TestMediaDeliveryDefaultMode:
 
     def test_profile_scoped_cache_delivers_under_symlinked_root(self, tmp_path, monkeypatch):
         """Reopened #31733: a profile gateway whose SOCIS_AGENT_HOME is symlinked
-        under a denied prefix (e.g. /opt/data -> /root/.socis) emits
+        under a denied prefix (e.g. /opt/data -> /root/.socis-agent) emits
         profile-scoped paths (``<root>/profiles/<name>/cache/images/x.png``)
         that resolve under ``/root``. ``$HOME`` is NOT that prefix, so the
         root-home exception doesn't fire, and the top-level cache allowlist
@@ -1405,7 +1405,7 @@ class TestDockerProfileSandboxMediaTranslation:
         ) == str(produced.resolve())
 
     def test_home_credential_surface_still_refused(self, monkeypatch):
-        """The /root/.socis exclusion survives profile scoping: translating
+        """The /root/.socis-agent exclusion survives profile scoping: translating
         the home mount must never expose the container's secret surface —
         in the profile layout AND the legacy session layout."""
         self._enable_docker(monkeypatch)

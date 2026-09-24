@@ -592,7 +592,7 @@ Graph 事件（Teams 会议、日历、聊天等）的入站变更通知监听�
 若需同时允许工作区和 SOCIS 状态目录，列出两个前缀（顺序无关）：
 
 ```bash
-export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis
+export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis-agent
 ```
 
 取消设置或从 `.env` 中移除此变量可恢复常规写入（仍受凭证路径拒绝列表约束——见[文件写入安全](../user-guide/security.md#file-write-safety)）。

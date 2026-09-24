@@ -1120,11 +1120,11 @@ def _agent_cache_base_for_env(env: Any) -> str | None:
 
         remote_home = getattr(env, "_remote_home", None)
         if remote_home:
-            return f"{str(remote_home).rstrip('/')}/.socis"
+            return f"{str(remote_home).rstrip('/')}/.socis-agent"
 
         env_name = env.__class__.__name__
         if env_name in {"DockerEnvironment", "SingularityEnvironment", "ModalEnvironment"}:
-            return "/root/.socis"
+            return "/root/.socis-agent"
 
     # If no environment has been created yet, only backends with deterministic
     # SOCIS cache roots can be translated without side effects. SSH can still
@@ -1132,7 +1132,7 @@ def _agent_cache_base_for_env(env: Any) -> str | None:
     # the cache file before the first command runs.
     backend = (os.getenv("TERMINAL_ENV") or "local").strip().lower()
     if backend in {"docker", "singularity", "modal"}:
-        return "/root/.socis"
+        return "/root/.socis-agent"
     if backend == "ssh":
         return "~/.socis-agent"
     return None

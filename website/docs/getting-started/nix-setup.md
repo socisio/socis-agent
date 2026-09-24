@@ -529,7 +529,7 @@ docker exec -it socis-agent \
   socis mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 
 # Native mode
-sudo -u socis SOCIS_AGENT_HOME=/var/lib/socis/.socis \
+sudo -u socis SOCIS_AGENT_HOME=/var/lib/socis/.socis-agent \
   socis mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 ```
 
@@ -598,7 +598,7 @@ The option set is the same set that the NixOS module uses. It is `services.socis
 | | NixOS module | Home Manager module |
 |---|---|---|
 | Runs as | a system user that you declare, with `user`, `group` and `createUser` | you |
-| State directory | `stateDir` and `/.socis` | `socisHome`, set directly. The default is `~/.socis-agent`. |
+| State directory | `stateDir` and `/.socis-agent` | `socisHome`, set directly. The default is `~/.socis-agent`. |
 | Service | `systemd.services` | `systemd.user.services` on Linux, `launchd.agents` on macOS |
 | CLI on the PATH | `addToSystemPackages`, which exports `SOCIS_AGENT_HOME` for the full system | `programs.socis-agent.enable`, which exports it for your session only |
 | Desktop application | not supported, because a system service cannot own a user session | `programs.socis-agent.desktop.enable` |
@@ -700,7 +700,7 @@ When container mode is enabled, socis runs inside a persistent Ubuntu container 
 Host                                    Container
 ────                                    ─────────
 /nix/store/...-socis-agent-0.1.0  ──►  /nix/store/... (ro)
-~/.socis-agent -> /var/lib/socis/.socis       (symlink bridge, per hostUsers)
+~/.socis-agent -> /var/lib/socis/.socis-agent       (symlink bridge, per hostUsers)
 /var/lib/socis/                    ──►  /data/          (rw)
   ├── current-package -> /nix/store/...    (symlink, updated each rebuild)
   ├── .gc-root -> /nix/store/...           (prevents nix-collect-garbage)
@@ -1031,7 +1031,7 @@ This option runs the process that SOCIS Agent Desktop and the web dashboard conn
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `socisHome` | `str` | `"${config.home.homeDirectory}/.socis"` | `SOCIS_AGENT_HOME` directly. The NixOS module builds it from `stateDir`. |
+| `socisHome` | `str` | `"${config.home.homeDirectory}/.socis-agent"` | `SOCIS_AGENT_HOME` directly. The NixOS module builds it from `stateDir`. |
 | `gateway.enable` | `bool` | `false` | Run the messaging gateway. On the NixOS module the gateway is the service, so that module has no such option. |
 
 ### `programs.socis-agent` (Home Manager only)

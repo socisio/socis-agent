@@ -33,7 +33,7 @@ def profile_env(tmp_path, monkeypatch):
     """Set up a global root + an active profile under Path.home()/.socis-agent/profiles/coder.
 
     * Path.home() -> tmp_path
-    * Global root -> tmp_path/.socis            (has its own auth.json fixture)
+    * Global root -> tmp_path/.socis-agent            (has its own auth.json fixture)
     * Profile     -> tmp_path/.socis-agent/profiles/coder   (active, SOCIS_AGENT_HOME points here)
 
     This mirrors the real "named profile mounted under the default root"

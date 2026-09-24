@@ -8,7 +8,7 @@ OK="${GREEN}✔${NC}"; FAIL="${RED}✘${NC}"; WARN="${YELLOW}⚠${NC}"
 
 TWOZERO_URL="https://www.404zero.com/pisang/twozero.tox"
 TOX_PATH="$HOME/Downloads/twozero.tox"
-SOCIS_AGENT_HOME_DIR="${SOCIS_AGENT_HOME:-$HOME/.socis}"
+SOCIS_AGENT_HOME_DIR="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}"
 SOCIS_AGENT_CFG="${SOCIS_AGENT_HOME_DIR}/config.yaml"
 MCP_PORT=40404
 MCP_ENDPOINT="http://localhost:${MCP_PORT}/mcp"

@@ -1840,7 +1840,7 @@ def _translate_docker_container_media_path(candidate: Path, session_key: str = "
         # the home mount would resolve to sandbox-home copies OUTSIDE the
         # host-side credential denylist prefixes — refuse instead so the
         # normal "container path doesn't exist on host" rejection applies.
-        if not candidate.as_posix().startswith("/root/.socis"):
+        if not candidate.as_posix().startswith("/root/.socis-agent"):
             for home_root in _docker_persistent_home_host_roots(session_key):
                 mounts.append((home_root, Path("/root")))
 

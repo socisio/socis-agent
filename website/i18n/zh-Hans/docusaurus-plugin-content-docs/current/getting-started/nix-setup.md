@@ -481,7 +481,7 @@ docker exec -it socis-agent \
   socis mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 
 # 原生模式
-sudo -u socis SOCIS_AGENT_HOME=/var/lib/socis/.socis \
+sudo -u socis SOCIS_AGENT_HOME=/var/lib/socis/.socis-agent \
   socis mcp add my-oauth-server --url https://mcp.example.com/mcp --auth oauth
 ```
 
@@ -553,7 +553,7 @@ scp ~/.socis-agent/mcp-tokens/my-oauth-server{,.client}.json \
 主机                                    容器
 ────                                    ─────────
 /nix/store/...-socis-agent-0.1.0  ──►  /nix/store/... (ro)
-~/.socis-agent -> /var/lib/socis/.socis       （符号链接桥接，按 hostUsers）
+~/.socis-agent -> /var/lib/socis/.socis-agent       （符号链接桥接，按 hostUsers）
 /var/lib/socis/                    ──►  /data/          (rw)
   ├── current-package -> /nix/store/...    （符号链接，每次重建更新）
   ├── .gc-root -> /nix/store/...           （防止 nix-collect-garbage）

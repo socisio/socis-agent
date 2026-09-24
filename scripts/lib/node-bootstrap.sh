@@ -20,12 +20,12 @@
 # Env inputs (set before sourcing to override defaults):
 #   SOCIS_AGENT_NODE_MIN_VERSION   (default: 20)   — accepted on PATH
 #   SOCIS_AGENT_NODE_TARGET_MAJOR  (default: 22)   — installed when we install
-#   SOCIS_AGENT_HOME               (default: $HOME/.socis)
+#   SOCIS_AGENT_HOME               (default: $HOME/.socis-agent)
 # ============================================================================
 
 SOCIS_AGENT_NODE_MIN_VERSION="${SOCIS_AGENT_NODE_MIN_VERSION:-20}"
 SOCIS_AGENT_NODE_TARGET_MAJOR="${SOCIS_AGENT_NODE_TARGET_MAJOR:-22}"
-SOCIS_AGENT_HOME="${SOCIS_AGENT_HOME:-$HOME/.socis}"
+SOCIS_AGENT_HOME="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}"
 SOCIS_AGENT_NODE_AVAILABLE=false
 
 # ---------------------------------------------------------------------------

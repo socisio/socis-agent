@@ -1031,7 +1031,7 @@ class TestDeleteSkillRmtreeGuard:
 def _curator_pass(tmp_path, *, monkeypatch):
     """Run the body as the curator/background-review fork.
 
-    Points SOCIS_AGENT_HOME at ``tmp_path/.socis`` so skill_usage's archive path
+    Points SOCIS_AGENT_HOME at ``tmp_path/.socis-agent`` so skill_usage's archive path
     (``get_socis_agent_home()``) resolves into the same tree the skill manager
     searches, and flips ``is_background_review()`` → True so the consolidation
     guard fires.

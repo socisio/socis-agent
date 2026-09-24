@@ -145,7 +145,7 @@ test('resolveStagedUpdaterBinary hands Windows the staged installer it finds', (
 })
 
 test('resolveStagedUpdaterBinary returns null off Windows even when socis-setup is staged (#74836)', () => {
-  const home = '/Users/socis/.socis'
+  const home = '/Users/socis/.socis-agent'
   let probes = 0
 
   const resolved = resolveStagedUpdaterBinary(home, {

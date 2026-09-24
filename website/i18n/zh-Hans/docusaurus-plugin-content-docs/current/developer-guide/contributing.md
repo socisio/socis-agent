@@ -44,7 +44,7 @@ description: "如何为 SOCIS Agent 做贡献 — 开发环境配置、代码风
 
 ```bash
 curl -fsSL https://agent.socis.io/install.sh | bash
-cd "${SOCIS_AGENT_HOME:-$HOME/.socis}/socis-agent"
+cd "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/socis-agent"
 
 # 在标准安装基础上添加开发/测试 extras。
 uv pip install -e ".[all,dev]"

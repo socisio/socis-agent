@@ -25,7 +25,7 @@ def tmp_files(tmp_path):
     return files
 
 
-def _make_get_files(tmp_files, remote_base="/root/.socis"):
+def _make_get_files(tmp_files, remote_base="/root/.socis-agent"):
     """Return a get_files_fn that maps local files to remote paths."""
     mapping = [(hp, f"{remote_base}/{name}") for name, hp in tmp_files.items()]
 
@@ -35,7 +35,7 @@ def _make_get_files(tmp_files, remote_base="/root/.socis"):
     return get_files
 
 
-def _make_manager(tmp_files, remote_base="/root/.socis", upload=None, delete=None):
+def _make_manager(tmp_files, remote_base="/root/.socis-agent", upload=None, delete=None):
     """Create a FileSyncManager with test callbacks."""
     return FileSyncManager(
         get_files_fn=_make_get_files(tmp_files, remote_base),
@@ -334,7 +334,7 @@ class TestSyncBackSecurity:
         )
         monkeypatch.setattr(
             "tools.credential_files.iter_skills_files",
-            lambda container_base="/root/.socis": [
+            lambda container_base="/root/.socis-agent": [
                 {
                     "host_path": str(skill),
                     "container_path": f"{container_base}/skills/skill.py",
@@ -343,7 +343,7 @@ class TestSyncBackSecurity:
         )
         monkeypatch.setattr(
             "tools.credential_files.iter_cache_files",
-            lambda container_base="/root/.socis": [],
+            lambda container_base="/root/.socis-agent": [],
         )
 
         def bulk_download(dest: Path) -> None:
@@ -357,7 +357,7 @@ class TestSyncBackSecurity:
                     tar.addfile(info, io.BytesIO(data))
 
         mgr = FileSyncManager(
-            get_files_fn=lambda: iter_sync_files("/root/.socis"),
+            get_files_fn=lambda: iter_sync_files("/root/.socis-agent"),
             upload_fn=MagicMock(),
             delete_fn=MagicMock(),
             bulk_download_fn=bulk_download,

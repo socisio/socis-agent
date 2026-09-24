@@ -347,9 +347,9 @@ class VercelSandboxEnvironment(BaseEnvironment):
         self._remote_home = self._detect_remote_home()
 
         if self._remote_home == "/":
-            container_base = "/.socis"
+            container_base = "/.socis-agent"
         else:
-            container_base = f"{self._remote_home.rstrip('/')}/.socis"
+            container_base = f"{self._remote_home.rstrip('/')}/.socis-agent"
         self._sync_manager = FileSyncManager(
             get_files_fn=lambda: iter_sync_files(container_base),
             upload_fn=self._vercel_upload,
@@ -553,9 +553,9 @@ class VercelSandboxEnvironment(BaseEnvironment):
 
     def _vercel_bulk_download(self, dest_tar_path: Path) -> None:
         remote_socis = (
-            "/.socis"
+            "/.socis-agent"
             if self._remote_home == "/"
-            else f"{self._remote_home.rstrip('/')}/.socis"
+            else f"{self._remote_home.rstrip('/')}/.socis-agent"
         )
         archive_member = remote_socis.lstrip("/")
         remote_tar = f"/tmp/.socis_sync.{os.getpid()}.tar"

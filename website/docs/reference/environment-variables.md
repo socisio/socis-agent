@@ -863,7 +863,7 @@ The official Docker image sets `SOCIS_AGENT_WRITE_SAFE_ROOT=/opt/data` alongside
 To allow both a workspace and SOCIS state, list both prefixes (order does not matter):
 
 ```bash
-export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis
+export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis-agent
 ```
 
 Unset the variable or remove it from `.env` to restore normal writes (still subject to the credential-path denylist — see [File write safety](../user-guide/security.md#file-write-safety)).

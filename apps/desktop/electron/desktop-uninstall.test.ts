@@ -131,7 +131,7 @@ test('buildPosixCleanupScript waits for the PID, runs the uninstall module, remo
     agentRoot: '/home/x/.socis-agent/socis-agent',
     uninstallArgs: ['-m', 'socis_cli.uninstall', '--mode', 'gui'],
     appPath: '/opt/socis/linux-unpacked',
-    socisHome: '/home/x/.socis'
+    socisHome: '/home/x/.socis-agent'
   })
 
   assert.match(script, /^#!\/bin\/bash/)
@@ -141,7 +141,7 @@ test('buildPosixCleanupScript waits for the PID, runs the uninstall module, remo
   assert.match(script, /seq 1 60/)
   assert.match(script, /'-m' 'socis_cli\.uninstall' '--mode' 'gui'/)
   assert.match(script, /rm -rf '\/opt\/socis\/linux-unpacked'/)
-  assert.match(script, /export SOCIS_AGENT_HOME='\/home\/x\/\.socis'/)
+  assert.match(script, /export SOCIS_AGENT_HOME='\/home\/x\/\.socis-agent'/)
 })
 
 test('buildPosixCleanupScript exports PYTHONPATH when pythonPath is set (lite/full)', () => {
@@ -152,12 +152,12 @@ test('buildPosixCleanupScript exports PYTHONPATH when pythonPath is set (lite/fu
     agentRoot: '/home/x/.socis-agent/socis-agent',
     uninstallArgs: ['-m', 'socis_cli.uninstall', '--mode', 'full'],
     appPath: null,
-    socisHome: '/home/x/.socis'
+    socisHome: '/home/x/.socis-agent'
   })
 
   // System python + source on PYTHONPATH so import socis_cli works while the
   // venv is torn down.
-  assert.match(script, /export PYTHONPATH='\/home\/x\/\.socis\/socis-agent'/)
+  assert.match(script, /export PYTHONPATH='\/home\/x\/\.socis-agent\/socis-agent'/)
   assert.match(script, /'\/usr\/bin\/python3' '-m' 'socis_cli\.uninstall' '--mode' 'full'/)
 })
 

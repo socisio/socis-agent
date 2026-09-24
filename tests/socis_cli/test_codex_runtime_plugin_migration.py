@@ -402,7 +402,7 @@ class TestSOCISHomeLeakGuard:
         # We can't easily create one in the test, so just use a stable path
         # outside any tempdir-detector needle. The detector checks for tempdir
         # markers, not for path existence.
-        real_path = "/Users/alice/.socis"
+        real_path = "/Users/alice/.socis-agent"
         monkeypatch.setenv("SOCIS_AGENT_HOME", real_path)
         entry = _build_socis_tools_mcp_entry()
         env = entry.get("env", {})

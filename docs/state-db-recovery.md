@@ -57,9 +57,9 @@ is still up. Next steps:
 
 ```bash
 socis gateway stop
-SOCIS_AGENT_HOME="$HOME/.socis" socis sessions recover --source "$HOME/.socis-agent/state.db" --inspect-only
+SOCIS_AGENT_HOME="$HOME/.socis-agent" socis sessions recover --source "$HOME/.socis-agent/state.db" --inspect-only
 # if recoverable:
-SOCIS_AGENT_HOME="$HOME/.socis" socis sessions recover --source "$HOME/.socis-agent/state.db" --output "$HOME/recovered-state.db"
+SOCIS_AGENT_HOME="$HOME/.socis-agent" socis sessions recover --source "$HOME/.socis-agent/state.db" --output "$HOME/recovered-state.db"
 ```
 
 or restore the newest snapshot from `state-snapshots/`.
@@ -71,8 +71,8 @@ Keep them stopped for the complete repair and verification window.
 
 ```bash
 socis gateway stop
-SOCIS_AGENT_HOME="$HOME/.socis" socis sessions repair --check-only
-SOCIS_AGENT_HOME="$HOME/.socis" socis sessions repair
+SOCIS_AGENT_HOME="$HOME/.socis-agent" socis sessions repair --check-only
+SOCIS_AGENT_HOME="$HOME/.socis-agent" socis sessions repair
 ```
 
 `sessions repair` creates a SQLite backup by default and performs structural
@@ -84,7 +84,7 @@ After repair, verify the health probe, stale marker, trigger set, and canonical
 row counts before restarting the gateway:
 
 ```bash
-SOCIS_AGENT_HOME="$HOME/.socis" socis sessions repair --check-only
+SOCIS_AGENT_HOME="$HOME/.socis-agent" socis sessions repair --check-only
 sqlite3 "$HOME/.socis-agent/state.db" \
   "SELECT key, value FROM state_meta WHERE key = 'fts_stale';"
 sqlite3 "$HOME/.socis-agent/state.db" \

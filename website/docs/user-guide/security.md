@@ -317,7 +317,7 @@ When set, `write_file` and `patch` may only target paths inside the listed direc
 To allow both a workspace and SOCIS home:
 
 ```bash
-export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis
+export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis-agent
 ```
 
 Unset the variable to restore unrestricted writes (subject to the protected-path denylist). Full reference: [SOCIS_AGENT_WRITE_SAFE_ROOT](../reference/environment-variables.md#socis_write_safe_root).

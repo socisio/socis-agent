@@ -720,7 +720,7 @@ def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None
 # ---------------------------------------------------------------------------
 # Files that steer FUTURE agent behavior are a prompt-injection persistence
 # vector: an injected instruction that edits AGENTS.md / CLAUDE.md / SOUL.md /
-# .cursorrules (or a project-local .socis config tree) outlives the current
+# .cursorrules (or a project-local .socis-agent config tree) outlives the current
 # turn and poisons every later session that loads it. Writes to these files
 # therefore ALWAYS require human approval — even under --yolo / auto-approve —
 # and fail closed when no human channel exists.
@@ -816,7 +816,7 @@ def _protected_instruction_reason(filepath: str, task_id: str = "default",
     # The authoritative ~/.socis-agent home is governed by its own guards
     # (config.yaml hard-block, cross-profile guard, write_approval); this
     # gate targets PROJECT-LOCAL instruction files only. Checked before the
-    # ``.socis`` component rule below, which would otherwise match the
+    # ``.socis-agent`` component rule below, which would otherwise match the
     # home directory itself.
     real_home = _get_real_socis_agent_home()
     if real_home and (resolved == real_home
@@ -832,10 +832,10 @@ def _protected_instruction_reason(filepath: str, task_id: str = "default",
         for pattern in extra_patterns:
             if fnmatch.fnmatch(base_lower, pattern.lower()):
                 return base
-        # Project-local .socis config dirs (e.g. <repo>/.socis-agent/config.yaml)
+        # Project-local .socis-agent config dirs (e.g. <repo>/.socis-agent/config.yaml)
         # are loaded as project context and steer behavior the same way.
-        # Scope: the file's IMMEDIATE parent must be ``.socis`` — matching
-        # any ancestor named .socis would gate every write inside a
+        # Scope: the file's IMMEDIATE parent must be ``.socis-agent`` — matching
+        # any ancestor named .socis-agent would gate every write inside a
         # checkout that happens to live under ~/.socis-agent (e.g. the
         # socis-agent repo itself at ~/.socis-agent/socis-agent).
         parts = candidate.replace("\\", "/").rstrip("/").split("/")
@@ -1055,7 +1055,7 @@ def _get_container_mirror_prefix_for_task(task_id: str = "default") -> str | Non
             if env.__class__.__name__ == "DockerEnvironment" and bool(
                 getattr(env, "_persistent", False)
             ):
-                return "/root/.socis"
+                return "/root/.socis-agent"
             return None
 
         config = _get_env_config()
@@ -1063,7 +1063,7 @@ def _get_container_mirror_prefix_for_task(task_id: str = "default") -> str | Non
         return None
 
     if config.get("env_type") == "docker" and config.get("container_persistent", True):
-        return "/root/.socis"
+        return "/root/.socis-agent"
     return None
 
 

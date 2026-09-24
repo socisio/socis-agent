@@ -323,7 +323,7 @@ def named_profile_home(path: str | Path) -> Path | None:
     not start with ``.`` AND the ``profiles`` directory's parent is a real
     SOCIS home (see :func:`_is_socis_profiles_root`). A default SOCIS home
     whose path merely contains a ``profiles`` segment
-    (e.g. ``/tmp/foo/profiles/notahome/.socis``) is not a named profile,
+    (e.g. ``/tmp/foo/profiles/notahome/.socis-agent``) is not a named profile,
     and neither is an unrelated custom home like
     ``/srv/profiles/buildcache`` — those must keep mkdir-ing normally.
     ``.../profiles/worker/logs`` still resolves to ``.../profiles/worker``.

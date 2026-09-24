@@ -20,10 +20,10 @@ class TestClassifyContainerMirrorTarget:
 
         result = classify_container_mirror_target(
             "/root/.socis-agent/profiles/group1/SOUL.md",
-            mirror_prefix="/root/.socis",
+            mirror_prefix="/root/.socis-agent",
         )
         assert result is not None
-        assert result["mirror_root"].replace("\\", "/").endswith("root/.socis")
+        assert result["mirror_root"].replace("\\", "/").endswith("root/.socis-agent")
         assert result["inner_path"] == "profiles/group1/SOUL.md"
 
     @pytest.mark.parametrize("inner", [
@@ -35,7 +35,7 @@ class TestClassifyContainerMirrorTarget:
 
         result = classify_container_mirror_target(
             f"/root/.socis-agent/{inner}",
-            mirror_prefix="/root/.socis",
+            mirror_prefix="/root/.socis-agent",
         )
         assert result is not None
         assert result["inner_path"] == inner
@@ -48,7 +48,7 @@ class TestGetContainerMirrorWarning:
 
         warn = get_container_mirror_warning(
             "/root/.socis-agent/profiles/group1/SOUL.md",
-            mirror_prefix="/root/.socis",
+            mirror_prefix="/root/.socis-agent",
         )
         assert warn is not None
         assert "profiles/group1/SOUL.md" in warn
@@ -65,7 +65,7 @@ class TestOrthogonality:
         path = "/root/.socis-agent/profiles/group1/SOUL.md"
 
         assert classify_container_mirror_target(path) is None  # no context
-        assert classify_container_mirror_target(path, mirror_prefix="/root/.socis") is not None
+        assert classify_container_mirror_target(path, mirror_prefix="/root/.socis-agent") is not None
 
 
 class TestFileToolIntegration:
@@ -77,7 +77,7 @@ class TestFileToolIntegration:
         monkeypatch.setattr(
             file_tools,
             "_get_container_mirror_prefix_for_task",
-            lambda task_id: "/root/.socis",
+            lambda task_id: "/root/.socis-agent",
         )
 
         warning = file_tools._check_cross_profile_path(

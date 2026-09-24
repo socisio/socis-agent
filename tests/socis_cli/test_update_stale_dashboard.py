@@ -678,7 +678,7 @@ class TestFilterDashboardRespawnCandidates:
 
         a = ["socis", "--profile", "default", "dashboard", "--port", "8300"]
         b = ["socis", "dashboard", "--port", "8301"]
-        home = "/home/u/.socis"
+        home = "/home/u/.socis-agent"
         out = _filter_dashboard_respawn_candidates(
             [
                 (1, a, home),
@@ -702,10 +702,10 @@ class TestFilterDashboardRespawnCandidates:
         b = ["socis", "dashboard", "--port", "8301"]
         out = _filter_dashboard_respawn_candidates(
             [
-                (1, a, "/home/u/.socis"),
-                (2, b, "/work/project/.socis"),
+                (1, a, "/home/u/.socis-agent"),
+                (2, b, "/work/project/.socis-agent"),
             ],
-            own_home="/home/u/.socis",
+            own_home="/home/u/.socis-agent",
         )
         assert out == [a]
 
@@ -720,7 +720,7 @@ class TestFilterDashboardRespawnCandidates:
         ]
         out = _filter_dashboard_respawn_candidates(
             [(15364, argv, "/Users/u/.socis-lifeos")],
-            own_home="/Users/u/.socis",
+            own_home="/Users/u/.socis-agent",
         )
         assert out == []
 
@@ -729,8 +729,8 @@ class TestFilterDashboardRespawnCandidates:
 
         argv = ["socis", "serve", "--host", "127.0.0.1", "--port", "9118"]
         out = _filter_dashboard_respawn_candidates(
-            [(15364, argv, "/Users/u/.socis")],
-            own_home="/Users/u/.socis",
+            [(15364, argv, "/Users/u/.socis-agent")],
+            own_home="/Users/u/.socis-agent",
         )
         assert out == [argv]
 
@@ -759,7 +759,7 @@ class TestFilterDashboardRespawnCandidates:
         argv = ["socis", "dashboard", "--port", "8300"]
         out = _filter_dashboard_respawn_candidates(
             [(1, argv, None)],
-            own_home="/home/u/.socis",
+            own_home="/home/u/.socis-agent",
         )
         assert out == [argv]
 
@@ -770,7 +770,7 @@ class TestFilterDashboardRespawnCandidates:
         from socis_cli.dashboard_procs import _filter_dashboard_respawn_candidates
 
         monkeypatch.setattr(
-            socis_agent_constants, "get_socis_agent_home", lambda: Path("/home/u/.socis")
+            socis_agent_constants, "get_socis_agent_home", lambda: Path("/home/u/.socis-agent")
         )
         argv = ["socis", "serve", "--port", "9118"]
         foreign = _filter_dashboard_respawn_candidates([
@@ -778,7 +778,7 @@ class TestFilterDashboardRespawnCandidates:
         ])
         assert foreign == []
         own = _filter_dashboard_respawn_candidates([
-            (1, argv, "/home/u/.socis"),
+            (1, argv, "/home/u/.socis-agent"),
         ])
         assert own == [argv]
 

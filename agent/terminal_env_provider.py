@@ -41,7 +41,7 @@ recur for plugin backends:
   paths should override to ``False``.
 * ``cache_path_base`` — where auto-synced ``~/.socis-agent/cache`` files land
   inside the backend (e.g. ``"~/.socis-agent"`` for home-synced backends,
-  ``"/root/.socis"`` for root-homed containers), or ``None`` when host
+  ``"/root/.socis-agent"`` for root-homed containers), or ``None`` when host
   paths remain correct (nothing is translated).
 * ``strip_env_keys`` — credential env var names owned by this backend
   (API tokens for the sandbox vendor). Stripped from every subprocess the

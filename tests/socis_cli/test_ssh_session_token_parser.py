@@ -69,7 +69,7 @@ def test_token_anchor_is_os_home_not_active_profile(tmp_path, monkeypatch):
     token_path = token_dir / "0123456789abcdef.token"
 
     # A sticky profile and a custom (Docker) root both point get_socis_agent_home()
-    # away from $HOME/.socis; the anchor must ignore both.
+    # away from $HOME/.socis-agent; the anchor must ignore both.
     for elsewhere in (home / ".socis-agent" / "profiles" / "coder", tmp_path / "opt" / "data"):
         token_path.write_text("b" * 64)
         token_path.chmod(0o600)

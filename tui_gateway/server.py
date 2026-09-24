@@ -15701,7 +15701,7 @@ def _scan_discovered_repos_remote(conn, policy: dict) -> bool:
                     # Don't descend into the repo's own .git to hunt nested repos.
                     dirnames[:] = []
                 else:
-                    # Not a repo: skip hidden dirs (e.g. .socis) and node_modules.
+                    # Not a repo: skip hidden dirs (e.g. .socis-agent) and node_modules.
                     dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in ("node_modules",)]
                 if len(pairs) >= 500:
                     break

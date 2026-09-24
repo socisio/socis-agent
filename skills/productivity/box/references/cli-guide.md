@@ -19,7 +19,7 @@ On macOS/Linux:
 ```bash
 node --version
 npm --version
-BOX_CLI_HOME="${SOCIS_AGENT_HOME:-$HOME/.socis}/tools/box-cli"
+BOX_CLI_HOME="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/tools/box-cli"
 mkdir -p "$BOX_CLI_HOME"
 npm install --prefix "$BOX_CLI_HOME" @box/cli
 npm exec --prefix "$BOX_CLI_HOME" -- box --version

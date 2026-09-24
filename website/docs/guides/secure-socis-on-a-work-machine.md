@@ -64,7 +64,7 @@ Patterns are case-insensitive [fnmatch](https://docs.python.org/3/library/fnmatc
 `SOCIS_AGENT_WRITE_SAFE_ROOT` restricts `write_file` and `patch` to the directory prefix(es) you list — anything outside is hard-blocked. Multiple roots are separated by `:` on Unix:
 
 ```bash
-export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis
+export SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis-agent
 ```
 
 Sensitive paths inside the safe root are still blocked — pointing it at `$HOME` does not allow writing `~/.ssh/id_rsa`.
@@ -171,7 +171,7 @@ terminal:
 And in `~/.socis-agent/.env`, if you want the write sandbox:
 
 ```bash
-SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis
+SOCIS_AGENT_WRITE_SAFE_ROOT=/path/to/project:/home/you/.socis-agent
 ```
 
 ## See Also

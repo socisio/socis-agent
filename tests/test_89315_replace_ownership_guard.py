@@ -258,7 +258,7 @@ class TestArgvConsistencyCheck:
             _looks_like_profile_conflict_from_cmdline as conflict,
         )
 
-        root = Path("/home/x/.socis")
+        root = Path("/home/x/.socis-agent")
         assert conflict("python -m x --profile sam run", root) is True
         assert conflict("python -m x -p sam run", root) is True
         assert conflict("python -m x run", root) is False

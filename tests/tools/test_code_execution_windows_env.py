@@ -303,7 +303,7 @@ class TestPosixEquivalence:
         "CONDA_PREFIX": "/opt/conda",
         # SOCIS_AGENT_* handling (#27303): only the operational allowlist passes;
         # every other SOCIS_AGENT_* is dropped (the broad prefix was removed).
-        "SOCIS_AGENT_HOME": "/home/alice/.socis",        # allowlisted → kept
+        "SOCIS_AGENT_HOME": "/home/alice/.socis-agent",        # allowlisted → kept
         "SOCIS_AGENT_PROFILE": "default",                 # allowlisted → kept
         "SOCIS_AGENT_INTERACTIVE": "1",                   # not allowlisted → dropped
         "SOCIS_AGENT_BASE_URL": "https://api.internal",   # not allowlisted → dropped

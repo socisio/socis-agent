@@ -244,7 +244,7 @@ def _profile_key_for_respawn(
     ``SOCIS_AGENT_HOME`` ending in ``profiles/<name>`` is normalized to
     ``profile:<name>`` so it shares a cap with an explicit ``--profile``
     flag for the same profile (#78821).  Non-profile homes (including
-    distinct ``…/.socis`` roots) keep a resolved ``home:`` key so
+    distinct ``…/.socis-agent`` roots) keep a resolved ``home:`` key so
     unrelated installs do not collapse together.
     """
     profile_name: str | None = None

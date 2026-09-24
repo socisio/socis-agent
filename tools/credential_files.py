@@ -63,7 +63,7 @@ def _resolve_socis_agent_home() -> Path:
 
 def register_credential_file(
     relative_path: str,
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> bool:
     """Register a credential file for mounting into remote sandboxes.
 
@@ -152,7 +152,7 @@ def register_credential_file(
 
 def register_credential_files(
     entries: list,
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> List[str]:
     """Register multiple credential files from skill frontmatter entries.
 
@@ -247,7 +247,7 @@ def get_credential_file_mounts() -> List[Dict[str, str]]:
 
 
 def get_skills_directory_mount(
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> list[Dict[str, str]]:
     """Return mount info for all skill directories (local + external).
 
@@ -375,7 +375,7 @@ def _iter_syncable_files(root: Path):
 
 
 def iter_skills_files(
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> List[Dict[str, str]]:
     """Yield individual (host_path, container_path) entries for skills files.
 
@@ -456,7 +456,7 @@ _CACHE_DIRS: list[tuple[str, str]] = [
 
 
 def get_cache_directory_mounts(
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> List[Dict[str, str]]:
     """Return mount entries for each cache directory that exists on disk.
 
@@ -493,14 +493,14 @@ def get_cache_directory_mounts(
 
 def map_cache_path_to_container(
     host_path: str,
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> Optional[str]:
     """Map a host cache path to its mounted path under *container_base*.
 
     Returns the POSIX container path when *host_path* lives under one of the
     auto-mounted cache directories, otherwise ``None``.  Backend-agnostic: the
-    caller decides which ``container_base`` applies (Docker ``/root/.socis``,
-    SSH ``<remote_home>/.socis``, etc.) and whether translation is wanted.
+    caller decides which ``container_base`` applies (Docker ``/root/.socis-agent``,
+    SSH ``<remote_home>/.socis-agent``, etc.) and whether translation is wanted.
     Always joins with ``posixpath`` because container/remote paths are POSIX
     regardless of the host OS.
     """
@@ -517,7 +517,7 @@ def map_cache_path_to_container(
 
 def from_agent_visible_cache_path(
     container_path: str,
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> str:
     """Translate a sandbox/container cache path back to its host path.
 
@@ -541,7 +541,7 @@ def from_agent_visible_cache_path(
 
 def to_agent_visible_cache_path(
     host_path: str,
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> str:
     """Translate a host cache path to its mounted path inside the sandbox.
 
@@ -554,7 +554,7 @@ def to_agent_visible_cache_path(
     backend's SOCIS cache lands):
 
     * docker / modal — bind-mounted (docker) or per-file-synced (modal) at
-      ``/root/.socis`` (the *container_base* default).
+      ``/root/.socis-agent`` (the *container_base* default).
     * ssh / daytona / vercel_sandbox — file-synced under the remote user's
       home; ``~/.socis-agent`` is shell-expanded by the remote shell, so tool
       commands resolve it regardless of the actual remote home. Previously
@@ -569,7 +569,7 @@ def to_agent_visible_cache_path(
     """
     backend = (os.environ.get("TERMINAL_ENV") or "local").strip().lower()
     if backend in ("docker", "modal"):
-        pass  # /root/.socis default
+        pass  # /root/.socis-agent default
     elif backend in ("ssh", "daytona", "vercel_sandbox"):
         container_base = "~/.socis-agent"
     else:
@@ -591,7 +591,7 @@ def to_agent_visible_cache_path(
 
 
 def iter_cache_files(
-    container_base: str = "/root/.socis",
+    container_base: str = "/root/.socis-agent",
 ) -> List[Dict[str, str]]:
     """Return individual (host_path, container_path) entries for cache files.
 

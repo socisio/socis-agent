@@ -83,7 +83,7 @@ class TestSkillsDirectoryMount:
         (socis_agent_home / "skills").mkdir(parents=True)
 
         with patch.dict(os.environ, {"SOCIS_AGENT_HOME": str(socis_agent_home)}):
-            mounts = get_skills_directory_mount(container_base="/home/user/.socis")
+            mounts = get_skills_directory_mount(container_base="/home/user/.socis-agent")
 
         assert mounts[0]["container_path"] == "/home/user/.socis-agent/skills"
 

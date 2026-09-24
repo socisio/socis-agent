@@ -1,7 +1,7 @@
 """Regression tests for _apply_profile_override SOCIS_AGENT_HOME guard (issue #22502).
 
 When SOCIS_AGENT_HOME is set to the socis root (e.g. systemd hardcodes
-SOCIS_AGENT_HOME=/root/.socis), _apply_profile_override must still read
+SOCIS_AGENT_HOME=/root/.socis-agent), _apply_profile_override must still read
 active_profile and update SOCIS_AGENT_HOME to the profile directory.
 
 When SOCIS_AGENT_HOME is already a profile directory (.../profiles/<name>),
@@ -73,7 +73,7 @@ class TestApplyProfileOverrideSOCISHomeGuard:
     def test_socis_agent_home_at_root_with_active_profile_is_redirected(
         self, tmp_path, monkeypatch
     ):
-        """SOCIS_AGENT_HOME=/root/.socis + active_profile=coder must redirect
+        """SOCIS_AGENT_HOME=/root/.socis-agent + active_profile=coder must redirect
         SOCIS_AGENT_HOME to .../profiles/coder.
 
         Bug scenario from #22502: systemd sets SOCIS_AGENT_HOME to the socis root

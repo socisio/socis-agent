@@ -651,7 +651,7 @@ def _apply_profile_override() -> None:
     # distinguishing heuristic: a profile path has "profiles" as its immediate
     # parent directory name (e.g. ~/.socis-agent/profiles/coder or
     # /opt/data/profiles/coder).  If SOCIS_AGENT_HOME points to the socis root
-    # instead (e.g. systemd hardcodes SOCIS_AGENT_HOME=/root/.socis), we must
+    # instead (e.g. systemd hardcodes SOCIS_AGENT_HOME=/root/.socis-agent), we must
     # still read active_profile — the user may have switched profiles via
     # `socis profile use` and the gateway should honour that choice.
     # See issue #22502.
@@ -12408,7 +12408,7 @@ def cmd_dashboard(args):
         # SOCIS_AGENT_HOME.  We must resolve the root explicitly instead of just
         # dropping SOCIS_AGENT_HOME: in the Docker layout the machine root is
         # /opt/data (set via `ENV SOCIS_AGENT_HOME=/opt/data`), so an unset
-        # SOCIS_AGENT_HOME falls back to $HOME/.socis = /opt/data/.socis — an
+        # SOCIS_AGENT_HOME falls back to $HOME/.socis-agent = /opt/data/.socis-agent — an
         # empty, auto-seeded home where the dashboard sees only the default
         # profile and the install-method stamp is missing (so the Docker
         # update-button guard also misfires).  get_default_socis_root()

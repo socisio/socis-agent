@@ -50,7 +50,7 @@ installer, gateway, and docs assume.
 
 ```bash
 curl -fsSL https://agent.socis.io/install.sh | bash
-cd "${SOCIS_AGENT_HOME:-$HOME/.socis}/socis-agent"
+cd "${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/socis-agent"
 
 # Add dev/test extras on top of the standard install.
 uv pip install -e ".[all,dev]"

@@ -34,10 +34,10 @@ test('windowsQuote doubles embedded quotes', () => {
 test('terminalScriptEnv drops PATH in any casing and keeps the rest', () => {
   const env = terminalScriptEnv(
     { Path: 'C:\\junk', PATH: '/junk', PYTHONPATH: '/repo', PYTHONUTF8: '1' },
-    '/home/b/.socis'
+    '/home/b/.socis-agent'
   )
 
-  assert.deepEqual(env, { PYTHONPATH: '/repo', PYTHONUTF8: '1', SOCIS_AGENT_HOME: '/home/b/.socis' })
+  assert.deepEqual(env, { PYTHONPATH: '/repo', PYTHONUTF8: '1', SOCIS_AGENT_HOME: '/home/b/.socis-agent' })
 })
 
 test('terminalScriptEnv skips empty values and an absent home', () => {

@@ -218,7 +218,7 @@ The director turns this into actual `kanban_create` calls.
 ## API-key prerequisites check
 
 Before firing the kanban, verify required keys are available. Check both
-the SOCIS `.env` (`${SOCIS_AGENT_HOME:-$HOME/.socis}/.env`) and macOS Keychain
+the SOCIS `.env` (`${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/.env`) and macOS Keychain
 (if on macOS):
 
 ```bash
@@ -226,7 +226,7 @@ check_key() {
     local var="$1"
     local kc_account="$2"
     local kc_service="$3"
-    local _socis_env="${SOCIS_AGENT_HOME:-$HOME/.socis}/.env"
+    local _socis_env="${SOCIS_AGENT_HOME:-$HOME/.socis-agent}/.env"
     if grep -q "^${var}=" "$_socis_env" 2>/dev/null && \
        [ -n "$(grep "^${var}=" "$_socis_env" | cut -d= -f2-)" ]; then
         return 0

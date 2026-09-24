@@ -8,7 +8,7 @@ import { discoverRuntimePlugins, loadRuntimePlugin, watchRuntimePlugins } from '
 
 // getStatus would supply the connected backend's socis_agent_home — a REMOTE path in
 // remote mode. The disk scanner must NOT derive the plugin root from it (#66899).
-const getStatus = vi.fn(async () => ({ socis_agent_home: '/remote/box/.socis' }))
+const getStatus = vi.fn(async () => ({ socis_agent_home: '/remote/box/.socis-agent' }))
 
 vi.mock('@/socis', async importActual => ({
   ...(await importActual<typeof SOCISModule>()),
