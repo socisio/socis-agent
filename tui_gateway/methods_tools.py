@@ -2731,3 +2731,17 @@ def _(rid, params: dict) -> dict:
 def register(server) -> None:
     """Bind this module's handlers onto ``server``'s globals and registry."""
     _registry.install(server)
+    # install() rebinds every @method handler's __globals__ to server.py's
+    # namespace (see tui_gateway/method_ctx.py), so a module-level helper
+    # defined HERE is invisible to a handler body unless it is handed over
+    # too — the same reason methods_prompt.register rebinds its helpers.
+    #
+    # _scrub_shell_output was added without this, and shell.exec raised
+    # NameError on every call: after subprocess.run had already executed the
+    # command, so the command ran and its output was lost. The except branch
+    # calls the helper too, so the error escaped the handler entirely.
+    #
+    # Assigned directly rather than rebound: the helper is self-contained (a
+    # local import plus builtins), and keeping its own module globals means it
+    # cannot break the same way if it ever needs a name from this file.
+    vars(server)["_scrub_shell_output"] = _scrub_shell_output

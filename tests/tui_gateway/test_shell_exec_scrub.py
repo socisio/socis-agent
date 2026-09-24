@@ -111,3 +111,52 @@ def test_redaction_is_forced():
     start = src.index("def _scrub_shell_output")
     block = src[start: src.index('@method("shell.exec")', start)]
     assert "redact_sensitive_text(text, force=True)" in block
+
+
+
+# ── the REAL registered handler ────────────────────────────────────────────
+#
+# Everything above exercises the helper in isolation or inspects source text.
+# That missed the actual bug: tui_gateway's registry rebinds each handler's
+# globals to server.py, so the handler could not see the helper at all and
+# raised NameError on every call. These run the handler exactly as the
+# gateway does.
+
+def _run_handler(stdout="", stderr="", returncode=0):
+    from unittest.mock import MagicMock, patch
+
+    import tui_gateway.server as server
+
+    cp = MagicMock()
+    cp.stdout, cp.stderr, cp.returncode = stdout, stderr, returncode
+    with patch("subprocess.run", return_value=cp), \
+         patch("tools.approval.detect_hardline_command", return_value=(False, "")), \
+         patch("tools.approval.detect_dangerous_command", return_value=(False, None, "")):
+        return server._methods["shell.exec"](1, {"command": "echo hi"})
+
+
+def test_the_registered_handler_returns_a_result():
+    """The regression: NameError('_scrub_shell_output') after the command ran."""
+    resp = _run_handler(stdout="hello\n")
+    assert "error" not in resp, resp.get("error")
+    assert resp["result"]["stdout"] == "hello\n"
+    assert resp["result"]["code"] == 0
+
+
+@needs_redactor
+def test_the_registered_handler_redacts_printenv():
+    """End to end: a key in the command's output never reaches the client."""
+    secret = "sk-proj-abcdefghijklmnopqrstuvwx"
+    resp = _run_handler(stdout=f"OPENAI_API_KEY={secret}\nHOME=/h\n")
+    assert "error" not in resp, resp.get("error")
+    assert secret not in resp["result"]["stdout"]
+    assert "HOME=/h" in resp["result"]["stdout"]
+
+
+def test_register_hands_the_helper_to_server():
+    """Guard the mechanism: without this, the handler cannot resolve it."""
+    import tui_gateway.server as server
+
+    assert callable(vars(server).get("_scrub_shell_output")), (
+        "methods_tools.register must place _scrub_shell_output on server.py's "
+        "globals — handlers run with those globals, not this module's")
