@@ -375,7 +375,6 @@ class TestRunDebugShare:
         args.lines = 50
         args.expire = 7
         args.local = False
-        args.nous = False
 
         with patch("socis_cli.dump.run_dump"), \
              patch("socis_cli.debug._sweep_expired_pastes", return_value=(0, 0)) as mock_sweep, \
@@ -396,7 +395,6 @@ class TestRunDebugShare:
         args.lines = 50
         args.expire = 7
         args.local = False
-        args.nous = False
 
         call_count = [0]
         uploaded_content = []
@@ -478,7 +476,6 @@ class TestRunDebugShareRedaction:
         args.lines = 50
         args.expire = 7
         args.local = False
-        args.nous = False
         args.no_redact = False
 
         captured: list[str] = []
@@ -509,7 +506,6 @@ class TestRunDebugShareRedaction:
         args.lines = 50
         args.expire = 7
         args.local = False
-        args.nous = False
         args.no_redact = False
 
         captured: list[str] = []
@@ -538,7 +534,6 @@ class TestRunDebugShareRedaction:
         args.lines = 50
         args.expire = 7
         args.local = False
-        args.nous = False
         args.no_redact = True
 
         captured: list[str] = []
@@ -589,7 +584,6 @@ class TestRunDebug:
         args.lines = 200
         args.expire = 7
         args.local = True
-        args.nous = False
 
         with patch("socis_cli.dump.run_dump"):
             run_debug(args)
@@ -802,7 +796,6 @@ class TestShareIncludesAutoDelete:
         args.lines = 50
         args.expire = 7
         args.local = False
-        args.nous = False
 
         with patch("socis_cli.dump.run_dump"), \
              patch("socis_cli.debug.upload_to_pastebin",
@@ -877,7 +870,7 @@ class TestBuildDebugShare:
 
 
 # ---------------------------------------------------------------------------
-# Shared bundle collection + Nous-S3 path
+# Shared bundle collection
 # ---------------------------------------------------------------------------
 
 class TestCollectShareBundle:
@@ -909,103 +902,11 @@ class TestCollectShareBundle:
 
 
 
-class TestBuildNousBundle:
-    def test_envelope_shape_and_gzip(self, socis_agent_home):
-        import gzip
-        import json as _json
-
-        from socis_cli.debug import build_nous_bundle
-
-        files = {"report": "hello", "agent.log": "log line"}
-        blob = build_nous_bundle(files, redact=True)
-
-        # It's gzip — magic bytes.
-        assert blob[:2] == b"\x1f\x8b"
-        envelope = _json.loads(gzip.decompress(blob).decode())
-        assert envelope["format"] == "socis-debug-share/1"
-        assert envelope["redacted"] is True
-        assert envelope["files"] == files
-        assert "created" in envelope
-
-    def test_redacted_false_recorded(self):
-        import gzip
-        import json as _json
-
-        from socis_cli.debug import build_nous_bundle
-
-        blob = build_nous_bundle({"report": "x"}, redact=False)
-        envelope = _json.loads(gzip.decompress(blob).decode())
-        assert envelope["redacted"] is False
-
-
-class TestRunDebugShareNous:
-    def _args(self, **over):
-        class _A:
-            lines = 50
-            expire = 7
-            local = False
-            nous = True
-            no_redact = False
-            yes = True
-
-        a = _A()
-        for k, v in over.items():
-            setattr(a, k, v)
-        return a
-
-    def test_nous_success_prints_view_url(self, socis_agent_home, capsys):
-        from socis_cli.debug import run_debug_share
-
-        res = {
-            "id": "id-1",
-            "viewUrl": "https://support.example.com/diagnostics/id-1",
-            "expiresAt": "2026-06-20T00:00:00Z",
-        }
-        with patch("socis_cli.dump.run_dump"), patch(
-            "socis_cli.diagnostics_upload.share_to_nous", return_value=res
-        ) as share:
-            run_debug_share(self._args())
-
-        out = capsys.readouterr().out
-        assert "Nous-INTERNAL" in out
-        assert "https://support.example.com/diagnostics/id-1" in out
-        assert "2026-06-20T00:00:00Z" in out
-        # The blob passed to share_to_nous must be gzip bytes.
-        blob = share.call_args[0][0]
-        assert isinstance(blob, (bytes, bytearray)) and blob[:2] == b"\x1f\x8b"
-
-    def test_nous_failure_suggests_local(self, socis_agent_home, capsys):
-        from socis_cli.debug import run_debug_share
-
-        with patch("socis_cli.dump.run_dump"), patch(
-            "socis_cli.diagnostics_upload.share_to_nous",
-            side_effect=RuntimeError("service down"),
-        ):
-            with pytest.raises(SystemExit) as exc:
-                run_debug_share(self._args())
-        assert exc.value.code == 1
-        err = capsys.readouterr().err
-        assert "Nous upload failed" in err
-        assert "--local" in err
-
-    def test_nous_does_not_touch_pastebin(self, socis_agent_home):
-        from socis_cli.debug import run_debug_share
-
-        res = {"id": "id-1", "viewUrl": "https://v"}
-        with patch("socis_cli.dump.run_dump"), patch(
-            "socis_cli.diagnostics_upload.share_to_nous", return_value=res
-        ), patch("socis_cli.debug.upload_to_pastebin") as paste:
-            run_debug_share(self._args())
-        paste.assert_not_called()
-
-
 class TestDebugSlashCommand:
-    """`/debug [nous|local]` parsing in the CLI/TUI handler.
+    """`/debug [local]` parsing in the CLI/TUI handler.
 
     The classic CLI and the TUI slash worker both dispatch through
-    ``SOCISCLI.process_command`` → ``_handle_debug_command(cmd_original)``,
-    which parses an optional destination word and builds the args namespace
-    handed to ``run_debug_share``.
+    ``SOCISCLI.process_command`` → ``_handle_debug_command(cmd_original)``.
     """
 
     def _handler(self):
@@ -1021,6 +922,7 @@ class TestDebugSlashCommand:
 
         def _fake_run(args):
             captured.update(vars(args))
+            captured["_called"] = True
 
         with patch("socis_cli.debug.run_debug_share", _fake_run):
             self._handler()(cmd_original)
@@ -1028,22 +930,38 @@ class TestDebugSlashCommand:
 
     def test_bare_debug_defaults_to_paste(self):
         c = self._captured("/debug")
-        assert c["nous"] is False and c["local"] is False
+        assert c["local"] is False
         assert c["lines"] == 200 and c["expire"] == 7
         # The slash command IS the consent action → skip the [y/N] prompt
         # (input() would hang inside prompt_toolkit's event loop).
         assert c["yes"] is True
 
-
-    def test_word_parsing_is_case_insensitive(self):
-        c = self._captured("/debug NOUS")
-        assert c["nous"] is True
-
+    def test_local_is_parsed(self):
+        assert self._captured("/debug local")["local"] is True
 
     def test_no_arg_default_keyword(self):
         # Calling with no cmd_original (legacy callers) must still work.
-        c = self._captured("")
-        assert c["nous"] is False and c["local"] is False
+        assert self._captured("")["local"] is False
+
+    def test_no_nous_attribute_is_passed_on(self):
+        """The private Nous upload path is gone; nothing may request it."""
+        assert "nous" not in self._captured("/debug")
+
+    @pytest.mark.parametrize("cmd", ["/debug nous", "/debug NOUS", "/debug nous local"])
+    def test_debug_nous_refuses_and_uploads_nothing(self, cmd, capsys):
+        """REGRESSION GUARD. `/debug nous` used to upload privately to Nous.
+
+        Once that path was removed, the word would otherwise fall through to
+        the DEFAULT path — a PUBLIC paste — and the slash command skips the
+        confirmation prompt. A user who asked for a private upload would have
+        had their logs posted publicly with no prompt. It must refuse instead.
+        """
+        c = self._captured(cmd)
+        assert "_called" not in c, "run_debug_share must not be called"
+        out = capsys.readouterr().out
+        assert "no longer available" in out
+        assert "Nothing was uploaded" in out
+        assert "github.com/socisio/socis-agent/issues" in out
 
 
 class TestShareConsentGate:
@@ -1057,7 +975,7 @@ class TestShareConsentGate:
     def _args(self, **over):
         from types import SimpleNamespace
 
-        base = dict(lines=50, expire=7, local=False, nous=False,
+        base = dict(lines=50, expire=7, local=False,
                     no_redact=False, yes=False)
         base.update(over)
         return SimpleNamespace(**base)

@@ -103,7 +103,7 @@ it. New commands land often; `/help` in-session is always authoritative.
 /image <path>            Attach a local image file (CLI)
 /update                  Update SOCIS to latest
 /version (/v)            Show version
-/debug [nous|local]      Upload debug report, get shareable links
+/debug [local]           Upload debug report to a public paste (or print with local)
 ```
 
 ### Exit

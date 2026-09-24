@@ -4029,27 +4029,41 @@ class CLICommandsMixin:
     def _handle_debug_command(self, cmd_original: str = ""):
         """Handle /debug — upload debug report + logs and print share URLs.
 
-        Accepts optional destination words after the command:
+        Accepts an optional destination word after the command:
 
         - ``/debug``        → upload to the public paste service (default)
-        - ``/debug nous``   → upload to Nous-internal storage (private, staff-only)
         - ``/debug local``  → render the report to stdout, no upload
 
-        ``nous`` and ``local`` are mutually exclusive; if both are given,
-        ``local`` wins (it never touches the network).
+        For help, open an issue at https://github.com/socisio/socis-agent/issues.
         """
         from socis_cli.debug import run_debug_share
         from types import SimpleNamespace
 
         words = {w.lower() for w in cmd_original.split()[1:]}
+
+        # ``/debug nous`` used to upload privately to Nous's internal storage.
+        # That channel was removed. It must NOT fall through to the default
+        # path: that path is a PUBLIC paste, and a slash command skips the
+        # confirmation prompt (yes=True below) — so a user who asked for a
+        # private upload would have had their logs posted publicly with no
+        # prompt. Refuse, and say what to do instead.
+        if "nous" in words:
+            print(
+                "  /debug nous is no longer available: SOCIS has no private "
+                "upload channel.\n"
+                "  Nothing was uploaded.\n"
+                "  Use /debug local to print the report here, or /debug to "
+                "upload it to a PUBLIC paste service,\n"
+                "  then open an issue at "
+                "https://github.com/socisio/socis-agent/issues"
+            )
+            return
+
         local = "local" in words
-        nous = "nous" in words and not local
         # Typing the /debug slash command is itself the explicit consent to
         # upload, so we pass yes=True to skip run_debug_share's [y/N] prompt.
         # input() would hang inside prompt_toolkit's event loop anyway.
-        args = SimpleNamespace(
-            lines=200, expire=7, local=local, nous=nous, yes=True
-        )
+        args = SimpleNamespace(lines=200, expire=7, local=local, yes=True)
         run_debug_share(args)
 
     def _handle_update_command(self) -> bool:

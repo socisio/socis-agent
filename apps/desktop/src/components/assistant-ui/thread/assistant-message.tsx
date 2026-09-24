@@ -31,6 +31,7 @@ import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
 import { type ErrorSurface, formatErrorDiagnostics } from '@/lib/error-surface'
+import { openExternalLink } from '@/lib/external-link'
 import { triggerHaptic } from '@/lib/haptics'
 import {
   AudioLines,
@@ -38,7 +39,6 @@ import {
   Loader2Icon,
   RefreshCwIcon,
   SmilePlusIcon,
-  Upload,
   VolumeXIcon,
   XIcon
 } from '@/lib/icons'
@@ -48,9 +48,17 @@ import { useEnterAnimation } from '@/lib/use-enter-animation'
 import { cn } from '@/lib/utils'
 import { playSpeechText, stopVoicePlayback } from '@/lib/voice-playback'
 import { notifyError } from '@/store/notifications'
-import { requestSendDiagnostics } from '@/store/send-diagnostics'
 import { $connection, $currentModel } from '@/store/session'
 import { $voicePlayback } from '@/store/voice-playback'
+
+// Where a user reports a failed turn. SOCIS support is GitHub issues; there is
+// no private upload channel (the old "Send diagnostics" action uploaded logs to
+// Nous's internal storage, viewable by Nous staff, and was removed).
+//
+// Deliberately the BLANK new-issue page, not prefilled with diagnosticsText():
+// a URL-borne body lands in browser history and would publish error details
+// the user has not reviewed. They copy what they choose via "Copy diagnostics".
+const REPORT_ISSUE_URL = 'https://github.com/socisio/socis-agent/issues/new'
 
 // Stable empty identity for the settled-parts selector — a fresh [] per render
 // would re-derive the changed-files card on every message re-render.
@@ -564,9 +572,8 @@ const ErrorRecoveryActions: FC = () => {
           {remoteConnection ? copy.errorOpenDesktopLogs : copy.errorOpenLogs}
         </button>
       )}
-      <button className="aui-error-action" onClick={() => requestSendDiagnostics(diagnosticsText())} type="button">
-        <Upload className="size-3" />
-        {copy.errorSendDiagnostics}
+      <button className="aui-error-action" onClick={() => openExternalLink(REPORT_ISSUE_URL)} type="button">
+        {copy.errorReportIssue}
       </button>
       <CopyButton
         appearance="inline"

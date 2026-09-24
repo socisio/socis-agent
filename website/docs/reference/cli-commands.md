@@ -915,13 +915,12 @@ Upload a debug report (system info + recent logs) to a paste service and get a s
 |--------|-------------|
 | `--lines <N>` | Number of log lines to include per log file (default: 200). |
 | `--expire <days>` | Paste expiry in days (default: 7). |
-| `--nous` | Upload to Nous-internal diagnostics storage instead of a public paste service. Use this when Nous support asks for a private diagnostic bundle. |
 | `--local` | Print the report locally instead of uploading. |
 | `--no-redact` | Disable upload-time secret redaction. By default, uploads are redacted. |
 
 The report includes system info (OS, Python version, SOCIS version), recent agent, gateway, GUI/dashboard, and desktop logs (512 KB limit per file), and redacted API key status. By default, uploads are redacted so secrets are not included.
 
-Default uploads use public paste services tried in order: paste.rs, dpaste.com. `--nous` uploads the same debug bundle to private Nous diagnostics storage instead; the returned viewer link is for the Nous team and auto-deletes after 14 days.
+Uploads go to public paste services tried in order: paste.rs, dpaste.com. The links are public — review them before sharing. For help, open an issue at [github.com/socisio/socis-agent/issues](https://github.com/socisio/socis-agent/issues) and include the links.
 
 ### Examples
 
@@ -929,7 +928,6 @@ Default uploads use public paste services tried in order: paste.rs, dpaste.com. 
 socis debug share              # Upload debug report, print URL
 socis debug share --lines 500  # Include more log lines
 socis debug share --expire 30  # Keep paste for 30 days
-socis debug share --nous       # Upload a private diagnostics bundle for Nous support
 socis debug share --local      # Print report to terminal (no upload)
 ```
 
