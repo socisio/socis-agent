@@ -3392,7 +3392,7 @@ def _sync_with_upstream_if_needed(
 
         print()
         print("ℹ Your fork is not tracking the official SOCIS repository.")
-        print("  This means you may miss updates from SOCIS/socis-agent.")
+        print("  This means you may miss updates from socisio/socis-agent.")
         print()
 
         if assume_yes or (

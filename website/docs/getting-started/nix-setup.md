@@ -42,17 +42,17 @@ No clone needed. Nix fetches, builds, and runs everything:
 
 ```bash
 # Run the desktop app
-nix run github:SOCIS/socis-agent#desktop
+nix run github:socisio/socis-agent#desktop
 
 # Or install persistently
-nix profile install github:SOCIS/socis-agent#desktop
+nix profile install github:socisio/socis-agent#desktop
 
 # run the tui
-nix run github:SOCIS/socis-agent -- setup
-nix run github:SOCIS/socis-agent -- --tui
+nix run github:socisio/socis-agent -- setup
+nix run github:socisio/socis-agent -- --tui
 
 # or install it in your profile
-nix profile install github:SOCIS/socis-agent
+nix profile install github:socisio/socis-agent
 socis setup
 socis --tui
 ```
@@ -95,7 +95,7 @@ This module needs NixOS. SOCIS is an agent for one person. If you want an agent 
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    socis-agent.url = "github:SOCIS/socis-agent";
+    socis-agent.url = "github:socisio/socis-agent";
   };
 
   outputs = { nixpkgs, socis-agent, ... }: {
@@ -612,7 +612,7 @@ The option set is the same set that the NixOS module uses. It is `services.socis
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
-    socis-agent.url = "github:SOCIS/socis-agent";
+    socis-agent.url = "github:socisio/socis-agent";
   };
 }
 ```
@@ -860,7 +860,7 @@ External flakes can override the package directly:
 
 ```nix
 {
-  inputs.socis-agent.url = "github:SOCIS/socis-agent";
+  inputs.socis-agent.url = "github:socisio/socis-agent";
   outputs = { socis-agent, nixpkgs, ... }: {
     nixpkgs.overlays = [ socis-agent.overlays.default ];
     # Then:

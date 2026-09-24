@@ -81,7 +81,7 @@ python $SOCIS_AGENT_HOME/skills/devops/watchers/scripts/watch_rss.py \
 
 ```bash
 python $SOCIS_AGENT_HOME/skills/devops/watchers/scripts/watch_github.py \
-  --name socis-issues --repo SOCIS/socis-agent --scope issues
+  --name socis-issues --repo socisio/socis-agent --scope issues
 ```
 
 轮询任意 JSON API：

@@ -6,7 +6,7 @@ Usage (via cron with --no-agent):
     socis cron create socis-issues \\
       --schedule "*/5 * * * *" --no-agent \\
       --script "$SOCIS_AGENT_HOME/skills/devops/watchers/scripts/watch_github.py" \\
-      --script-args "--name socis-issues --repo SOCIS/socis-agent --scope issues"
+      --script-args "--name socis-issues --repo socisio/socis-agent --scope issues"
 
 Set GITHUB_TOKEN (or GH_TOKEN) in the SOCIS .env file
 (``${SOCIS_AGENT_HOME:-~/.socis-agent}/.env``) to avoid the 60 req/hr

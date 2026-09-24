@@ -1,6 +1,6 @@
 """`socis memory status` should explain *why* a provider is unavailable.
 
-Regression coverage for SOCIS/socis-agent#2765: when the selected
+Regression coverage for socisio/socis-agent#2765: when the selected
 provider reports unavailable, status lists the missing env vars and surfaces
 the systemd/gateway ``.env``-inheritance gotcha that most often causes it.
 """

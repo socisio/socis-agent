@@ -107,7 +107,7 @@ case "$MODE" in
     }
     decide() { bash "$SCRIPT_DIR/posix.sh" --self-test-gate --install-root "$G/socis-agent" "$@" | cut -d: -f1; }
 
-    expect "appimage (not under unpacked)"      skew     "$(decide --relaunch-target /opt/SOCIS/socis)"
+    expect "appimage (not under unpacked)"      skew     "$(decide --relaunch-target /opt/NousResearch/hermes)"
     expect "sibling-prefix dir not fooled"      skew     "$(decide --relaunch-target "$UNPACKED-evil/socis")"
     expect "no chrome-sandbox (namespace)"      relaunch "$(decide --relaunch-target "$UNPACKED/socis")"
 
@@ -172,7 +172,7 @@ case "$MODE" in
     #    event's payload), never a bare "Update complete."
     stub_install
     bash "$SCRIPT_DIR/posix.sh" --no-ui --desktop-pid 0 --install-root "$L/socis-agent" \
-      --relaunch-target /opt/SOCIS/socis >/dev/null 2>&1 || true
+      --relaunch-target /opt/NousResearch/hermes >/dev/null 2>&1 || true
     if [ "$(uname)" != "Darwin" ]; then
       expect_msg "skew outcome surfaces in result message" "d['ok']==True and d['manual']==True and 'was not changed' in d['message']"
     fi

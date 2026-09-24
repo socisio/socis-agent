@@ -67,7 +67,7 @@ MAX_FAILED_ATTEMPTS = 5             # Failed approvals before lockout
 # environment already in place, so it never observes the stale value -- the
 # resulting asymmetry is what made pending pairing codes issued by the
 # gateway unrecoverable while CLI-side writes to the same directory kept
-# working (SOCIS/socis-agent#93449).
+# working (socisio/socis-agent#93449).
 #
 # ``_default_pairing_dir()`` below resolves this fresh on every call in
 # production. Tests patch this attribute directly to a concrete path for

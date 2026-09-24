@@ -535,10 +535,10 @@ all a bundled seed copy ships with SOCIS — so search works fully offline.
   "description": "Generative media workspace plugin.",
   "author": "SOCIS",
   "tags": ["media", "image-gen"],
-  "repo": "SOCIS/socis-media-studio",
+  "repo": "NousResearch/hermes-media-studio",
   "ref": "<40-char commit SHA>",
   "subdir": null,
-  "homepage": "https://github.com/SOCIS/socis-media-studio",
+  "homepage": "https://github.com/NousResearch/hermes-media-studio",
   "capabilities": ["tools", "dashboard"],
   "api_version": 1,
   "added_at": "2026-08-12"
@@ -551,7 +551,7 @@ SHA, and optional `subdir` supports monorepos. The bundled seed file
 
 **Submitting a plugin.** The index is maintained as a plain JSON file —
 submit a pull request to the
-[socis-plugin-index](https://github.com/SOCIS/socis-plugin-index)
+[socis-plugin-index](https://github.com/NousResearch/hermes-plugin-index)
 repository adding your entry (name, description, author, tags, `owner/repo`,
 and a pinned commit SHA). Review covers the entry's *metadata* only.
 

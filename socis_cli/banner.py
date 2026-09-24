@@ -616,7 +616,7 @@ def get_latest_release_tag(repo_dir: Optional[Path] = None) -> Optional[tuple]:
 
     Local-only — runs ``git describe --tags --abbrev=0`` against the
     SOCIS checkout. Cached per-process. Release URL always points at the
-    canonical SOCIS/socis-agent repo (forks don't get a link).
+    canonical socisio/socis-agent repo (forks don't get a link).
     """
     global _latest_release_cache
     if _latest_release_cache is not None:

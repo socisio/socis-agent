@@ -1185,7 +1185,7 @@ def _patch_skill(
         # A bare "required" error is a dead end: the model cannot tell whether it
         # omitted the arg or supplied it wrongly, so it retries blindly and often
         # escapes to action='write_file', clobbering the whole skill file. Tell it
-        # how to recover. Upstream: SOCIS/socis-agent#33064.
+        # how to recover. Upstream: socisio/socis-agent#33064.
         return {
             "success": False,
             "error": (

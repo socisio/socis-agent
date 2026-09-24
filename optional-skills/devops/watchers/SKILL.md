@@ -66,7 +66,7 @@ Watch a GitHub repo (set `GITHUB_TOKEN` in `${SOCIS_AGENT_HOME:-~/.socis-agent}/
 
 ```bash
 python $SOCIS_AGENT_HOME/skills/devops/watchers/scripts/watch_github.py \
-  --name socis-issues --repo SOCIS/socis-agent --scope issues
+  --name socis-issues --repo socisio/socis-agent --scope issues
 ```
 
 Poll an arbitrary JSON API:

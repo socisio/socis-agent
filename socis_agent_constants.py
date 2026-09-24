@@ -1662,7 +1662,7 @@ def is_container() -> bool:
 
     Result is cached for the process lifetime.  Import-safe — no heavy deps.
 
-    See: SOCIS/socis-agent#47111
+    See: socisio/socis-agent#47111
     """
     global _container_detected
     if _container_detected is not None:

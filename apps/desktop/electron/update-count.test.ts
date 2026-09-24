@@ -264,7 +264,7 @@ test('compareApiUrl builds the GitHub compare URL for HTTPS origins', () => {
       originUrl: 'https://github.com/socisio/socis-agent.git',
       targetSha: SHA_B
     }),
-    `https://api.github.com/repos/SOCIS/socis-agent/compare/${SHA_A}...${SHA_B}`
+    `https://api.github.com/repos/socisio/socis-agent/compare/${SHA_A}...${SHA_B}`
   )
 })
 
@@ -276,7 +276,7 @@ test('compareApiUrl handles SSH origin forms', () => {
   ]) {
     assert.equal(
       compareApiUrl({ currentSha: SHA_A, originUrl, targetSha: SHA_B }),
-      `https://api.github.com/repos/SOCIS/socis-agent/compare/${SHA_A}...${SHA_B}`
+      `https://api.github.com/repos/socisio/socis-agent/compare/${SHA_A}...${SHA_B}`
     )
   }
 })

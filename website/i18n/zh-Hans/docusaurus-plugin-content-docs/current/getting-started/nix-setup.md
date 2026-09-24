@@ -35,11 +35,11 @@ SOCIS Agent 提供了一个 Nix flake，支持三个层级的集成：
 
 ```bash
 # 直接运行（首次使用时构建，之后使用缓存）
-nix run github:SOCIS/socis-agent -- setup
-nix run github:SOCIS/socis-agent -- chat
+nix run github:socisio/socis-agent -- setup
+nix run github:socisio/socis-agent -- chat
 
 # 或持久化安装
-nix profile install github:SOCIS/socis-agent
+nix profile install github:socisio/socis-agent
 socis setup
 socis chat
 ```
@@ -75,7 +75,7 @@ nix build
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    socis-agent.url = "github:SOCIS/socis-agent";
+    socis-agent.url = "github:socisio/socis-agent";
   };
 
   outputs = { nixpkgs, socis-agent, ... }: {
@@ -685,7 +685,7 @@ services.socis-agent = {
 
 ```nix
 {
-  inputs.socis-agent.url = "github:SOCIS/socis-agent";
+  inputs.socis-agent.url = "github:socisio/socis-agent";
   outputs = { socis-agent, nixpkgs, ... }: {
     nixpkgs.overlays = [ socis-agent.overlays.default ];
     # 然后：
