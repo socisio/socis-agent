@@ -210,3 +210,45 @@ def test_the_map_has_no_plain_substring_repo_entry():
     import rebrand_map
     olds = [o for o, _ in rebrand_map.DOMAIN_REPLACEMENTS]
     assert "NousResearch/hermes-agent" not in olds
+
+
+
+# ── the home directory has ONE name ────────────────────────────────────────
+#
+# The listed HOME_DIR_PATH_FORMS became .socis-agent; every other spelling fell
+# through to hermes->socis and became .socis. These are the forms that did.
+
+@pytest.mark.parametrize("upstream, expected", [
+    ('"/root/.hermes"',                 '"/root/.socis-agent"'),
+    ('f"{home}/.hermes"',               'f"{home}/.socis-agent"'),
+    ('"${HERMES_HOME:-$HOME/.hermes}"', '"${SOCIS_AGENT_HOME:-$HOME/.socis-agent}"'),
+    ("tar cf - -C / root/.hermes",      "tar cf - -C / root/.socis-agent"),
+    ("'/home/u/.hermes'",               "'/home/u/.socis-agent'"),
+    (r"/\/home\/x\/\.hermes'/",         r"/\/home\/x\/\.socis-agent'/"),
+])
+def test_every_path_spelling_of_the_home_becomes_socis_agent(upstream, expected):
+    assert rebrand(upstream) == expected
+
+
+def test_the_listed_forms_are_unchanged():
+    assert rebrand("~/.hermes/config.yaml") == "~/.socis-agent/config.yaml"
+    assert rebrand('"/root/.hermes/skills"') == '"/root/.socis-agent/skills"'
+
+
+def test_one_directory_gets_one_name():
+    """The regression: a default and a path beside it in the same file came
+    out as /root/.socis and /root/.socis-agent -- two directories."""
+    out = rebrand('base = "/root/.hermes"\npath = f"/root/.hermes/{rel}"')
+    assert "/root/.socis-agent\"" in out and "/root/.socis-agent/{rel}" in out
+    assert "/root/.socis\"" not in out
+
+
+@pytest.mark.parametrize("upstream, why", [
+    ("/opt/.hermes-runtime", "a sibling directory, not the home"),
+    ("/repo/.hermes.md",     "a file"),
+    (r"ai\.hermes",          "a regex-escaped launchd label, not a path"),
+    (r"C:\Users\x\.hermes",  "Windows paths are a separate question"),
+    ("_meta.hermes",         "an attribute, not a path"),
+])
+def test_what_is_not_the_home_is_left_alone(upstream, why):
+    assert ".socis-agent" not in rebrand(upstream), why

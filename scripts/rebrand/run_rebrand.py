@@ -113,6 +113,25 @@ _UPSTREAM_REPO_RE = __import__("re").compile(r"^hermes-agent(\.git)?$")
 _NOUS_ORG_PAGE_RE = __import__("re").compile(r"github\.com/NousResearch(?![A-Za-z0-9/_-])")
 
 
+# The home directory as a PATH SEGMENT: ".hermes" right after "/" (or after
+# "/\\", a regex-escaped POSIX path), and not followed by a name character.
+#
+# HOME_DIR_PATH_FORMS lists five spellings. Every other one -- "/root/.hermes"
+# at the end of a string, f"{home}/.hermes", "$HOME/.hermes}" -- fell through
+# to the generic hermes->socis rule and became ".socis", a directory that does
+# not exist, while the listed forms became ".socis-agent". One directory got
+# two names: credential sync defaulted to /root/.socis while a sibling path in
+# the same file used /root/.socis-agent; node-bootstrap.sh installed Node into
+# ~/.socis/node; the sandbox-mirror write guard checked for .socis-agent while
+# mirrors were built under .socis, so it never fired. A rule, not more entries.
+#
+# NOT after a bare "\\": Windows paths (the Windows home layout is a separate
+# question), regex-escaped labels such as ai\\.hermes, and hostnames.
+# NOT before [\w.-]: .hermes-runtime and friends are different directories,
+# and .hermes.md is a file.
+_HOME_SEGMENT_RE = __import__("re").compile(r"(?:(?<=/)|(?<=/\\))\.hermes(?![\w.-])")
+
+
 def _is_rebranded_nous_host(host: str) -> bool:
     """The docs and installer family, which DOMAIN_REPLACEMENTS maps on purpose
     (hermes-agent.nousresearch.com -> agent.socis.io, and setup. under it)."""
@@ -123,9 +142,10 @@ def _is_rebranded_nous_host(host: str) -> bool:
 def apply_text_replacements(content: str, table) -> tuple:
     """Apply the rebrand table, leaving Nous infrastructure untouched.
 
-    Two masks run before the table and are restored after: every Nous host
-    (see _NOUS_HOST_RE) except the docs/installer family, and the non-host
-    PROTECTED_LITERALS — the macOS bundle id and the OAuth client id.
+    Masks run before the table and are restored after: every Nous host
+    (see _NOUS_HOST_RE) except the docs/installer family, the non-host
+    PROTECTED_LITERALS — the macOS bundle id and the OAuth client id — and
+    the home directory as a path segment (see _HOME_SEGMENT_RE).
     """
     masked = {}
     counter = [0]
@@ -157,6 +177,10 @@ def apply_text_replacements(content: str, table) -> tuple:
             content = content.replace(lit, _mask(lit))
 
     counts = {}
+    # Masked, so no later table rule can touch the result.
+    content, n_home = _HOME_SEGMENT_RE.subn(lambda m: _mask(".socis-agent"), content)
+    if n_home:
+        counts[".hermes (home path segment)"] = n_home
     for old, new in table:
         if old in content:
             counts[old] = content.count(old)
