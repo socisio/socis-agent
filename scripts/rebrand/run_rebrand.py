@@ -125,11 +125,15 @@ _NOUS_ORG_PAGE_RE = __import__("re").compile(r"github\.com/NousResearch(?![A-Za-
 # ~/.socis/node; the sandbox-mirror write guard checked for .socis-agent while
 # mirrors were built under .socis, so it never fired. A rule, not more entries.
 #
+# Also after "%2F": the same path URL-encoded (a /api/fs?path= query or a
+# #media: link), which the "/" form alone missed.
+#
 # NOT after a bare "\\": Windows paths (the Windows home layout is a separate
 # question), regex-escaped labels such as ai\\.hermes, and hostnames.
 # NOT before [\w.-]: .hermes-runtime and friends are different directories,
 # and .hermes.md is a file.
-_HOME_SEGMENT_RE = __import__("re").compile(r"(?:(?<=/)|(?<=/\\))\.hermes(?![\w.-])")
+_HOME_SEGMENT_RE = __import__("re").compile(
+    r"(?:(?<=/)|(?<=/\\)|(?<=%2F)|(?<=%2f))\.hermes(?![\w.-])")
 
 
 def _is_rebranded_nous_host(host: str) -> bool:

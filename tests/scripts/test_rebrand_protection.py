@@ -225,6 +225,8 @@ def test_the_map_has_no_plain_substring_repo_entry():
     ("tar cf - -C / root/.hermes",      "tar cf - -C / root/.socis-agent"),
     ("'/home/u/.hermes'",               "'/home/u/.socis-agent'"),
     (r"/\/home\/x\/\.hermes'/",         r"/\/home\/x\/\.socis-agent'/"),
+    ("path=%2Fhome%2Fu%2F.hermes%2Fskills", "path=%2Fhome%2Fu%2F.socis-agent%2Fskills"),
+    ("#media:%2fUsers%2fb%2f.hermes%2fcache", "#media:%2fUsers%2fb%2f.socis-agent%2fcache"),
 ])
 def test_every_path_spelling_of_the_home_becomes_socis_agent(upstream, expected):
     assert rebrand(upstream) == expected
@@ -249,6 +251,7 @@ def test_one_directory_gets_one_name():
     (r"ai\.hermes",          "a regex-escaped launchd label, not a path"),
     (r"C:\Users\x\.hermes",  "Windows paths are a separate question"),
     ("_meta.hermes",         "an attribute, not a path"),
+    ("%2Fopt%2F.hermes-runtime", "an encoded sibling directory, not the home"),
 ])
 def test_what_is_not_the_home_is_left_alone(upstream, why):
     assert ".socis-agent" not in rebrand(upstream), why
