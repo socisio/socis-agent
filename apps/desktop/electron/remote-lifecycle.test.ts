@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { exec as execCallback, spawn } from 'node:child_process'
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -812,6 +812,12 @@ test('buildSpawnCommand atomically reserves the ownership slot through spawn and
 
   assert.ok(cmd.includes('.connect.lock'))
   assert.ok(cmd.includes('.socis-update-in-progress.mutex'))
+  // The mutex path is passed as the shell word itself, so the remote shell
+  // expands $HOME -- not re-quoted into the literal text '"$HOME"'\''/...'.
+  assert.ok(
+    cmd.includes(` "$HOME"'/.socis-agent/.socis-update-in-progress.mutex' `),
+    'update mutex must reach python as an expanded path, not literal quoted text'
+  )
   assert.match(cmd, /fcntl\.flock\(fd,fcntl\.LOCK_EX\)/)
   assert.match(cmd, /os\.O_CLOEXEC/)
   assert.match(
@@ -853,7 +859,16 @@ done
       logPath
     })
 
-    await exec(command, { shell: '/bin/bash' })
+    // cwd: directory, so a regression cannot litter the repo (it used to
+    // create apps/desktop/'/var/... -- a directory literally named ').
+    await exec(command, { shell: '/bin/bash', cwd: directory })
+
+    // Python must lock the REAL sidecar -- the file the updater's
+    // _MarkerMutex locks -- not a relative path built from quoted text.
+    const realMutex = path.join(directory, 'home', '.socis-update-in-progress.mutex')
+    await readFile(realMutex)   // throws ENOENT if the lock landed elsewhere
+    const junk = (await readdir(directory)).filter(name => /^['"]/.test(name))
+    assert.deepEqual(junk, [], 'the mutex path must not be created from literal quote characters')
 
     for (let attempt = 0; attempt < 40; attempt += 1) {
       try {

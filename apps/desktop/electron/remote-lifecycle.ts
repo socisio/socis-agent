@@ -896,7 +896,16 @@ finally:
 // Python keeps the descriptor close-on-exec by default and passes it explicitly
 // only to the intended outer shell; each detached child closes it before
 // execing SOCIS.
-function withRemoteUpdateMutex(command, mutexPath) {
+// ``mutexWord`` is expandRemotePath() output -- an already shell-quoted word
+// such as "$HOME"'/.socis-agent/.socis-update-in-progress.mutex'. It must be
+// embedded RAW so the remote shell expands it into the real path. It used to
+// be shq()-quoted a second time, so Python received the literal text -- quote
+// characters and an unexpanded $HOME -- as a RELATIVE path: it locked a junk
+// file under the remote shell's cwd (creating a directory named "$HOME"'
+// there) instead of the updater's _MarkerMutex sidecar, so the two never
+// excluded each other. Same trap the reservation/lockPath/ownerPath comment
+// below warns about.
+function withRemoteUpdateMutex(command, mutexWord) {
   const script = `
 import fcntl,os,subprocess,sys
 mutex_path=sys.argv[1]
@@ -913,7 +922,7 @@ finally:
 sys.exit(result.returncode if result is not None else 1)
 `.trim()
 
-  return `python3 -c ${shq(script)} ${shq(mutexPath)} ${shq(command)}`
+  return `python3 -c ${shq(script)} ${mutexWord} ${shq(command)}`
 }
 
 /**

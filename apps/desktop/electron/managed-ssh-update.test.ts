@@ -284,11 +284,17 @@ test('POSIX managed launcher executes the updater command and atomically publish
   const home = await mkdtemp(path.join(os.tmpdir(), 'socis-managed-launch-'))
 
   try {
+    // A fake updater that exits 0. It used to be '/bin/true', which does not
+    // exist on macOS (true lives in /usr/bin there), so the launcher's command
+    // was "not found" and the status read 127 on every Mac.
+    const fakeUpdater = path.join(home, 'fake-socis')
+    await writeFile(fakeUpdater, '#!/bin/sh\nexit 0\n', { mode: 0o700 })
+
     const command = buildPosixManagedUpdateLaunch(
       {
         ssh: { exec: async () => '' },
         platform: 'Linux',
-        socisPath: '/bin/true',
+        socisPath: fakeUpdater,
         socisHome: home
       },
       CORRELATION
