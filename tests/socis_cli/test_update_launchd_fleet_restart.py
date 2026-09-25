@@ -213,6 +213,29 @@ class TestGetServicePidsScoping:
         monkeypatch.setattr(
             gw, "_locate_launchd_gateway_service", lambda label: located[label]
         )
+        # all_profiles=True also runs a bare ``launchctl list`` prefix scan.
+        # Unstubbed, that read the REAL host: on a Mac with SOCIS installed it
+        # returned a live ai.socis.gateway* PID and broke the exact-set
+        # assertions (Linux CI has no launchctl, so it passed there). An empty
+        # listing keeps these tests about label-derived PIDs; the scan itself
+        # is covered by test_all_profiles_prefix_scan_adds_unmapped_socis_jobs.
+        monkeypatch.setattr(
+            gw.subprocess, "run", lambda *a, **k: _completed(0, "PID\tStatus\tLabel\n")
+        )
+
+    def test_all_profiles_prefix_scan_adds_unmapped_socis_jobs(self, monkeypatch):
+        """The belt-and-suspenders scan protects ai.socis.gateway* jobs the
+        label derivation cannot map (renamed profiles, other installs) --
+        and nothing else: other apps' jobs and stopped jobs are ignored."""
+        self._wire(monkeypatch)
+        listing = (
+            "PID\tStatus\tLabel\n"
+            "300\t0\tai.socis.gateway-renamed\n"   # unmapped SOCIS job -> protected
+            "400\t0\tcom.example.other\n"          # not ours -> ignored
+            "-\t0\tai.socis.gateway-stopped\n"     # no live PID -> ignored
+        )
+        monkeypatch.setattr(gw.subprocess, "run", lambda *a, **k: _completed(0, listing))
+        assert gw._get_service_pids(all_profiles=True) == {100, 200, 300}
 
     def test_all_profiles_returns_every_gateway_service_pid(self, monkeypatch):
         """The update sweep's exclude-set must protect ALL freshly-restarted
@@ -642,14 +665,33 @@ class TestWaitForLaunchdServicePid:
 
 
 class TestIncompleteWarningMentionsLaunchctl:
+    # _warn_incomplete_gateway_fleet_restart picks its hints from the HOST
+    # (is_macos()), not from the unit names. The first two assert the
+    # non-macOS output, so they belong on Linux (see "OS gating" in
+    # tests/conftest.py); on a Mac they got the macOS branch and failed.
+
+    @pytest.mark.linux_only
     def test_launchd_labels_get_launchctl_hint(self, capsys):
         _warn_incomplete_gateway_fleet_restart(["ai.socis.gateway-merit-ops"])
         out = capsys.readouterr().out
         assert "Update incomplete" in out
         assert "launchctl kickstart -k" in out
 
+    @pytest.mark.linux_only
     def test_systemd_units_keep_systemctl_hint(self, capsys):
         _warn_incomplete_gateway_fleet_restart(["socis-gateway-coder"])
         out = capsys.readouterr().out
         assert "systemctl" in out
         assert "launchctl" not in out
+
+    @pytest.mark.macos_only
+    def test_macos_recommends_bootstrap_not_kickstart(self, capsys):
+        """On macOS a listed label is very likely DEREGISTERED (#88848), and
+        `launchctl kickstart` cannot revive a job launchd no longer knows,
+        so the recovery hint is bootstrap."""
+        _warn_incomplete_gateway_fleet_restart(["ai.socis.gateway-merit-ops"])
+        out = capsys.readouterr().out
+        assert "Update incomplete" in out
+        assert "deregistered" in out
+        assert "launchctl bootstrap" in out
+        assert "kickstart" not in out
