@@ -1311,7 +1311,9 @@ def _live_system_guard(request, monkeypatch):
     tokens[0]), so ``bash -c "systemctl restart socis-gateway"``,
     ``sudo systemctl ...``, ``env systemctl ...``, ``setsid systemctl ...``
     are all caught. ``pkill``/``killall``/``taskkill`` invocations
-    targeting socis/python patterns are also blocked.
+    targeting socis/python patterns are also blocked, as are mutating
+    ``launchctl`` verbs (kickstart, bootout, …) on ``ai.socis`` labels —
+    the macOS counterpart of the systemctl rule.
     """
     if request.node.get_closest_marker(_LIVE_SYSTEM_GUARD_BYPASS_MARK):
         yield
@@ -1463,6 +1465,26 @@ def _live_system_guard(request, monkeypatch):
             tokens = cmd_str.split()
         return any(verb in tokens for verb in _MUTATING_VERBS)
 
+    # launchd is macOS's systemd. The systemctl rule above never matched it,
+    # so a test that let ``launchctl kickstart -k gui/<uid>/ai.socis.gateway``
+    # reach the real subprocess would restart the developer's live gateway.
+    # Labels are ``ai.socis.gateway`` / ``ai.socis.gateway-<profile>`` — note
+    # _SOCIS_AGENT_TOKENS does NOT match them, hence the separate check.
+    _LAUNCHCTL_MUTATING_VERBS = (
+        "kickstart", "bootout", "bootstrap", "kill", "stop", "start",
+        "load", "unload", "remove", "enable", "disable", "submit",
+    )
+
+    def _is_blocked_launchctl(cmd) -> bool:
+        cmd_str = _cmd_to_string(cmd)
+        if "launchctl" not in cmd_str or "ai.socis" not in cmd_str.lower():
+            return False
+        try:
+            tokens = _shlex.split(cmd_str)
+        except ValueError:
+            tokens = cmd_str.split()
+        return any(verb in tokens for verb in _LAUNCHCTL_MUTATING_VERBS)
+
     def _is_process_killer(cmd) -> bool:
         cmd_str = _cmd_to_string(cmd)
         try:
@@ -1504,6 +1526,15 @@ def _live_system_guard(request, monkeypatch):
                 "live socis-gateway systemd unit. Mock "
                 "subprocess.run / _run_systemctl in the test, or "
                 "mark with @pytest.mark.live_system_guard_bypass."
+            )
+        if _is_blocked_launchctl(cmd):
+            raise RuntimeError(
+                f"tests/conftest.py live-system guard: blocked "
+                f"subprocess.{name}({cmd!r}) — would mutate the live "
+                "ai.socis.gateway launchd job. Mock subprocess.run / "
+                "_launchd_kickstart in the test (the update tests use the "
+                "no_macos_host_mutation fixture), or mark with "
+                "@pytest.mark.live_system_guard_bypass."
             )
         if _is_process_killer(cmd):
             raise RuntimeError(

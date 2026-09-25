@@ -172,6 +172,45 @@ def test_subprocess_run_string_shell_true_blocked():
         )
 
 
+
+# ── launchctl: the macOS counterpart of the systemctl rule ──────────────────
+#
+# These call the REAL subprocess.run and rely on the guard raising first.
+# The label and domain deliberately cannot exist (uid 0 has no gui domain,
+# and no such label is ever installed), so even if the guard regressed the
+# command would fail harmlessly instead of restarting a developer's gateway.
+_SELFTEST_TARGET = "gui/0/ai.socis.gateway-guard-selftest"
+
+
+@pytest.mark.parametrize("cmd", [
+    ["launchctl", "kickstart", "-k", _SELFTEST_TARGET],
+    ["launchctl", "bootout", _SELFTEST_TARGET],
+    ["/bin/launchctl", "stop", "ai.socis.gateway-guard-selftest"],
+    ["sudo", "launchctl", "kickstart", "-k", _SELFTEST_TARGET],
+    ["bash", "-c", f"launchctl bootout {_SELFTEST_TARGET}"],
+])
+def test_subprocess_run_launchctl_mutation_blocked(cmd):
+    with pytest.raises(RuntimeError, match="live-system guard"):
+        subprocess.run(cmd)
+
+
+def test_subprocess_run_launchctl_string_shell_true_blocked():
+    with pytest.raises(RuntimeError, match="live-system guard"):
+        subprocess.run(f"launchctl kickstart -k {_SELFTEST_TARGET}", shell=True)
+
+
+@pytest.mark.parametrize("cmd", [
+    ["launchctl", "print", _SELFTEST_TARGET],          # read-only
+    ["launchctl", "list", "ai.socis.gateway-guard-selftest"],
+    ["launchctl", "kickstart", "-k", "gui/0/com.example.unrelated"],  # not ours
+])
+def test_subprocess_run_launchctl_read_only_or_foreign_allowed(cmd):
+    """Read-only verbs, and other apps' labels, must not trip the guard."""
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=10)
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        pass  # no launchctl on Linux, or it errored — either way, not blocked
+
 def test_subprocess_popen_systemctl_blocked():
     with pytest.raises(RuntimeError, match="live-system guard"):
         subprocess.Popen(["systemctl", "--user", "stop", "socis-gateway"])

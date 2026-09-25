@@ -9,6 +9,11 @@ import pytest
 
 from socis_cli.main import cmd_update, PROJECT_ROOT
 
+# See tests/socis_cli/conftest.py: stops these end-to-end update tests from
+# restarting launchd gateways, running the cua-driver installer, or writing
+# TCC anchors into the real .venv when run on a Mac.
+pytestmark = pytest.mark.usefixtures("no_macos_host_mutation")
+
 
 def _make_run_side_effect(branch="main", verify_ok=True, commit_count="0"):
     """Build a side_effect function for subprocess.run that simulates git commands."""

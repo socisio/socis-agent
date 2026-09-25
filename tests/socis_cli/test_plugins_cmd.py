@@ -22,6 +22,11 @@ from socis_cli.plugins_cmd import (
     _sanitize_plugin_name,
 )
 
+# See tests/socis_cli/conftest.py: stops these end-to-end update tests from
+# restarting launchd gateways, running the cua-driver installer, or writing
+# TCC anchors into the real .venv when run on a Mac.
+pytestmark = pytest.mark.usefixtures("no_macos_host_mutation")
+
 
 # ── _sanitize_plugin_name ─────────────────────────────────────────────────
 

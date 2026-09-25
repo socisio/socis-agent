@@ -28,6 +28,11 @@ import pytest
 from socis_cli import main as socis_main
 from socis_cli import update_cmd
 
+# See tests/socis_cli/conftest.py: stops these end-to-end update tests from
+# restarting launchd gateways, running the cua-driver installer, or writing
+# TCC anchors into the real .venv when run on a Mac.
+pytestmark = pytest.mark.usefixtures("no_macos_host_mutation")
+
 
 GIT = ["git"]
 

@@ -18,6 +18,11 @@ import pytest
 
 import socis_cli.update_receipt as ur
 
+# See tests/socis_cli/conftest.py: stops these end-to-end update tests from
+# restarting launchd gateways, running the cua-driver installer, or writing
+# TCC anchors into the real .venv when run on a Mac.
+pytestmark = pytest.mark.usefixtures("no_macos_host_mutation")
+
 
 @pytest.fixture()
 def receipt_home(tmp_path, monkeypatch):

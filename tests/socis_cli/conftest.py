@@ -54,3 +54,43 @@ def _suppress_concurrent_socis_gate(request, monkeypatch):
         lambda *_a, **_k: [],
         raising=False,
     )
+
+
+@pytest.fixture
+def no_macos_host_mutation(monkeypatch):
+    """Neutralise the macOS-only steps ``socis update`` takes on a real Mac.
+
+    The end-to-end update tests already stub the Windows service helpers
+    (``_pause_windows_gateways_for_update``) and the systemd ones
+    (``supports_systemd_services``, ``find_gateway_pids``). They missed
+    macOS, so on a developer's Mac ``cmd_update`` went on to:
+
+    * restart launchd gateways — the tests' fake subprocess answered
+      "loaded" but printed no PID, so the restart verified as failed and
+      ``cmd_update`` exited 1 (11 tests failed on every Mac, passing only
+      on Linux CI, whose macOS job runs just ``-m macos_only``);
+    * run the REAL cua-driver installer, gated only on
+      ``shutil.which("cua-driver")`` — stopped merely because /Applications
+      was not writable;
+    * stage copies of the interpreter into the REAL ``.venv/bin`` via
+      ``ensure_tcc_anchor()``, which is called without a project root.
+
+    Opt in with ``pytestmark = pytest.mark.usefixtures(
+    "no_macos_host_mutation")``. Not autouse: the functions are tested
+    directly elsewhere (test_install_cua_driver, test_macos_tcc_anchor,
+    test_update_launchd_*), and a blanket stub would hollow those out.
+    """
+    from socis_cli import update_cmd
+
+    monkeypatch.setattr(update_cmd, "_restart_macos_launchd_gateways",
+                        lambda *a, **k: None)
+    try:
+        from socis_cli import tools_config
+        monkeypatch.setattr(tools_config, "install_cua_driver", lambda *a, **k: None)
+    except ImportError:
+        pass
+    try:
+        from socis_cli import macos_tcc_anchor
+        monkeypatch.setattr(macos_tcc_anchor, "ensure_tcc_anchor", lambda *a, **k: None)
+    except ImportError:
+        pass
