@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { exec as execCallback, spawn } from 'node:child_process'
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -583,8 +583,14 @@ test.skipIf(process.platform === 'win32')(
     const python = (await exec('command -v python3')).stdout.trim()
     const tokenPath = path.join(os.homedir(), spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE).replace(/^~\//, ''))
 
-    await mkdir(venvBin, { recursive: true })
-    await symlink(python, pythonLink)
+    // A REAL venv, as the installer creates -- not a bare symlink to python3.
+    // uv's standalone Python (what `python3` is inside a uv-managed .venv)
+    // cannot locate its stdlib through a symlink with no pyvenv.cfg beside it:
+    // sys.prefix falls back to its build prefix '/install', it dies with
+    // "No module named 'encodings'", and the ps poll below found no process.
+    // Homebrew/system Pythons tolerate the symlink, so this passed or failed
+    // depending on which python3 the machine had.
+    await exec(`"${python}" -m venv --without-pip "${path.dirname(venvBin)}"`)
     await writeFile(entrypoint, 'import time\ntime.sleep(30)\n', 'utf8')
     await writeFile(launcher, `#!/bin/bash\nexec "${pythonLink}" "${entrypoint}" "$@"\n`, 'utf8')
     await chmod(launcher, 0o755)
@@ -618,7 +624,15 @@ test.skipIf(process.platform === 'win32')(
 
     const waitForEntrypoint = async (process: ReturnType<typeof spawn>) => {
       for (let attempt = 0; attempt < 40; attempt += 1) {
-        const command = (await exec(`ps -ww -o command= -p ${process.pid}`)).stdout
+        let command: string
+        try {
+          command = (await exec(`ps -ww -o command= -p ${process.pid}`)).stdout
+        } catch {
+          // ps -p fails only when the process no longer exists.
+          assert.fail(
+            `fake installer (pid ${process.pid}) exited before exec'ing the entrypoint -- its python could not start`
+          )
+        }
 
         if (command.includes(entrypoint)) {
           return true
