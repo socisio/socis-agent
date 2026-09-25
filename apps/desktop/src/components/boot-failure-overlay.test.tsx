@@ -211,18 +211,21 @@ describe('BootFailureOverlay', () => {
       // Cloud-specific title + actionable recovery instead of the generic
       // remote-failure copy.
       expect(await screen.findByText(/Nous Cloud agent is down/i)).toBeTruthy()
-      // Portal and Discord are dedicated action buttons (localized labels
-      // can't drift the URLs, which live in code).
+      // Portal is a dedicated action button (a localized label can't drift the
+      // URL, which lives in code). SOCIS has no Discord community -- support
+      // is GitHub issues -- so there must be no Discord support button.
       expect(screen.getByRole('button', { name: /check portal status/i })).toBeTruthy()
-      expect(screen.getByRole('button', { name: /get help on discord/i })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: /discord/i })).toBeNull()
       // Cloud-down is a remote failure: local-only Repair is dropped; the
       // actionable paths are Gateway settings + Use local gateway.
       expect(screen.queryByRole('button', { name: /repair/i })).toBeNull()
       expect(screen.getByRole('button', { name: /gateway settings/i })).toBeTruthy()
       expect(screen.getByRole('button', { name: /use local gateway/i })).toBeTruthy()
-      // The electron-built error message (portal / local mode / Discord) is
-      // still surfaced in the error box.
-      expect(screen.getByText(/ares-3009\.agents\.socis\.com/i)).toBeTruthy()
+      // The electron-built error message is still surfaced in the error box.
+      // The host is Nous's real Cloud host, as set in $desktopBoot above; the
+      // rebrand had turned this escaped regex into a socis.com host that is
+      // never rendered.
+      expect(screen.getByText(/ares-3009\.agents\.nousresearch\.com/i)).toBeTruthy()
     } finally {
       restore()
     }

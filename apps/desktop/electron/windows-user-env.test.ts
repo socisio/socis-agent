@@ -12,7 +12,10 @@ test('parseRegQueryValue extracts a REG_SZ value', () => {
 })
 
 test('parseRegQueryValue matches the name case-insensitively', () => {
-  const out = 'HKEY_CURRENT_USER\\Environment\r\n    SOCIS_Home    REG_EXPAND_SZ    %USERPROFILE%\\h\r\n'
+  // The same variable name in a different case. Upstream's HERMES_Home was
+  // rebranded to SOCIS_Home -- a DIFFERENT name from SOCIS_AGENT_HOME -- so
+  // the test stopped testing case-insensitivity and just failed.
+  const out = 'HKEY_CURRENT_USER\\Environment\r\n    Socis_Agent_Home    REG_EXPAND_SZ    %USERPROFILE%\\h\r\n'
   assert.equal(parseRegQueryValue(out, 'SOCIS_AGENT_HOME'), '%USERPROFILE%\\h')
 })
 

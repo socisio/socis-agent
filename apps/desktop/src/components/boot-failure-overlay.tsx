@@ -298,9 +298,9 @@ export function BootFailureOverlay() {
     // A Nous Cloud agent is down — the user cannot restart the managed
     // instance and Repair is local-only. Lead with the paths that actually
     // resolve it: check the portal (status/instance controls), switch to the
-    // local gateway, retry, or get support on Discord. Portal/Discord are
-    // buttons (not URLs buried in the hint prose) so localized hints can't
-    // drift the links.
+    // local gateway, or retry. The Portal is a button (not a URL buried in the
+    // hint prose) so localized hints can't drift the link. There is no
+    // Discord button: SOCIS has no Discord community.
     actions = [
       {
         key: 'portal',

@@ -146,7 +146,7 @@ export function makeNousCloudBackendDownError(baseUrl: string, error: unknown): 
  * True when the backend URL points at a Nous-managed SOCIS Cloud instance
  * (e.g. ares-3009.agents.nousresearch.com). These are Fly.io-hosted machines
  * the user cannot restart themselves — a 503 from one means the server is down
- * and the recovery path is Portal/Discord/wait.
+ * and the recovery path is the Portal, or waiting.
  */
 export function isNousCloudAgentUrl(baseUrl: string): boolean {
   try {
