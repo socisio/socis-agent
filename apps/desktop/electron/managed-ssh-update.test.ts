@@ -304,7 +304,12 @@ test('POSIX managed launcher executes the updater command and atomically publish
     const statusPath = path.join(home, `.update_exit_code.${CORRELATION}`)
     let status = ''
 
-    for (let attempt = 0; attempt < 50 && !status; attempt += 1) {
+    // The launcher is DETACHED: exec() returns at once and the status file is
+    // published in the background. Alone this takes well under 0.5 s, but in a
+    // full-suite run (2,600+ files in parallel) it can exceed the old 50 x 10 ms
+    // budget, so the test failed only under load. Up to ~5 s now; the loop exits
+    // as soon as the status appears, so the fast path is unchanged.
+    for (let attempt = 0; attempt < 500 && !status; attempt += 1) {
       try {
         status = await readFile(statusPath, 'utf8')
       } catch {
@@ -313,7 +318,7 @@ test('POSIX managed launcher executes the updater command and atomically publish
     }
 
     assert.match(stdout, /MANAGED_UPDATE_STARTED/)
-    assert.equal(status, '0')
+    assert.equal(status, '0', `launcher status after polling: ${JSON.stringify(status)}`)
   } finally {
     await rm(home, { force: true, recursive: true })
   }
